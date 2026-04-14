@@ -356,15 +356,24 @@ window.App = (function() {
 
     // --- Settings Initialization ---
     function initSettings() {
-        // Populate voice selector
+        // Populate voice selector — Android needs polling; getVoices() is often empty initially
+        let voiceRetries = 0;
         const populate = () => {
             const sel    = document.getElementById('settings-voice');
             if (!sel) return;
-            const voices = window.speechSynthesis.getVoices();
+            const voices   = window.speechSynthesis.getVoices();
             const enVoices = voices.filter(v => v.lang.startsWith('en'));
-            sel.innerHTML = enVoices.map(v =>
-                `<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`
-            ).join('');
+            if (enVoices.length === 0 && voiceRetries < 20) {
+                // Voices not loaded yet — retry with backoff (Android quirk)
+                voiceRetries++;
+                setTimeout(populate, 250);
+                return;
+            }
+            sel.innerHTML = enVoices.length > 0
+                ? enVoices.map(v =>
+                    `<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`
+                  ).join('')
+                : '<option value="">No English voices found</option>';
             // Restore saved
             const saved = window.DB.getPref('voice_id', '');
             if (saved) sel.value = saved;
