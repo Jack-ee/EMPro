@@ -1154,8 +1154,8 @@ body {
     .vd-drill-btns { width: 100%; }
     .rd-control-row { flex-direction: column; }
     .sc-scenario-grid { grid-template-columns: repeat(2, 1fr); }
-    .sc-tabs { flex-wrap: wrap; }
-    .sc-tab { font-size: 12px; padding: 7px 8px; }
+    .sc-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .sc-tab { font-size: 11px; padding: 7px 8px; flex-shrink: 0; white-space: nowrap; }
     .sc-phrasing-note { padding-left: 0; }
     .st-vocab-table { font-size: 12px; }
     .st-vocab-row { grid-template-columns: 1.5fr 1fr 1fr 1fr; padding: 6px 8px; }
@@ -2527,8 +2527,39 @@ body {
 }
 
 @media (max-width: 640px) {
-    .mw-toolbar { flex-direction: column; align-items: stretch; }
-    .mw-quick-add { min-width: auto; }
+    /* Toolbar: search full-width, action buttons in a compact row */
+    .mw-toolbar {
+        display        : flex;
+        flex-wrap      : wrap;
+        gap            : 6px;
+        align-items    : center;
+    }
+    .mw-quick-add { min-width: 100%; order: 1; }
+    .mw-toolbar > .wl-btn-secondary {
+        flex    : 1;
+        padding : 6px 4px;
+        font-size: 11px;
+        min-height: 36px;
+        text-align: center;
+        order   : 2;
+    }
+
+    /* Nav row: compact, no wrapping */
+    .mw-nav-row { gap: 6px; flex-wrap: nowrap; overflow-x: auto; }
+    .mw-mode-toggle { flex-shrink: 0; }
+    .mw-mt-btn { padding: 5px 8px; font-size: 11px; }
+    .mw-toggle-cn-btn { padding: 4px 6px; font-size: 10px; white-space: nowrap; flex-shrink: 0; }
+    .mw-counter { font-size: 11px; min-width: 50px; }
+    .mw-nav-btn { width: 30px; height: 30px; font-size: 12px; }
+    .mw-shuffle-btn { padding: 0 8px; }
+    .mw-vt-btn { padding: 4px 8px; font-size: 12px; }
+
+    /* Filter pills: scroll horizontally */
+    .mw-filter-row { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+    .mw-filter-pill { flex-shrink: 0; }
+
+    /* Card: slightly less padding */
+    .mw-card { padding: 16px; }
     .mw-card-word { font-size: 22px; }
 }
 
@@ -3194,11 +3225,14 @@ html {
 
 /* Touch-friendly minimum sizes for mobile */
 @media (max-width: 768px) and (pointer: coarse) {
-    /* Ensure minimum 44px touch targets */
-    .nav-tab, .sc-tab, .mw-filter-pill, .mw-nav-btn, .mw-mt-btn,
-    .ec-chip, .ec-slot, .ec-nav-btn, .ec-option-btn,
-    .wl-btn-primary, .wl-btn-secondary, .vd-option, .vd-start-btn {
+    /* Ensure minimum touch targets — 36px for compact items, 40px for action buttons */
+    .wl-btn-primary, .wl-btn-secondary, .vd-option, .vd-start-btn,
+    .ec-option-btn {
         min-height : 40px;
+    }
+    .nav-tab, .sc-tab, .mw-filter-pill, .mw-mt-btn,
+    .ec-chip, .ec-nav-btn, .mw-nav-btn {
+        min-height : 34px;
     }
 
     .ec-chip {
