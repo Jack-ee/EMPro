@@ -89,6 +89,8 @@ window.App = (function() {
         const syncInput = document.getElementById('sync-github-token');
         const st        = window.DB.getPref('sync_github_token', '');
         if (syncInput) syncInput.value = st || '';
+        // Re-trigger voice population (user gesture context helps Android Chrome)
+        populateVoices?.();
     }
 
     function closeSettings() {
@@ -355,32 +357,47 @@ window.App = (function() {
     });
 
     // --- Settings Initialization ---
-    function initSettings() {
-        // Populate voice selector — Android needs polling; getVoices() is often empty initially
+    // --- Voice population (hoisted so openSettings can re-trigger) ---
+    let populateVoices;
+    {
         let voiceRetries = 0;
-        const populate = () => {
-            const sel    = document.getElementById('settings-voice');
+        populateVoices = () => {
+            const sel = document.getElementById('settings-voice');
             if (!sel) return;
-            const voices   = window.speechSynthesis.getVoices();
+            // On Android, calling getVoices() in user-gesture context may kick-start loading
+            const voices   = window.speechSynthesis?.getVoices() || [];
             const enVoices = voices.filter(v => v.lang.startsWith('en'));
-            if (enVoices.length === 0 && voiceRetries < 20) {
-                // Voices not loaded yet — retry with backoff (Android quirk)
+            if (enVoices.length === 0 && voiceRetries < 30) {
                 voiceRetries++;
-                setTimeout(populate, 250);
+                setTimeout(populateVoices, 300);
                 return;
             }
-            sel.innerHTML = enVoices.length > 0
-                ? enVoices.map(v =>
+            if (enVoices.length > 0) {
+                sel.innerHTML = enVoices.map(v =>
                     `<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`
-                  ).join('')
-                : '<option value="">No English voices found</option>';
-            // Restore saved
+                ).join('');
+            } else {
+                // Fallback: try ALL voices (some Android devices label en voices differently)
+                const allVoices = voices.filter(v => v.lang);
+                if (allVoices.length > 0) {
+                    sel.innerHTML = allVoices.map(v =>
+                        `<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`
+                    ).join('');
+                } else {
+                    sel.innerHTML = '<option value="">Voices loading... Open Settings again</option>';
+                    voiceRetries = 0; // Allow retry on next open
+                }
+            }
             const saved = window.DB.getPref('voice_id', '');
             if (saved) sel.value = saved;
         };
-        populate();
-        if (window.speechSynthesis.onvoiceschanged !== undefined) {
-            window.speechSynthesis.onvoiceschanged = populate;
+    }
+
+    function initSettings() {
+        // Populate voice selector
+        populateVoices();
+        if (window.speechSynthesis?.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = populateVoices;
         }
 
         // Voice select
