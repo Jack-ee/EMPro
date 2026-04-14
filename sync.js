@@ -52,7 +52,7 @@ window.SyncManager = (function() {
         const token = getToken(), gistId = getGistId();
         if (!token || !gistId) return null;
         const resp = await fetch(`${GIST_API}/${gistId}`, {
-            headers: { 'Authorization': `token ${token}` }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!resp.ok) { if (resp.status === 404) setGistId(''); return null; }
         const gist = await resp.json();
@@ -70,14 +70,14 @@ window.SyncManager = (function() {
             if (gistId) {
                 const resp = await fetch(`${GIST_API}/${gistId}`, {
                     method: 'PATCH',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ files: { [GIST_FILE]: { content: json } } })
                 });
                 if (!resp.ok) throw new Error(`Gist update failed: ${resp.status}`);
             } else {
                 const resp = await fetch(GIST_API, {
                     method: 'POST',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         description: 'English Master Pro — learning data',
                         public: false,
