@@ -90,7 +90,7 @@ window.App = (function() {
         const st        = window.DB.getPref('sync_github_token', '');
         if (syncInput) syncInput.value = st || '';
         // Re-trigger voice population (user gesture context helps Android Chrome)
-        populateVoices?.();
+        populateVoices.startPolling();
     }
 
     function closeSettings() {
@@ -359,43 +359,83 @@ window.App = (function() {
     // --- Settings Initialization ---
     // --- Voice population (hoisted so openSettings can re-trigger) ---
     let populateVoices;
+    let _voicePopulated = false;
     {
-        let voiceRetries = 0;
+        let voiceTimer = null;
+
+        /** Kick-start Android speech engine — creating a silent utterance forces voice loading */
+        function kickStartSpeechEngine() {
+            try {
+                const dummy  = new SpeechSynthesisUtterance('');
+                dummy.volume = 0;
+                dummy.rate   = 10;        // finish instantly
+                window.speechSynthesis.speak(dummy);
+                window.speechSynthesis.cancel();
+            } catch(e) { /* ignore */ }
+        }
+
         populateVoices = () => {
             const sel = document.getElementById('settings-voice');
             if (!sel) return;
-            // On Android, calling getVoices() in user-gesture context may kick-start loading
+
             const voices   = window.speechSynthesis?.getVoices() || [];
             const enVoices = voices.filter(v => v.lang.startsWith('en'));
-            if (enVoices.length === 0 && voiceRetries < 30) {
-                voiceRetries++;
-                setTimeout(populateVoices, 300);
-                return;
-            }
+
             if (enVoices.length > 0) {
+                // Success — populate with English voices
                 sel.innerHTML = enVoices.map(v =>
                     `<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`
                 ).join('');
+                _voicePopulated = true;
+                if (voiceTimer) { clearInterval(voiceTimer); voiceTimer = null; }
+            } else if (voices.length > 0) {
+                // Fallback: non-English-tagged voices exist (some Android TTS labels differ)
+                sel.innerHTML = voices.map(v =>
+                    `<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`
+                ).join('');
+                _voicePopulated = true;
+                if (voiceTimer) { clearInterval(voiceTimer); voiceTimer = null; }
             } else {
-                // Fallback: try ALL voices (some Android devices label en voices differently)
-                const allVoices = voices.filter(v => v.lang);
-                if (allVoices.length > 0) {
-                    sel.innerHTML = allVoices.map(v =>
-                        `<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`
-                    ).join('');
-                } else {
-                    sel.innerHTML = '<option value="">Voices loading... Open Settings again</option>';
-                    voiceRetries = 0; // Allow retry on next open
-                }
+                // Still empty — show loading state
+                sel.innerHTML = '<option value="">⏳ Loading voices…</option>';
             }
+
+            // Restore saved selection
             const saved = window.DB.getPref('voice_id', '');
-            if (saved) sel.value = saved;
+            if (saved && _voicePopulated) sel.value = saved;
+        };
+
+        /** Start polling + kick engine — called at init and every time Settings opens */
+        populateVoices.startPolling = () => {
+            // Always try once immediately
+            populateVoices();
+            if (_voicePopulated) return;
+
+            // Kick-start Android engine
+            kickStartSpeechEngine();
+
+            // Poll every 500ms for up to 10 seconds
+            if (voiceTimer) clearInterval(voiceTimer);
+            let attempts = 0;
+            voiceTimer = setInterval(() => {
+                attempts++;
+                populateVoices();
+                if (_voicePopulated || attempts >= 20) {
+                    clearInterval(voiceTimer);
+                    voiceTimer = null;
+                    // Final attempt — show fallback message if still empty
+                    if (!_voicePopulated) {
+                        const sel = document.getElementById('settings-voice');
+                        if (sel) sel.innerHTML = '<option value="">No voices available on this device</option>';
+                    }
+                }
+            }, 500);
         };
     }
 
     function initSettings() {
-        // Populate voice selector
-        populateVoices();
+        // Populate voice selector — use polling for Android compatibility
+        populateVoices.startPolling();
         if (window.speechSynthesis?.onvoiceschanged !== undefined) {
             window.speechSynthesis.onvoiceschanged = populateVoices;
         }
