@@ -358,79 +358,29 @@ window.App = (function() {
 
     // --- Settings Initialization ---
     // --- Voice population (hoisted so openSettings can re-trigger) ---
-    let populateVoices;
-    let _voicePopulated = false;
-    {
-        let voiceTimer = null;
+    // On many Android devices, getVoices() returns [] forever even though TTS works
+    // fine with the system default. Solution: always provide "System Default" as the
+    // first option, and append named voices only when the API actually returns them.
+    function populateVoices() {
+        const sel = document.getElementById('settings-voice');
+        if (!sel) return;
 
-        /** Kick-start Android speech engine — creating a silent utterance forces voice loading */
-        function kickStartSpeechEngine() {
-            try {
-                const dummy  = new SpeechSynthesisUtterance('');
-                dummy.volume = 0;
-                dummy.rate   = 10;        // finish instantly
-                window.speechSynthesis.speak(dummy);
-                window.speechSynthesis.cancel();
-            } catch(e) { /* ignore */ }
-        }
+        const voices   = window.speechSynthesis?.getVoices() || [];
+        const enVoices = voices.filter(v => v.lang.startsWith('en'));
+        const list     = enVoices.length > 0 ? enVoices
+                       : voices.length   > 0 ? voices    // fallback: all voices
+                       : [];
 
-        populateVoices = () => {
-            const sel = document.getElementById('settings-voice');
-            if (!sel) return;
+        // Always start with System Default (voice=null in speak())
+        let html = '<option value="">🔊 System Default</option>';
+        html += list.map(v =>
+            `<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`
+        ).join('');
+        sel.innerHTML = html;
 
-            const voices   = window.speechSynthesis?.getVoices() || [];
-            const enVoices = voices.filter(v => v.lang.startsWith('en'));
-
-            if (enVoices.length > 0) {
-                // Success — populate with English voices
-                sel.innerHTML = enVoices.map(v =>
-                    `<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`
-                ).join('');
-                _voicePopulated = true;
-                if (voiceTimer) { clearInterval(voiceTimer); voiceTimer = null; }
-            } else if (voices.length > 0) {
-                // Fallback: non-English-tagged voices exist (some Android TTS labels differ)
-                sel.innerHTML = voices.map(v =>
-                    `<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`
-                ).join('');
-                _voicePopulated = true;
-                if (voiceTimer) { clearInterval(voiceTimer); voiceTimer = null; }
-            } else {
-                // Still empty — show loading state
-                sel.innerHTML = '<option value="">⏳ Loading voices…</option>';
-            }
-
-            // Restore saved selection
-            const saved = window.DB.getPref('voice_id', '');
-            if (saved && _voicePopulated) sel.value = saved;
-        };
-
-        /** Start polling + kick engine — called at init and every time Settings opens */
-        populateVoices.startPolling = () => {
-            // Always try once immediately
-            populateVoices();
-            if (_voicePopulated) return;
-
-            // Kick-start Android engine
-            kickStartSpeechEngine();
-
-            // Poll every 500ms for up to 10 seconds
-            if (voiceTimer) clearInterval(voiceTimer);
-            let attempts = 0;
-            voiceTimer = setInterval(() => {
-                attempts++;
-                populateVoices();
-                if (_voicePopulated || attempts >= 20) {
-                    clearInterval(voiceTimer);
-                    voiceTimer = null;
-                    // Final attempt — show fallback message if still empty
-                    if (!_voicePopulated) {
-                        const sel = document.getElementById('settings-voice');
-                        if (sel) sel.innerHTML = '<option value="">No voices available on this device</option>';
-                    }
-                }
-            }, 500);
-        };
+        // Restore saved selection
+        const saved = window.DB.getPref('voice_id', '');
+        if (saved) sel.value = saved;
     }
 
     function initSettings() {
