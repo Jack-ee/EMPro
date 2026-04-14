@@ -3232,39 +3232,142 @@ html {
     }
 }
 
-/* Touch-friendly minimum sizes for mobile */
+/* ===== Mobile font & touch overhaul (phones) ===== */
 @media (max-width: 768px) and (pointer: coarse) {
-    /* Ensure minimum touch targets — 36px for compact items, 40px for action buttons */
+
+    /* --- Global font bump --- */
+    html { font-size: 20px; }
+
+    /* --- Touch targets: minimum 40px for actions, 36px for compact --- */
     .wl-btn-primary, .wl-btn-secondary, .vd-option, .vd-start-btn,
     .ec-option-btn {
-        min-height : 40px;
+        min-height : 44px;
+        font-size  : 16px;
     }
     .nav-tab, .sc-tab, .mw-filter-pill, .mw-mt-btn,
     .ec-chip, .ec-nav-btn, .mw-nav-btn {
-        min-height : 34px;
+        min-height : 38px;
     }
 
+    /* --- Navigation tabs: icon-only on mobile, bigger icons --- */
+    .app-nav {
+        overflow-x : auto;
+        -webkit-overflow-scrolling : touch;
+        flex-wrap  : nowrap;
+        gap        : 2px;
+        padding    : 4px;
+    }
+    .nav-tab {
+        flex-shrink : 0;
+        padding     : 10px 14px;
+    }
+    .nav-icon { font-size : 22px; }
+
+    /* --- Search input --- */
+    .mw-quick-input {
+        font-size : 17px;
+        padding   : 10px 14px;
+        min-height: 44px;
+    }
+    .mw-quick-add .wl-btn-primary {
+        min-width  : 44px;
+        min-height : 44px;
+        font-size  : 20px;
+    }
+
+    /* --- Toolbar buttons (Import, Batch enrich, Paste back) --- */
+    .mw-toolbar > .wl-btn-secondary {
+        font-size  : 14px;
+        min-height : 40px;
+        padding    : 8px 10px;
+    }
+
+    /* --- Filter pills --- */
+    .mw-filter-label { font-size: 14px; }
+    .mw-filter-pill {
+        font-size  : 14px;
+        padding    : 6px 14px;
+        min-height : 36px;
+    }
+    .mw-fpill-count { font-size: 12px; }
+
+    /* --- Nav row (Browse/Quiz, Show CN, arrows, counter) --- */
+    .mw-nav-row {
+        gap      : 6px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+    .mw-mode-toggle { flex-shrink: 0; }
+    .mw-mt-btn {
+        padding   : 7px 14px;
+        font-size : 15px;
+    }
+    .mw-toggle-cn-btn {
+        padding   : 6px 12px;
+        font-size : 14px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .mw-counter {
+        font-size  : 15px;
+        min-width  : 60px;
+    }
+    .mw-nav-btn {
+        width     : 40px;
+        height    : 40px;
+        font-size : 18px;
+    }
+    .mw-shuffle-btn { padding: 0 12px; }
+    .mw-vt-btn {
+        padding   : 6px 10px;
+        font-size : 16px;
+    }
+    .mw-grp-btn {
+        width     : 32px;
+        height    : 32px;
+        font-size : 14px;
+    }
+    .mw-grp-label { font-size: 13px; }
+
+    /* --- Word cards --- */
+    .mw-card { padding: 18px; }
+    .mw-card-word { font-size: 26px; }
+    .mw-card-phonetic { font-size: 15px; }
+    .mw-card-meaning, .mw-card-endef, .mw-card-collo {
+        font-size: 16px;
+    }
+    .mw-card-context { font-size: 15px; }
+    .mw-label { font-size: 12px; }
+    .mw-action-btn { font-size: 15px; padding: 8px 16px; min-height: 40px; }
+
+    /* --- Word list items --- */
+    .mw-list-item { padding: 10px 14px; }
+    .mw-list-word { font-size: 17px; }
+    .mw-list-meaning { font-size: 15px; }
+    .mw-list-icons { font-size: 14px; }
+
+    /* --- Focus tags --- */
+    .mw-focus-btn { font-size: 13px; padding: 5px 10px; }
+
+    /* --- Empty state --- */
+    .mw-empty p { font-size: 18px; }
+
+    /* --- Expression Coach --- */
     .ec-chip {
-        padding    : 8px 14px;
-        font-size  : 0.88rem;
+        padding    : 10px 16px;
+        font-size  : 1rem;
     }
-
     .ec-slot {
-        min-width  : 56px;
-        min-height : 34px;
-        padding    : 3px 10px;
+        min-width  : 60px;
+        min-height : 38px;
+        padding    : 4px 12px;
     }
-
-    .ec-option-btn {
-        padding    : 10px 12px;
-    }
-
-    /* Slightly larger font for readability */
+    .ec-option-btn { padding: 12px 14px; }
     .ec-fill-sentence, .ec-scenario-context, .ec-rephrase-prompt {
-        font-size : 1rem;
+        font-size : 1.05rem;
     }
 
-    /* Prevent horizontal overflow */
+    /* --- Prevent horizontal overflow --- */
     .ec-wrapper, .sc-container, .mw-container,
     .vd-container, .wl-container, .rd-container {
         padding-left  : 8px;
@@ -3272,20 +3375,22 @@ html {
         overflow-x    : hidden;
     }
 
-    /* Bottom padding for scroll comfort */
+    /* --- Bottom padding for scroll comfort --- */
     .app-main {
-        padding-bottom : calc(env(safe-area-inset-bottom, 0px) + 16px);
+        padding-bottom : calc(env(safe-area-inset-bottom, 0px) + 20px);
     }
 
-    /* Make nav tabs scroll horizontally if needed */
-    .app-nav {
-        overflow-x : auto;
-        -webkit-overflow-scrolling : touch;
-        flex-wrap  : nowrap;
-    }
-    .nav-tab {
-        flex-shrink : 0;
-    }
+    /* --- Settings modal --- */
+    .settings-grid { gap: 14px; }
+    .settings-grid h3 { font-size: 16px; }
+    .settings-grid label { font-size: 14px; }
+    .rd-select { font-size: 16px; min-height: 40px; }
+    .settings-input { font-size: 16px; }
+
+    /* --- Search dropdown --- */
+    .mw-sd-item { padding: 12px 14px; font-size: 16px; }
+    .mw-sd-word { font-size: 16px; }
+    .mw-sd-meaning { font-size: 14px; }
 }
 
 /* Prevent pull-to-refresh in standalone PWA */
