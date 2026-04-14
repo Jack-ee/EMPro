@@ -1,0 +1,583 @@
+/* ═══════════════════════════════════════════════════════════════
+ *  Expression Coach — Styles
+ *  Designed to integrate with English Master Pro theme
+ * ═══════════════════════════════════════════════════════════════ */
+
+.ec-wrapper {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 8px 12px;
+}
+
+/* ─── Compact Toolbar ─────────────────────────────────────── */
+.ec-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.ec-select {
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+}
+.ec-select:focus { border-color: var(--accent); }
+.ec-select-cat { min-width: 160px; }
+.ec-toolbar-stats {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+    align-items: center;
+}
+.ec-ts {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.ec-ts-num { font-weight: 700; font-size: 0.88rem; }
+.ec-ts-num.ec-practiced { color: var(--accent); }
+.ec-ts-num.ec-mastered  { color: var(--success); }
+
+/* ─── Exercise area ───────────────────────────────────────── */
+.ec-exercise-area {
+    min-height: 120px;
+}
+.ec-start-prompt {
+    text-align: center;
+    padding: 24px 16px;
+    color: var(--text-secondary);
+}
+
+/* ─── Card ────────────────────────────────────────────────── */
+.ec-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    animation: ec-fadeIn 0.25s ease;
+}
+@keyframes ec-fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.ec-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+.ec-card-cat {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.ec-card-nav-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ec-nav-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    cursor: pointer;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+.ec-nav-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text-primary); }
+.ec-nav-btn:disabled { opacity: 0.3; cursor: default; }
+.ec-nav-counter {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 40px;
+    text-align: center;
+    font-family: var(--font-mono);
+}
+.ec-card-progress {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.75rem;
+}
+.ec-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s;
+}
+.ec-dot.filled {
+    background: var(--success);
+}
+.ec-card-nav {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+}
+
+/* ─── Prompt label ────────────────────────────────────────── */
+.ec-prompt-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ─── Fill-in-the-blank ───────────────────────────────────── */
+.ec-fill-sentence {
+    font-size: 0.95rem;
+    line-height: 2;
+    padding: 8px 12px;
+    background: var(--bg-surface);
+    border-radius: 7px;
+    margin-bottom: 8px;
+}
+.ec-blank {
+    display: inline-block;
+    min-width: 40px;
+    padding: 0 4px;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+/* ─── Word Bank & Slots ───────────────────────────────────── */
+.ec-slot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 50px;
+    min-height: 28px;
+    padding: 1px 8px;
+    margin: 0 2px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    cursor: pointer;
+    vertical-align: middle;
+    transition: all 0.2s;
+}
+.ec-slot:hover { border-color: var(--accent); }
+.ec-slot-num {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+}
+.ec-slot-filled {
+    border-style: solid;
+    border-color: var(--accent);
+    background: var(--accent-bg);
+}
+.ec-slot-filled:hover { opacity: 0.8; }
+.ec-slot-word {
+    font-weight: 600;
+    color: var(--accent-text);
+    font-size: 0.85rem;
+}
+.ec-slot-correct {
+    border-color: var(--success) !important;
+    background: var(--success-bg) !important;
+}
+.ec-slot-correct .ec-slot-word { color: var(--success); }
+.ec-slot-wrong {
+    border-color: var(--danger) !important;
+    background: var(--danger-bg) !important;
+    animation: ec-shake 0.3s;
+}
+.ec-slot-wrong .ec-slot-word { color: var(--danger); }
+
+@keyframes ec-shake {
+    0%, 100% { transform: translateX(0); }
+    25%      { transform: translateX(-4px); }
+    75%      { transform: translateX(4px); }
+}
+
+.ec-word-bank {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 10px;
+    background: var(--bg-surface);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    justify-content: center;
+}
+.ec-chip {
+    padding: 4px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    background: var(--bg-card);
+    font-size: 0.82rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: all 0.2s;
+}
+.ec-chip:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+    transform: translateY(-1px);
+}
+.ec-chip:active:not(:disabled) {
+    transform: scale(0.96);
+}
+.ec-chip-used {
+    opacity: 0.3;
+    border-style: dashed;
+    text-decoration: line-through;
+    pointer-events: none;
+}
+.ec-reveal-chip {
+    display: inline-block;
+    padding: 3px 10px;
+    background: var(--success-bg);
+    color: var(--success);
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    margin: 2px 4px;
+}
+
+/* ─── Scenario ────────────────────────────────────────────── */
+.ec-scenario-context {
+    font-size: 0.88rem;
+    padding: 8px 12px;
+    background: var(--bg-surface);
+    border-radius: 7px;
+    margin-bottom: 8px;
+    line-height: 1.5;
+    font-style: italic;
+}
+.ec-scenario-options {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.ec-option-btn {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-card);
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    transition: all 0.2s;
+    color: var(--text-primary);
+}
+.ec-option-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+}
+.ec-option-btn:disabled { cursor: default; opacity: 0.8; }
+.ec-option-btn.ec-correct { border-color: var(--success); background: var(--success-bg); }
+.ec-option-btn.ec-wrong   { border-color: var(--danger);  background: var(--danger-bg); }
+.ec-option-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    font-size: 0.72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* ─── Rephrase ────────────────────────────────────────────── */
+.ec-rephrase-prompt {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    padding: 8px 12px;
+    background: var(--bg-surface);
+    border-radius: 7px;
+    margin-bottom: 8px;
+    border-left: 3px solid var(--warn);
+    font-style: italic;
+    color: var(--text-primary);
+}
+.ec-rephrase-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-sizing: border-box;
+}
+.ec-rephrase-input:focus { outline: none; border-color: var(--accent); }
+
+/* ─── Results ─────────────────────────────────────────────── */
+.ec-result { margin-top: 8px; }
+.ec-result-correct { font-weight: 600; color: var(--success); margin-bottom: 4px; font-size: 0.88rem; }
+.ec-result-wrong   { font-weight: 600; color: var(--danger);  margin-bottom: 4px; font-size: 0.88rem; }
+.ec-result-reveal .ec-reveal-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 3px;
+}
+.ec-result-expr {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    padding: 6px 10px;
+    background: var(--bg-surface);
+    border-radius: 5px;
+    margin-top: 4px;
+}
+.ec-result-expr code {
+    font-size: 0.78rem;
+    padding: 1px 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+}
+.ec-result-original {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+    line-height: 1.5;
+}
+
+/* ─── AI result ───────────────────────────────────────────── */
+.ec-ai-result {
+    padding: 10px;
+    background: var(--accent-bg);
+    border-radius: 7px;
+    margin-bottom: 6px;
+}
+.ec-ai-score { font-size: 0.9rem; margin-bottom: 4px; }
+.ec-ai-feedback { font-size: 0.84rem; line-height: 1.5; color: var(--text-primary); }
+.ec-ai-improved {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: var(--success-bg);
+    border-radius: 5px;
+    font-size: 0.82rem;
+    border-left: 3px solid var(--success);
+}
+.ec-loading { text-align: center; padding: 8px; color: var(--text-secondary); font-size: 0.84rem; }
+
+/* ─── Context hint ────────────────────────────────────────── */
+.ec-context-hint {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: var(--bg-surface);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent);
+}
+.ec-hint-label { font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 2px; }
+.ec-hint-text { font-size: 0.82rem; line-height: 1.5; color: var(--text-primary); }
+.ec-hint-text code {
+    font-size: 0.78rem;
+    padding: 1px 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+}
+
+/* ─── Buttons ─────────────────────────────────────────────── */
+.ec-btn-primary {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 5px;
+    background: var(--accent);
+    color: var(--text-inverse);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.ec-btn-primary:hover { opacity: 0.85; }
+.ec-btn-primary:disabled { opacity: 0.5; cursor: default; }
+
+.ec-btn-secondary {
+    padding: 5px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 5px;
+    background: transparent;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: all 0.2s;
+}
+.ec-btn-secondary:hover { border-color: var(--accent); }
+
+.ec-btn-ghost {
+    padding: 5px 10px;
+    border: none;
+    background: transparent;
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.2s;
+}
+.ec-btn-ghost:hover { color: var(--text-primary); }
+
+.ec-check-btn { width: 100%; }
+
+/* ─── Add expression section ──────────────────────────────── */
+.ec-add-section,
+.ec-browse-section {
+    margin-top: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.ec-add-toggle {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-primary);
+    list-style: none;
+}
+.ec-add-toggle::-webkit-details-marker { display: none; }
+.ec-add-toggle::before { content: '\25B8 '; }
+details[open] > .ec-add-toggle::before { content: '\25BE '; }
+
+.ec-add-form {
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.ec-input {
+    padding: 6px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 5px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+.ec-input:focus { outline: none; border-color: var(--accent); }
+.ec-feedback { font-size: 0.78rem; min-height: 1em; }
+
+/* ─── Browse list ─────────────────────────────────────────── */
+.ec-browse-list {
+    padding: 8px 12px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+.ec-browse-cat { margin-bottom: 10px; }
+.ec-browse-cat-title { font-size: 0.82rem; font-weight: 700; margin: 0 0 5px; }
+.ec-browse-item {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 4px;
+    transition: all 0.2s;
+}
+.ec-browse-item.ec-mastered {
+    border-color: color-mix(in srgb, var(--success) 25%, transparent);
+    background: var(--success-bg);
+}
+.ec-browse-expr {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1px;
+}
+.ec-browse-zh {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+.ec-browse-pattern { margin-top: 2px; }
+.ec-browse-pattern code {
+    font-size: 0.72rem;
+    padding: 1px 4px;
+    background: var(--bg-surface);
+    border-radius: 3px;
+}
+.ec-browse-meta {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+}
+
+/* ─── Responsive ──────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .ec-wrapper { padding: 10px; }
+    .ec-card    { padding: 14px; }
+    .ec-toolbar { gap: 6px; }
+    .ec-select { font-size: 0.78rem; padding: 4px 6px; }
+    .ec-fill-sentence { font-size: 0.95rem; }
+}
+
+/* ─── Sentence Drill target details ──────────────────────── */
+.sd-target-details {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.sd-target-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.82rem;
+    flex-wrap: wrap;
+    padding: 3px 8px;
+    background: var(--bg-surface);
+    border-radius: 5px;
+}
+.sd-target-item strong {
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    min-width: 70px;
+}
+.sd-phonetic {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+.sd-meaning {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+.sd-collo {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+}
+.sd-save-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}

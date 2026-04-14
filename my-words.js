@@ -1,0 +1,1151 @@
+// ============================================================
+// my-words.js — Word Study Module
+// Modes: Browse (toggle CN) | Quiz (Chinese MCQ)
+// ============================================================
+
+window.MyWords = (function() {
+
+    let currentIdx   = 0;
+    let studyList    = [];
+    let isEnriching  = false;
+    let studyMode    = 'browse';
+    let viewMode     = 'cards';
+    let showChinese  = false;
+    let quizScore    = 0;
+    let quizTotal    = 0;
+    let quizAnswered = false;
+    let currentGroup = 0;
+    let studyFilter  = 'all'; // 'all' | 'core' | 'pronunciation' | 'spelling'
+
+    // --- Progress persistence (per-filter) ---
+    function saveProgress() {
+        const data = { idx: currentIdx, group: currentGroup, mode: studyMode, view: viewMode,
+                       qScore: quizScore, qTotal: quizTotal, filter: studyFilter };
+        window.DB.setPref('mw_progress', JSON.stringify(data));
+        // Also save per-filter position
+        window.DB.setPref('mw_pos_' + studyFilter, JSON.stringify({ idx: currentIdx, group: currentGroup, qScore: quizScore, qTotal: quizTotal }));
+    }
+
+    function loadProgress() {
+        try {
+            const raw = window.DB.getPref('mw_progress', '{}');
+            return JSON.parse(raw);
+        } catch { return {}; }
+    }
+
+    function loadFilterPosition(filter) {
+        try {
+            const raw = window.DB.getPref('mw_pos_' + filter, '{}');
+            return JSON.parse(raw);
+        } catch { return {}; }
+    }
+
+    function getGroupSize() {
+        return parseInt(window.DB.getPref('group_size', '20')) || 20;
+    }
+
+    function getFilteredList() {
+        if (studyFilter === 'all') return studyList;
+        return studyList.filter(w => {
+            const focus = Array.isArray(w.focus) ? w.focus : [];
+            return focus.includes(studyFilter);
+        });
+    }
+
+    function getGroupCount() {
+        return Math.max(1, Math.ceil(getFilteredList().length / getGroupSize()));
+    }
+
+    function getGroupWords() {
+        const filtered = getFilteredList();
+        const size     = getGroupSize();
+        const start    = currentGroup * size;
+        const group    = filtered.slice(start, start + size);
+        // In quiz mode, put weak words first so they get practiced sooner
+        if (studyMode === 'quiz' && studyFilter !== 'weak') {
+            const weak    = group.filter(w => (w.focus || []).includes('weak'));
+            const nonWeak = group.filter(w => !(w.focus || []).includes('weak'));
+            return [...weak, ...nonWeak];
+        }
+        return group;
+    }
+
+    function init() {
+        console.log('[MyWords] init started');
+        showChinese = window.DB.getPref('show_cn_default', 'false') === 'true';
+        bindEvents();
+        refreshStudyList();
+
+        // Restore progress
+        const prog = loadProgress();
+        if (prog.mode)  studyMode    = prog.mode;
+        if (prog.view)  viewMode     = prog.view;
+        if (prog.filter) studyFilter  = prog.filter;
+        if (prog.group != null) currentGroup = Math.min(prog.group, getGroupCount() - 1);
+        if (prog.idx   != null) currentIdx   = Math.min(prog.idx, getGroupWords().length - 1);
+        if (currentIdx < 0) currentIdx = 0;
+        if (prog.qScore != null) quizScore = prog.qScore;
+        if (prog.qTotal != null) quizTotal = prog.qTotal;
+
+        // Sync UI toggles
+        document.getElementById('mw-mode-browse')?.classList.toggle('active', studyMode === 'browse');
+        document.getElementById('mw-mode-quiz')?.classList.toggle('active', studyMode === 'quiz');
+        document.getElementById('mw-view-cards')?.classList.toggle('active', viewMode === 'cards');
+        document.getElementById('mw-view-list')?.classList.toggle('active', viewMode === 'list');
+        const filterSel = document.getElementById('mw-filter');
+        if (filterSel) filterSel.value = studyFilter;
+        // Sync filter pills
+        document.querySelectorAll('.mw-filter-pill').forEach(b => {
+            b.classList.toggle('active', b.dataset.filter === studyFilter);
+        });
+        const cnBtn = document.getElementById('mw-toggle-cn');
+        if (cnBtn) {
+            cnBtn.style.display = studyMode === 'browse' ? '' : 'none';
+            cnBtn.classList.toggle('active', showChinese);
+            cnBtn.textContent = showChinese ? '\u{1F441} Hide CN' : '\u{1F441} Show CN';
+        }
+
+        render();
+        console.log('[MyWords] init complete, words:', studyList.length, 'group:', currentGroup, 'idx:', currentIdx);
+    }
+
+    function bindEvents() {
+        // Import
+        const importBtn = document.getElementById('mw-import-btn');
+        if (importBtn) { importBtn.addEventListener('click', openImportModal); importBtn.onclick = openImportModal; }
+        document.getElementById('mw-import-close')?.addEventListener('click', closeImportModal);
+        document.getElementById('mw-import-submit')?.addEventListener('click', handleImport);
+        document.getElementById('mw-import-paste')?.addEventListener('click', pasteFromClipboard);
+        document.getElementById('mw-add-single')?.addEventListener('click', handleAddSingle);
+        document.getElementById('mw-single-input')?.addEventListener('keydown', (e) => {
+            const dropdown = document.getElementById('mw-search-dropdown');
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                // If dropdown has a highlighted item, navigate to it
+                const highlighted = dropdown?.querySelector('.mw-sd-item.mw-sd-highlight');
+                if (highlighted) {
+                    highlighted.click();
+                    return;
+                }
+                // If dropdown has exactly one match, navigate to it
+                const items = dropdown?.querySelectorAll('.mw-sd-item');
+                if (items && items.length === 1) {
+                    items[0].click();
+                    return;
+                }
+                // Otherwise add as new word
+                handleAddSingle();
+            }
+            if (e.key === 'Escape') {
+                closeSearchDropdown();
+            }
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigateDropdown(e.key === 'ArrowDown' ? 1 : -1);
+            }
+        });
+        document.getElementById('mw-single-input')?.addEventListener('input', handleSearchInput);
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.mw-quick-add')) closeSearchDropdown();
+        });
+
+        // Batch enrich
+        document.getElementById('mw-batch-enrich')?.addEventListener('click', batchEnrichCopy);
+        document.getElementById('mw-batch-paste')?.addEventListener('click', openBatchPasteModal);
+
+        // Navigation
+        document.getElementById('mw-prev')?.addEventListener('click', () => navigate(-1));
+        document.getElementById('mw-next')?.addEventListener('click', () => navigate(1));
+        document.getElementById('mw-shuffle')?.addEventListener('click', shuffleList);
+
+        // View / mode toggles
+        document.getElementById('mw-view-cards')?.addEventListener('click', () => setView('cards'));
+        document.getElementById('mw-view-list')?.addEventListener('click', () => setView('list'));
+        document.getElementById('mw-mode-browse')?.addEventListener('click', () => setStudyMode('browse'));
+        document.getElementById('mw-mode-quiz')?.addEventListener('click', () => setStudyMode('quiz'));
+
+        // Show/hide Chinese toggle
+        document.getElementById('mw-toggle-cn')?.addEventListener('click', toggleChinese);
+
+        // Focus filter pills
+        document.querySelectorAll('.mw-filter-pill').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Save current filter's position before switching
+                saveProgress();
+                // Switch filter
+                studyFilter = btn.dataset.filter;
+                // Restore saved position for this filter
+                const pos    = loadFilterPosition(studyFilter);
+                currentGroup = Math.min(pos.group || 0, Math.max(0, getGroupCount() - 1));
+                currentIdx   = Math.min(pos.idx   || 0, Math.max(0, getGroupWords().length - 1));
+                quizScore    = pos.qScore || 0;
+                quizTotal    = pos.qTotal || 0;
+                // Update active state
+                document.querySelectorAll('.mw-filter-pill').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                saveProgress();
+                render();
+            });
+        });
+
+        // Delegated clicks
+        document.getElementById('mw-area')?.addEventListener('click', handleAreaClick);
+
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+            const view = document.getElementById('view-my-words');
+            if (!view || !view.classList.contains('active')) return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.key === 'ArrowLeft')  { e.preventDefault(); navigate(-1); }
+            if (e.key === 'ArrowRight') { e.preventDefault(); navigate(1); }
+            if (e.key === ' ')          { e.preventDefault(); toggleChinese(); }
+        });
+    }
+
+    function refreshStudyList() { studyList = window.DB.loadNotebook(); }
+
+    // =====================================================
+    // MODE / VIEW
+    // =====================================================
+
+    function setStudyMode(mode) {
+        studyMode    = mode;
+        showChinese  = window.DB.getPref('show_cn_default', 'false') === 'true';
+        quizAnswered = false;
+        currentIdx   = 0;
+        document.getElementById('mw-mode-browse')?.classList.toggle('active', mode === 'browse');
+        document.getElementById('mw-mode-quiz')?.classList.toggle('active', mode === 'quiz');
+        const cnBtn = document.getElementById('mw-toggle-cn');
+        if (cnBtn) cnBtn.style.display = mode === 'browse' ? '' : 'none';
+        if (mode === 'quiz') { quizScore = 0; quizTotal = 0; }
+        saveProgress();
+        render();
+    }
+
+    function setView(mode) {
+        viewMode = mode;
+        document.getElementById('mw-view-cards')?.classList.toggle('active', mode === 'cards');
+        document.getElementById('mw-view-list')?.classList.toggle('active', mode === 'list');
+        saveProgress();
+        render();
+    }
+
+    function toggleChinese() {
+        showChinese = !showChinese;
+        const btn = document.getElementById('mw-toggle-cn');
+        if (btn) {
+            btn.classList.toggle('active', showChinese);
+            btn.textContent = showChinese ? '\u{1F441} Hide CN' : '\u{1F441} Show CN';
+        }
+        // Toggle all Chinese text elements
+        document.querySelectorAll('.mw-cn').forEach(el => {
+            el.classList.toggle('mw-cn-visible', showChinese);
+        });
+    }
+
+    // =====================================================
+    // IMPORT
+    // =====================================================
+
+    function openImportModal() { document.getElementById('mw-import-modal').classList.add('open'); }
+    function closeImportModal() { document.getElementById('mw-import-modal').classList.remove('open'); }
+
+    async function pasteFromClipboard() {
+        try {
+            const text = await navigator.clipboard.readText();
+            document.getElementById('mw-import-input').value = text;
+            window.App?.showToast?.('Pasted from clipboard.');
+        } catch { window.App?.showToast?.('Could not read clipboard. Paste manually.'); }
+    }
+
+    function handleImport() {
+        const raw = (document.getElementById('mw-import-input')?.value || '').trim();
+        if (!raw) { window.App?.showToast?.('Paste your word list first.'); return; }
+
+        let count = 0;
+
+        // Detect format: rich (WORD: / PHONETIC: / ...) or simple (word | meaning)
+        if (raw.includes('WORD:') && raw.includes('PHONETIC:')) {
+            count = importRichFormat(raw);
+        } else {
+            count = importSimpleFormat(raw);
+        }
+
+        window.App?.showToast?.(`Imported ${count} words.`);
+        window.App?.updateNotebookBadge?.();
+        refreshStudyList();
+        currentIdx = 0;
+        render();
+        closeImportModal();
+        document.getElementById('mw-import-input').value = '';
+    }
+
+    function importSimpleFormat(raw) {
+        let words = [];
+
+        // Detect format by analyzing content
+        const hasNewlines   = raw.includes('\n');
+        const hasPipe       = raw.includes('|');
+        const hasTab        = raw.includes('\t');
+        const hasCommas     = raw.includes(',');
+        const hasSemicolons = raw.includes(';');
+
+        if (hasNewlines && (hasPipe || hasTab)) {
+            // Structured: one entry per line with | or tab separators
+            // e.g. "word | meaning | notes"
+            const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean);
+            for (const line of lines) {
+                const parts = line.split(/[|\t]/).map(s => s.trim());
+                if (parts[0]) words.push({ word: parts[0], meaning: parts[1] || '', collo: parts[2] || '' });
+            }
+        } else if (hasNewlines && !hasCommas && !hasSemicolons) {
+            // One word/phrase per line (no other delimiters)
+            const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean);
+            for (const line of lines) {
+                if (line) words.push({ word: line });
+            }
+        } else if (hasCommas) {
+            // Comma-separated: "word1, word2, word3" or "word1,word2"
+            const items = raw.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+            for (const item of items) {
+                // Each item might still have | for meaning
+                if (item.includes('|')) {
+                    const parts = item.split('|').map(s => s.trim());
+                    words.push({ word: parts[0], meaning: parts[1] || '', collo: parts[2] || '' });
+                } else {
+                    words.push({ word: item });
+                }
+            }
+        } else if (hasSemicolons) {
+            // Semicolon-separated: "word1; word2; word3"
+            const items = raw.split(/[;\n]/).map(s => s.trim()).filter(Boolean);
+            for (const item of items) {
+                if (item.includes('|')) {
+                    const parts = item.split('|').map(s => s.trim());
+                    words.push({ word: parts[0], meaning: parts[1] || '', collo: parts[2] || '' });
+                } else {
+                    words.push({ word: item });
+                }
+            }
+        } else if (raw.includes(' ') && !hasNewlines) {
+            // Space-separated: "word1 word2 word3 word4"
+            // Only split if tokens look like a vocabulary list, not a phrase
+            const tokens      = raw.split(/\s+/).filter(Boolean);
+            const funcWords   = new Set(['i','a','an','the','is','am','are','was','were','be','it','my','me','your','you','we','our','he','she','his','her','they','them','their','to','of','in','on','at','by','for','with','from','not','no','do','does','did','has','have','had','can','could','will','would','shall','should','may','might']);
+            const vocabTokens = tokens.filter(t => !funcWords.has(t.toLowerCase()));
+            const avgLen      = vocabTokens.reduce((s, t) => s + t.length, 0) / (vocabTokens.length || 1);
+
+            // Split only if: 4+ non-function tokens AND most tokens are content words
+            if (vocabTokens.length >= 4 && vocabTokens.length > tokens.length * 0.7 && avgLen > 4) {
+                for (const t of tokens) {
+                    if (!funcWords.has(t.toLowerCase())) words.push({ word: t });
+                }
+            } else {
+                words.push({ word: raw.trim() });
+            }
+        } else {
+            // Single word/phrase
+            words.push({ word: raw.trim() });
+        }
+
+        // Deduplicate and save
+        let count = 0;
+        const seen = new Set();
+        for (const entry of words) {
+            const w = (entry.word || '').trim();
+            if (!w || w.length > 100) continue;
+            const key = w.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            window.DB.upsertNotebookWord({
+                word    : w,
+                meaning : entry.meaning || '',
+                collo   : entry.collo   || '',
+                source  : 'Import',
+                tags    : ['imported']
+            });
+            count++;
+        }
+        return count;
+    }
+
+    function importRichFormat(raw) {
+        // Normalize line endings
+        raw = String(raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+
+        // Line-by-line parser: collect fields until we hit the next WORD:
+        const lines   = raw.split('\n');
+        const results = [];
+        let current   = null;
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === '---') continue;
+
+            // Check if this line is a LABEL: value pair
+            const m = trimmed.match(/^([A-Z][A-Z_]+):\s*(.*)$/);
+            if (m) {
+                const label = m[1];
+                const value = (m[2] || '').trim();
+
+                // If we hit a new WORD:, save previous and start new entry
+                if (label === 'WORD') {
+                    if (current && current.WORD) results.push(current);
+                    current = { WORD: value };
+                } else if (current) {
+                    current[label] = value;
+                }
+            }
+        }
+        // Don't forget the last entry
+        if (current && current.WORD) results.push(current);
+
+        console.log('[importRich] parsed entries:', results.length, results.map(r => r.WORD));
+
+        let count = 0;
+        for (const f of results) {
+            window.DB.upsertNotebookWord({
+                word      : f.WORD              || '',
+                phonetic  : f.PHONETIC          || '',
+                meaning   : f.MEANING_CN        || '',
+                enDef     : f.MEANING_EN         || '',
+                register  : (f.REGISTER         || 'neutral').toLowerCase(),
+                collo     : f.COLLOCATIONS      || '',
+                colloCn   : f.COLLOCATIONS_CN   || '',
+                context   : f.EXAMPLE           || '',
+                contextCn : f.EXAMPLE_CN        || '',
+                note      : f.NOTE              || '',
+                source    : 'Batch enriched',
+                tags      : ['enriched']
+            });
+            count++;
+        }
+        console.log('[importRich] saved:', count);
+        return count;
+    }
+
+    // =====================================================
+    // SEARCH / FIND WORD
+    // =====================================================
+
+    function handleSearchInput() {
+        const input = document.getElementById('mw-single-input');
+        const query = (input?.value || '').trim().toLowerCase();
+        if (query.length < 1) { closeSearchDropdown(); return; }
+
+        const matches = studyList.filter(w => {
+            const word    = (w.word || '').toLowerCase();
+            const meaning = (w.meaning || '').toLowerCase();
+            const collo   = (w.collo || '').toLowerCase();
+            return word.includes(query) || meaning.includes(query) || collo.includes(query);
+        }).slice(0, 8); // limit to 8 results
+
+        const dropdown = document.getElementById('mw-search-dropdown');
+        if (!dropdown) return;
+
+        if (matches.length === 0) {
+            dropdown.innerHTML = `<div class="mw-sd-empty">No match — press Enter or + to add "<strong>${escHtml(query)}</strong>"</div>`;
+            dropdown.style.display = 'block';
+            return;
+        }
+
+        dropdown.innerHTML = matches.map((w, i) => {
+            const meaning = w.meaning || w.enDef || '';
+            const phonetic = w.phonetic ? `<span class="mw-sd-phonetic">${escHtml(w.phonetic)}</span>` : '';
+            const collo    = w.collo ? `<span class="mw-sd-collo">${escHtml(w.collo)}</span>` : '';
+            // Highlight the matching part in the word
+            const wordHtml = highlightMatch(w.word || '', query);
+            return `<div class="mw-sd-item" data-word="${escAttr(w.word)}" data-idx="${i}">
+                <span class="mw-sd-word">${wordHtml}</span>
+                ${phonetic}
+                <span class="mw-sd-meaning">${escHtml(meaning)}</span>
+                ${collo}
+            </div>`;
+        }).join('');
+        dropdown.style.display = 'block';
+
+        // Click to navigate
+        dropdown.querySelectorAll('.mw-sd-item').forEach(item => {
+            item.addEventListener('click', () => {
+                navigateToWord(item.dataset.word);
+                closeSearchDropdown();
+                const input = document.getElementById('mw-single-input');
+                if (input) input.value = '';
+            });
+        });
+    }
+
+    function highlightMatch(text, query) {
+        const idx = text.toLowerCase().indexOf(query.toLowerCase());
+        if (idx < 0) return escHtml(text);
+        const before = escHtml(text.slice(0, idx));
+        const match  = escHtml(text.slice(idx, idx + query.length));
+        const after  = escHtml(text.slice(idx + query.length));
+        return `${before}<mark>${match}</mark>${after}`;
+    }
+
+    function closeSearchDropdown() {
+        const dropdown = document.getElementById('mw-search-dropdown');
+        if (dropdown) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; }
+    }
+
+    function navigateDropdown(dir) {
+        const dropdown = document.getElementById('mw-search-dropdown');
+        if (!dropdown) return;
+        const items   = [...dropdown.querySelectorAll('.mw-sd-item')];
+        if (items.length === 0) return;
+        const current = items.findIndex(i => i.classList.contains('mw-sd-highlight'));
+        items.forEach(i => i.classList.remove('mw-sd-highlight'));
+        let next = current + dir;
+        if (next < 0) next = items.length - 1;
+        if (next >= items.length) next = 0;
+        items[next].classList.add('mw-sd-highlight');
+        items[next].scrollIntoView({ block: 'nearest' });
+    }
+
+    function navigateToWord(wordText) {
+        if (!wordText) return;
+        const wordLow = wordText.toLowerCase();
+
+        // Switch to "all" filter to find the word
+        studyFilter = 'all';
+        document.querySelectorAll('.mw-filter-pill').forEach(b =>
+            b.classList.toggle('active', b.dataset.filter === 'all')
+        );
+
+        refreshStudyList();
+        const globalIdx = studyList.findIndex(w => (w.word || '').toLowerCase() === wordLow);
+        if (globalIdx < 0) {
+            window.App?.showToast?.(`"${wordText}" not found.`);
+            return;
+        }
+
+        // Calculate which group and position within group
+        const size  = getGroupSize();
+        currentGroup = Math.floor(globalIdx / size);
+        currentIdx   = globalIdx % size;
+
+        // Switch to browse mode to show the card
+        studyMode    = 'browse';
+        showChinese  = true; // show meaning since user is looking up
+        document.getElementById('mw-mode-browse')?.classList.toggle('active', true);
+        document.getElementById('mw-mode-quiz')?.classList.toggle('active', false);
+        const cnBtn = document.getElementById('mw-toggle-cn');
+        if (cnBtn) { cnBtn.style.display = ''; cnBtn.classList.add('active'); cnBtn.textContent = '\u{1F441} Hide CN'; }
+
+        saveProgress();
+        render();
+        window.App?.showToast?.(`Found: ${wordText}`);
+    }
+
+    // =====================================================
+    // ADD SINGLE WORD
+    // =====================================================
+
+    function handleAddSingle() {
+        const input = document.getElementById('mw-single-input');
+        const word  = (input?.value || '').trim();
+        if (!word) return;
+        window.DB.upsertNotebookWord({ word: word, source: 'Quick add', tags: ['imported'] });
+        input.value = '';
+        window.App?.showToast?.(`"${word}" added.`);
+        window.App?.updateNotebookBadge?.();
+        refreshStudyList();
+        // Keep current position — new word appends to the end of the list
+        // Clamp index in case group bounds shifted
+        const groupWords = getGroupWords();
+        if (currentIdx >= groupWords.length) currentIdx = Math.max(0, groupWords.length - 1);
+        saveProgress();
+        render();
+    }
+
+    // =====================================================
+    // BATCH ENRICH — copy prompt for all words, paste back
+    // =====================================================
+
+    function isWordComplete(w) {
+        // A word is "complete" if it has phonetic + meaning + enDef + at least one collocation + example
+        return Boolean(w.phonetic && w.meaning && w.enDef && w.collo && w.context);
+    }
+
+    function batchEnrichCopy() {
+        refreshStudyList();
+        if (studyList.length === 0) { window.App?.showToast?.('No words to enrich.'); return; }
+
+        // Filter: only words that lack information
+        const incomplete = studyList.filter(w => !isWordComplete(w));
+
+        if (incomplete.length === 0) {
+            window.App?.showToast?.('All words already have rich information!');
+            return;
+        }
+
+        const wordList = incomplete.map(w => w.word).join('\n');
+
+        const prompt = `Please provide detailed vocabulary entries for each word/phrase below. Use this EXACT format for EACH word, separated by "---":
+
+WORD: [the word/phrase exactly as given]
+PHONETIC: [IPA pronunciation, e.g. /\u02C8r\u00E6m.b\u028A.t\u0259n/]
+MEANING_CN: [Chinese meaning, concise but complete, 2-20 chars]
+MEANING_EN: [Clear English definition, 1-2 sentences]
+REGISTER: [formal|neutral|casual|academic|technical]
+COLLOCATIONS: [3-4 common collocations or phrases, separated by " \u00B7 "]
+COLLOCATIONS_CN: [Chinese translation of each collocation above, same order, separated by " \u00B7 "]
+EXAMPLE: [A natural example sentence using the word in context]
+EXAMPLE_CN: [Chinese translation of the example sentence]
+NOTE: [Usage tip: when/how native speakers use this, common mistakes to avoid, or cultural context. 1-2 sentences]
+---
+
+Here are the words that need enrichment (${incomplete.length} of ${studyList.length} total):
+
+${wordList}
+
+IMPORTANT:
+- Provide accurate IPA phonetic transcription
+- Collocations and their Chinese translations must be in the same order
+- Example sentences should reflect real-world usage, not textbook-style
+- Notes should highlight what a Chinese speaker specifically needs to know
+- Separate each entry with "---"
+- Do NOT use markdown formatting, just plain text`;
+
+        navigator.clipboard.writeText(prompt).then(() => {
+            window.App?.showToast?.(`Prompt for ${incomplete.length} incomplete words copied (${studyList.length - incomplete.length} already complete). Paste in Claude.ai.`, 5000);
+            window.open('https://claude.ai/new', '_blank');
+        }).catch(() => {
+            openBatchPasteModal();
+        });
+    }
+
+    function openBatchPasteModal() {
+        let modal = document.getElementById('mw-batch-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id        = 'mw-batch-modal';
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal-card">
+                    <div class="modal-header">
+                        <h2>Paste enriched data</h2>
+                        <button class="modal-close" onclick="document.getElementById('mw-batch-modal').classList.remove('open')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="settings-hint">Paste the full response from Claude.ai. All words will be updated with phonetics, meanings, examples, etc.</p>
+                        <textarea id="mw-batch-input" class="mw-import-textarea" rows="12" placeholder="Paste the AI response here..."></textarea>
+                        <button class="wl-btn-primary" id="mw-batch-apply" style="width:100%;margin-top:10px">Apply to all words</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            document.getElementById('mw-batch-apply').addEventListener('click', () => {
+                const text = (document.getElementById('mw-batch-input')?.value || '').trim();
+                if (!text) { window.App?.showToast?.('Paste the AI response first.'); return; }
+                const count = importRichFormat(text);
+                window.App?.showToast?.(`Updated ${count} words with enriched data.`);
+                window.App?.updateNotebookBadge?.();
+                refreshStudyList();
+                currentIdx = 0;
+                showChinese = true;
+                const cnBtn = document.getElementById('mw-toggle-cn');
+                if (cnBtn) { cnBtn.classList.add('active'); cnBtn.textContent = '\u{1F441} Hide CN'; }
+                render();
+                modal.classList.remove('open');
+                document.getElementById('mw-batch-input').value = '';
+            });
+        }
+        modal.classList.add('open');
+    }
+
+    // =====================================================
+    // NAVIGATION
+    // =====================================================
+
+    function navigate(dir) {
+        const words = getGroupWords();
+        if (words.length === 0) return;
+        currentIdx += dir;
+        // Wrap within group
+        if (currentIdx >= words.length) currentIdx = 0;
+        if (currentIdx < 0) currentIdx = words.length - 1;
+        showChinese  = window.DB.getPref('show_cn_default', 'false') === 'true';
+        quizAnswered = false;
+        const cnBtn = document.getElementById('mw-toggle-cn');
+        if (cnBtn) {
+            cnBtn.classList.toggle('active', showChinese);
+            cnBtn.textContent = showChinese ? '\u{1F441} Hide CN' : '\u{1F441} Show CN';
+        }
+        saveProgress();
+        render();
+        speakCurrent();
+    }
+
+    function navigateGroup(dir) {
+        const total = getGroupCount();
+        currentGroup += dir;
+        if (currentGroup >= total) currentGroup = 0;
+        if (currentGroup < 0) currentGroup = total - 1;
+        currentIdx   = 0;
+        quizScore    = 0;
+        quizTotal    = 0;
+        quizAnswered = false;
+        saveProgress();
+        render();
+    }
+
+    function shuffleList() {
+        // Shuffle the notebook and save so render()'s refreshStudyList picks up the new order
+        const nb = window.DB.loadNotebook();
+        for (let i = nb.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [nb[i], nb[j]] = [nb[j], nb[i]];
+        }
+        window.DB.saveNotebook(nb);
+        currentIdx   = 0;
+        quizAnswered = false;
+        saveProgress();
+        render();
+        window.App?.showToast?.('Shuffled.');
+    }
+
+    function speakCurrent() {
+        const words = getGroupWords();
+        const w = words[currentIdx];
+        if (w) window.App?.speak?.(w.word);
+    }
+
+    // =====================================================
+    // RENDER
+    // =====================================================
+
+    function render() {
+        const area      = document.getElementById('mw-area');
+        const counter   = document.getElementById('mw-counter');
+        const groupInfo = document.getElementById('mw-group-info');
+        if (!area) return;
+        refreshStudyList();
+
+        const words      = getGroupWords();
+        const groupCount = getGroupCount();
+
+        // Update group info
+        if (groupInfo) {
+            if (groupCount > 1) {
+                groupInfo.style.display = 'flex';
+                groupInfo.innerHTML = `
+                    <button class="mw-nav-btn mw-grp-btn" id="mw-prev-group">&#x25C0;</button>
+                    <span class="mw-grp-label">Group ${currentGroup + 1}/${groupCount}</span>
+                    <button class="mw-nav-btn mw-grp-btn" id="mw-next-group">&#x25B6;</button>`;
+                document.getElementById('mw-prev-group')?.addEventListener('click', () => navigateGroup(-1));
+                document.getElementById('mw-next-group')?.addEventListener('click', () => navigateGroup(1));
+            } else {
+                groupInfo.style.display = 'none';
+            }
+        }
+
+        // Update counter
+        if (counter) {
+            const incomplete = studyList.filter(w => !isWordComplete(w)).length;
+            const incompTag  = incomplete > 0 ? ` \u00B7 ${incomplete} need enrich` : '';
+            if (studyMode === 'quiz' && quizTotal > 0) {
+                counter.textContent = `${currentIdx + 1}/${words.length} (${quizScore}/${quizTotal})`;
+            } else {
+                counter.textContent = words.length > 0 ? `${currentIdx + 1} / ${words.length}${incompTag}` : '0 words';
+            }
+        }
+
+        if (studyList.length === 0) {
+            area.innerHTML = `<div class="mw-empty"><p>No words yet. Import your word list or quick-add words above.</p></div>`;
+            updateFilterCounts();
+            return;
+        }
+
+        if (words.length === 0 && studyFilter !== 'all') {
+            const labels = { core: '\u2B50 Core', pronunciation: '\uD83D\uDD0A Pronunciation', spelling: '\u270F\uFE0F Spelling' };
+            area.innerHTML = `<div class="mw-empty"><p>No words marked as ${labels[studyFilter] || studyFilter} yet.</p><p style="font-size:13px;color:var(--text-tertiary)">Browse your words and tap the ${labels[studyFilter]} button to mark them, then come back here.</p></div>`;
+            updateFilterCounts();
+            return;
+        }
+        if (viewMode === 'list')       { renderList(); updateFilterCounts(); return; }
+        if (studyMode === 'quiz')      { renderQuizCard(); updateFilterCounts(); return; }
+        renderBrowseCard();
+        updateFilterCounts();
+    }
+
+    function updateFilterCounts() {
+        const allCount   = studyList.length;
+        const coreCount  = studyList.filter(w => (w.focus || []).includes('core')).length;
+        const pronCount  = studyList.filter(w => (w.focus || []).includes('pronunciation')).length;
+        const spellCount = studyList.filter(w => (w.focus || []).includes('spelling')).length;
+        const weakCount  = studyList.filter(w => (w.focus || []).includes('weak')).length;
+
+        const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n > 0 ? `(${n})` : ''; };
+        set('mw-fc-all',           allCount);
+        set('mw-fc-core',          coreCount);
+        set('mw-fc-pronunciation', pronCount);
+        set('mw-fc-spelling',      spellCount);
+        set('mw-fc-weak',          weakCount);
+
+        // Show/hide filter row if no words marked yet
+        const hasAnyMarked = coreCount + pronCount + spellCount + weakCount > 0;
+        const filterRow    = document.getElementById('mw-filter-row');
+        if (filterRow) filterRow.style.display = hasAnyMarked || studyFilter !== 'all' ? 'flex' : 'none';
+    }
+
+    // ----- BROWSE (toggle CN) -----
+
+    function renderBrowseCard() {
+        const area  = document.getElementById('mw-area');
+        const words = getGroupWords();
+        const w     = words[currentIdx];
+        if (!w) return;
+
+        const hasMeaning = Boolean(w.meaning || w.enDef);
+        const cnVis      = showChinese ? 'mw-cn-visible' : '';
+
+        const colloItems   = (w.collo   || '').split(/\s*·\s*/).filter(Boolean);
+        const colloCnItems = (w.colloCn || '').split(/\s*·\s*/).filter(Boolean);
+
+        const colloHtml = colloItems.length > 0 ? `
+            <div class="mw-collo-grid2">
+                ${colloItems.map((c, i) => `<div class="mw-collo2"><button class="speak-btn speak-btn-s" data-text="${escAttr(c)}">&#x1F50A;</button><span class="mw-collo-en2">${escHtml(c)}</span>${colloCnItems[i] ? `<span class="mw-cn mw-collo-cn2 ${cnVis}">${escHtml(colloCnItems[i])}</span>` : ''}</div>`).join('')}
+            </div>` : '';
+
+        const exHtml = w.context ? `
+            <div class="mw-ex2">
+                <div class="mw-ex-en2">"${escHtml(w.context)}" <button class="speak-btn speak-btn-s" data-text="${escAttr(w.context)}">&#x1F50A;</button></div>
+                ${w.contextCn ? `<div class="mw-cn mw-ex-cn2 ${cnVis}">${escHtml(w.contextCn)}</div>` : ''}
+            </div>` : '';
+
+        const noteHtml = w.note ? `<div class="mw-note2">${escHtml(w.note)}</div>` : '';
+
+        area.innerHTML = `
+            <div class="mw-card mw-card-compact">
+                <div class="mw-row-top">
+                    <div class="mw-col-word">
+                        <div class="mw-word-row2">
+                            <span class="mw-word2">${escHtml(w.word)}</span>
+                            <button class="speak-btn" data-text="${escAttr(w.word)}" style="width:32px;height:32px;font-size:15px">&#x1F50A;</button>
+                        </div>
+                        ${w.phonetic ? `<span class="mw-ph2">${escHtml(w.phonetic)}</span>` : ''}
+                        ${w.register && w.register !== 'neutral' ? `<span class="wl-register-tag wl-register-${w.register}" style="font-size:10px;margin-top:2px;display:inline-block">${w.register}</span>` : ''}
+                    </div>
+                    <div class="mw-col-def">
+                        ${w.meaning ? `<div class="mw-cn mw-cn2 ${cnVis}">${escHtml(w.meaning)}</div>` : ''}
+                        ${w.enDef   ? `<div class="mw-en2">${escHtml(w.enDef)}</div>` : ''}
+                    </div>
+                </div>
+                ${colloHtml}
+                ${exHtml}
+                ${noteHtml}
+                <div class="mw-card-bottom">
+                    <div class="mw-focus-tags">
+                        ${focusBtn(w, 'core',          '\u2B50', 'Core')}
+                        ${focusBtn(w, 'pronunciation', '\uD83D\uDD0A', 'Pronunciation')}
+                        ${focusBtn(w, 'spelling',      '\u270F\uFE0F', 'Spelling')}
+                    </div>
+                    <div class="mw-card-actions">
+                        <button class="mw-action-btn mw-enrich-btn" data-word="${escAttr(w.word)}">&#x2728; ${hasMeaning ? 'More' : 'Enrich'}</button>
+                        ${!isWordComplete(w) ? '<span class="mw-incomplete-tag">needs enrich</span>' : ''}
+                        <button class="mw-action-btn mw-delete-btn" data-word="${escAttr(w.word)}">&#x1F5D1;</button>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // ----- QUIZ (Chinese MCQ) -----
+
+    function renderQuizCard() {
+        const area  = document.getElementById('mw-area');
+        const words = getGroupWords();
+        const w     = words[currentIdx];
+        if (!w) return;
+
+        const correctMeaning = w.meaning || w.enDef || '(no definition)';
+        const distractors    = buildDistractors(currentIdx, 3);
+        const options = [
+            { text: correctMeaning, correct: true },
+            ...distractors.map(d => ({ text: d, correct: false }))
+        ].sort(() => Math.random() - 0.5);
+
+        area.innerHTML = `
+            <div class="mw-card mw-quiz-card">
+                <div class="mw-card-top">
+                    <div class="mw-card-word-row" style="justify-content:center">
+                        <span class="mw-card-word">${escHtml(w.word)}</span>
+                        <button class="speak-btn speak-btn-lg" data-text="${escAttr(w.word)}" title="Pronounce">&#x1F50A;</button>
+                    </div>
+                    ${w.phonetic ? `<span class="mw-card-phonetic" style="text-align:center;display:block">${escHtml(w.phonetic)}</span>` : ''}
+                </div>
+                <div class="mw-quiz-options">
+                    ${options.map((o, i) => `
+                        <button class="mw-quiz-option" data-correct="${o.correct}" data-idx="${i}">
+                            <span class="mw-quiz-letter">${'ABCD'[i]}</span>
+                            <span class="mw-quiz-text">${escHtml(o.text)}</span>
+                        </button>
+                    `).join('')}
+                </div>
+                <div class="mw-quiz-feedback" id="mw-quiz-feedback"></div>
+            </div>`;
+    }
+
+    function buildDistractors(groupIdx, count) {
+        // Pull distractors from ALL words for variety, excluding current word
+        const words   = getGroupWords();
+        const current = words[groupIdx];
+        const pool    = studyList
+            .filter(w => w.word !== current?.word && (w.meaning || w.enDef))
+            .map(w => w.meaning || w.enDef || '');
+        const fallbacks = ['\u540D\u8BCD', '\u52A8\u8BCD', '\u5F62\u5BB9\u8BCD', '\u526F\u8BCD', '\u77ED\u8BED', '\u8868\u8FBE\u65B9\u5F0F'];
+        while (pool.length < count) pool.push(fallbacks[pool.length % fallbacks.length]);
+        return pool.sort(() => Math.random() - 0.5).slice(0, count);
+    }
+
+    function handleQuizAnswer(btn) {
+        if (quizAnswered) return;
+        quizAnswered = true;
+        quizTotal++;
+
+        const isCorrect = btn.dataset.correct === 'true';
+        const words     = getGroupWords();
+        const w         = words[currentIdx];
+        const feedback  = document.getElementById('mw-quiz-feedback');
+
+        document.querySelectorAll('.mw-quiz-option').forEach(b => {
+            b.disabled = true;
+            if (b.dataset.correct === 'true') b.classList.add('mw-quiz-correct');
+        });
+
+        if (isCorrect) {
+            btn.classList.add('mw-quiz-correct');
+            quizScore++;
+            if (feedback) feedback.innerHTML = `<div class="mw-fb-correct">&#x2705; Correct!</div>`;
+            // Track correct streak
+            trackQuizResult(w, true);
+        } else {
+            btn.classList.add('mw-quiz-wrong');
+            if (feedback) feedback.innerHTML = `<div class="mw-fb-wrong">&#x274C; Answer: ${escHtml(w.meaning || w.enDef || '')}</div>`;
+            // Track wrong
+            trackQuizResult(w, false);
+        }
+
+        const counter = document.getElementById('mw-counter');
+        if (counter) counter.textContent = `${currentIdx + 1}/${words.length} (${quizScore}/${quizTotal})`;
+
+        saveProgress();
+        setTimeout(() => navigate(1), isCorrect ? 1200 : 2500);
+    }
+
+    /** Track quiz result: update wrongCount/correctStreak, manage weak tag. */
+    function trackQuizResult(w, isCorrect) {
+        if (!w || !w.word) return;
+        const nb  = window.DB.loadNotebook();
+        const idx = nb.findIndex(x => (x.word || '').toLowerCase() === w.word.toLowerCase());
+        if (idx < 0) return;
+
+        const entry = nb[idx];
+        if (!entry.wrongCount)    entry.wrongCount    = 0;
+        if (!entry.correctStreak) entry.correctStreak = 0;
+        const focus = Array.isArray(entry.focus) ? [...entry.focus] : [];
+
+        if (isCorrect) {
+            entry.correctStreak++;
+            // Graduate: 3 correct in a row removes weak tag
+            if (entry.correctStreak >= 3 && focus.includes('weak')) {
+                focus.splice(focus.indexOf('weak'), 1);
+                entry.focus = focus;
+            }
+        } else {
+            entry.wrongCount++;
+            entry.correctStreak = 0;
+            // Auto-tag as weak
+            if (!focus.includes('weak')) {
+                focus.push('weak');
+                entry.focus = focus;
+            }
+        }
+
+        nb[idx] = entry;
+        window.DB.saveNotebook(nb);
+        // Refresh in-memory list
+        refreshStudyList();
+    }
+
+    // ----- LIST -----
+
+    function renderList() {
+        const area  = document.getElementById('mw-area');
+        const words = getGroupWords();
+        area.innerHTML = `<div class="mw-list">${words.map((w, i) => {
+            const complete = isWordComplete(w);
+            const focus    = Array.isArray(w.focus) ? w.focus : [];
+            const icons    = [
+                focus.includes('core')          ? '\u2B50' : '',
+                focus.includes('pronunciation') ? '\uD83D\uDD0A' : '',
+                focus.includes('spelling')      ? '\u270F\uFE0F' : ''
+            ].filter(Boolean).join('');
+            return `
+            <div class="mw-list-item ${i === currentIdx ? 'mw-list-active' : ''} ${!complete ? 'mw-list-incomplete' : ''}" data-idx="${i}">
+                <button class="speak-btn" data-text="${escAttr(w.word)}">&#x1F50A;</button>
+                <span class="mw-list-word">${escHtml(w.word)}</span>
+                ${icons ? `<span class="mw-list-icons">${icons}</span>` : ''}
+                ${w.phonetic ? `<span class="mw-list-phonetic">${escHtml(w.phonetic)}</span>` : ''}
+                <span class="mw-list-meaning">${escHtml(w.meaning || w.enDef || '')}</span>
+                ${!complete ? '<span class="mw-incomplete-tag">!</span>' : ''}
+            </div>`;
+        }).join('')}</div>`;
+    }
+
+    // =====================================================
+    // SINGLE WORD ENRICH (free or API)
+    // =====================================================
+
+    function enrichWord(word) {
+        if (isEnriching) return;
+        if (window.AIEngine.hasAPIKey()) { enrichWithAPI(word); }
+        else { enrichWithClipboard(word); }
+    }
+
+    function enrichWithClipboard(word) {
+        const prompt = `Please provide details for this English word/phrase. Use this EXACT format:
+
+WORD: ${word}
+PHONETIC: [IPA pronunciation, e.g. /ˈræm.bʊ.tən/]
+MEANING_CN: [Chinese meaning, concise but complete]
+MEANING_EN: [English definition, 1-2 sentences]
+REGISTER: [formal|neutral|casual|academic|technical]
+COLLOCATIONS: [3-4 common collocations separated by " · "]
+COLLOCATIONS_CN: [Chinese for each collocation, same order, separated by " · "]
+EXAMPLE: [one natural example sentence]
+EXAMPLE_CN: [Chinese translation of the example]
+NOTE: [usage tip for Chinese speakers, 1-2 sentences]`;
+
+        navigator.clipboard.writeText(prompt).then(() => {
+            window.App?.showToast?.('Prompt copied! Paste in Claude.ai, then paste result back.', 5000);
+            window.open('https://claude.ai/new', '_blank');
+            setTimeout(() => openSinglePasteModal(word), 1000);
+        });
+    }
+
+    function openSinglePasteModal(word) {
+        let modal = document.getElementById('mw-single-paste-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id        = 'mw-single-paste-modal';
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal-card">
+                    <div class="modal-header"><h2>Paste AI response</h2>
+                        <button class="modal-close" onclick="document.getElementById('mw-single-paste-modal').classList.remove('open')">&times;</button></div>
+                    <div class="modal-body">
+                        <p class="settings-hint">Paste the response from Claude.ai below.</p>
+                        <textarea id="mw-single-paste-input" class="mw-import-textarea" rows="8" placeholder="Paste here..."></textarea>
+                        <button class="wl-btn-primary" id="mw-single-paste-apply" style="width:100%;margin-top:10px">Apply</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+        modal.dataset.word = word;
+        document.getElementById('mw-single-paste-apply').onclick = () => {
+            const text = (document.getElementById('mw-single-paste-input')?.value || '').trim();
+            if (!text) return;
+            importRichFormat(text);
+            refreshStudyList();
+            const idx = studyList.findIndex(w => w.word === modal.dataset.word);
+            if (idx >= 0) currentIdx = idx;
+            showChinese = true;
+            const cnBtn = document.getElementById('mw-toggle-cn');
+            if (cnBtn) { cnBtn.classList.add('active'); cnBtn.textContent = '\u{1F441} Hide CN'; }
+            render();
+            modal.classList.remove('open');
+            document.getElementById('mw-single-paste-input').value = '';
+            window.App?.showToast?.('Word updated!');
+        };
+        modal.classList.add('open');
+    }
+
+    async function enrichWithAPI(word) {
+        isEnriching = true;
+        const btn = document.querySelector(`.mw-enrich-btn[data-word="${CSS.escape(word)}"]`);
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wl-spinner"></span>'; }
+
+        const prompt = `You are an English vocabulary expert helping a PhD-level Chinese speaker.
+Return a JSON object:
+{"word":"...","phonetic":"IPA","meaning":"Chinese meaning","enDef":"English def 1-2 sentences","register":"formal|neutral|casual|academic","collo":"collocations separated by ' · '","colloCn":"Chinese for each collocation, same order, separated by ' · '","context":"example sentence","contextCn":"Chinese translation of example","note":"usage tip for Chinese speakers"}
+Return ONLY valid JSON.`;
+
+        try {
+            const r = await window.AIEngine.callClaudeJSON(prompt, `Word: ${word}`);
+            window.DB.upsertNotebookWord({
+                word: word, meaning: r.meaning || '', enDef: r.enDef || '', phonetic: r.phonetic || '',
+                register: r.register || 'neutral', collo: r.collo || '', colloCn: r.colloCn || '',
+                context: r.context || '', contextCn: r.contextCn || '', note: r.note || '', source: 'AI enriched'
+            });
+            refreshStudyList(); showChinese = true;
+            const cnBtn = document.getElementById('mw-toggle-cn');
+            if (cnBtn) { cnBtn.classList.add('active'); cnBtn.textContent = '\u{1F441} Hide CN'; }
+            render();
+        } catch (err) { window.App?.showToast?.(window.AIEngine.friendlyError(err)); }
+        finally { isEnriching = false; }
+    }
+
+    // =====================================================
+    // CLICK HANDLERS
+    // =====================================================
+
+    function handleAreaClick(e) {
+        const quizOpt = e.target.closest('.mw-quiz-option');
+        if (quizOpt) { handleQuizAnswer(quizOpt); return; }
+
+        // Focus tag toggle
+        const focusBtnEl = e.target.closest('.mw-focus-btn');
+        if (focusBtnEl) {
+            const word = focusBtnEl.dataset.word;
+            const type = focusBtnEl.dataset.focus;
+            const isOn = window.DB.toggleFocus(word, type);
+            focusBtnEl.classList.toggle('mw-focus-active', isOn);
+            refreshStudyList();
+            updateFilterCounts();
+            // Toast with hint
+            const labels = { core: '\u2B50 Core', pronunciation: '\uD83D\uDD0A Pronunciation', spelling: '\u270F\uFE0F Spelling' };
+            const count  = studyList.filter(w => (w.focus || []).includes(type)).length;
+            if (isOn) {
+                window.App?.showToast?.(`Marked as ${labels[type]}. Click "${labels[type]} (${count})" above to study only these.`, 4000);
+            } else {
+                window.App?.showToast?.(`Removed ${labels[type]} mark.`);
+            }
+            return;
+        }
+
+        const enrichBtn = e.target.closest('.mw-enrich-btn');
+        if (enrichBtn) { enrichWord(enrichBtn.dataset.word); return; }
+
+        const deleteBtn = e.target.closest('.mw-delete-btn');
+        if (deleteBtn) {
+            const word = deleteBtn.dataset.word;
+            window.DB.removeNotebookWord(word);
+            refreshStudyList();
+            if (currentIdx >= studyList.length) currentIdx = Math.max(0, studyList.length - 1);
+            render();
+            window.App?.updateNotebookBadge?.();
+            window.App?.showToast?.(`"${word}" removed.`);
+            return;
+        }
+
+        const listItem = e.target.closest('.mw-list-item');
+        if (listItem && listItem.dataset.idx !== undefined) {
+            currentIdx = parseInt(listItem.dataset.idx, 10);
+            setView('cards'); speakCurrent();
+        }
+    }
+
+    function focusBtn(w, type, icon, label) {
+        const focus  = Array.isArray(w.focus) ? w.focus : [];
+        const active = focus.includes(type) ? 'mw-focus-active' : '';
+        return `<button class="mw-focus-btn ${active}" data-focus="${type}" data-word="${escAttr(w.word)}">${icon}<span>${label}</span></button>`;
+    }
+
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function escAttr(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' '); }
+
+    return { init, render, refreshStudyList };
+})();
