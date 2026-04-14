@@ -129,7 +129,9 @@ window.SyncManager = (function() {
 
     function hookSaves() {
         if (!window.DB) return;
-        ['saveNotebook', 'saveStats', 'setPref', 'saveWritingEntry',
+        // Only hook methods that change real learning data
+        // NOT setPref — it fires on saveDraft, speed changes, etc.
+        ['saveNotebook', 'saveStats', 'saveWritingEntry',
          'deleteWritingEntry', 'upsertNotebookWord', 'removeNotebookWord', 'toggleFocus'
         ].forEach(method => {
             const orig = window.DB[method];
