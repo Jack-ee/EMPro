@@ -321,20 +321,31 @@ window.App = (function() {
     }
 
     // --- Global TTS ---
-    function speak(text, rate) {
-        if (!text || !window.speechSynthesis) {
-            console.warn('[TTS] No text or speechSynthesis not available');
-            return;
-        }
-        const autoSpeak = window.DB.getPref('auto_speak', 'true');
-        // If called from navigate (no explicit rate) and auto-speak is off, skip
-        if (!rate && autoSpeak === 'false') return;
+    // Dual-mode: native speechSynthesis on desktop, Google Translate audio fallback on Android
+    let ttsMode     = 'detecting';  // 'detecting' | 'native' | 'google'
+    let ttsAudioEl  = null;
 
-        // Cancel any in-progress speech first
+    function getTTSAudio() {
+        if (!ttsAudioEl) {
+            ttsAudioEl = document.createElement('audio');
+            ttsAudioEl.style.display = 'none';
+            document.body.appendChild(ttsAudioEl);
+        }
+        return ttsAudioEl;
+    }
+
+    function speakGoogle(text, rate) {
+        const audio   = getTTSAudio();
+        const encoded = encodeURIComponent(text.slice(0, 200));
+        audio.src          = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=' + encoded;
+        audio.playbackRate = Math.max(0.5, Math.min(rate || 0.85, 2.0));
+        audio.play().catch(err => console.warn('[TTS-Google] play() error:', err.message));
+    }
+
+    function speakNative(text, rate) {
         if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
             window.speechSynthesis.cancel();
         }
-
         const u       = new SpeechSynthesisUtterance(text);
         u.lang        = 'en-US';
         u.rate        = rate || parseFloat(window.DB.getPref('speech_speed', '0.85'));
@@ -345,23 +356,67 @@ window.App = (function() {
         const fallback = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google'))
                       || voices.find(v => v.lang.startsWith('en-US'))
                       || voices.find(v => v.lang.startsWith('en'));
-        // Only set voice if we found one; leave undefined to use system default
         if (selected || fallback) u.voice = selected || fallback;
 
+        u.onerror = (e) => console.warn('[TTS-Native] Error:', e.error);
+        window.speechSynthesis.speak(u);
+    }
+
+    function speak(text, rate) {
+        if (!text) return;
+        const autoSpeak = window.DB.getPref('auto_speak', 'true');
+        // If called from navigate (no explicit rate) and auto-speak is off, skip
+        if (!rate && autoSpeak === 'false') return;
+
+        const r = rate || parseFloat(window.DB.getPref('speech_speed', '0.85'));
+
+        // Already decided which engine to use
+        if (ttsMode === 'google') {
+            speakGoogle(text, r);
+            return;
+        }
+        if (ttsMode === 'native') {
+            speakNative(text, r);
+            return;
+        }
+
+        // --- Detection mode: probe native, fall back if stuck ---
+        if (!window.speechSynthesis) {
+            ttsMode = 'google';
+            console.log('[TTS] No speechSynthesis API, using Google TTS');
+            speakGoogle(text, r);
+            return;
+        }
+
+        const u       = new SpeechSynthesisUtterance(text);
+        u.lang        = 'en-US';
+        u.rate        = r;
+        let started   = false;
+
+        u.onstart = () => {
+            started = true;
+            ttsMode = 'native';
+            console.log('[TTS] Native engine works, using native mode');
+        };
         u.onerror = (e) => {
-            console.error('[TTS] Error:', e.error);
-            window.App?.showToast?.('TTS error: ' + (e.error || 'unknown'));
+            if (!started) {
+                ttsMode = 'google';
+                console.log('[TTS] Native error (' + e.error + '), switching to Google TTS');
+                speakGoogle(text, r);
+            }
         };
 
-        console.log('[TTS] Speaking:', text.slice(0, 30), '| voice:', u.voice?.name || 'system default');
         window.speechSynthesis.speak(u);
 
-        // Android Chrome bug: synthesis can get stuck in "paused" state
+        // If no onstart after 2s, native is stuck — switch to Google
         setTimeout(() => {
-            if (window.speechSynthesis.paused) {
-                window.speechSynthesis.resume();
+            if (!started && ttsMode === 'detecting') {
+                ttsMode = 'google';
+                console.log('[TTS] Native stuck (no onstart after 2s), switching to Google TTS');
+                window.speechSynthesis.cancel();
+                speakGoogle(text, r);
             }
-        }, 200);
+        }, 2000);
     }
 
     // Delegated speak-btn handler
@@ -425,6 +480,13 @@ window.App = (function() {
             if (attempts >= 12) {  // 12 × 250ms = 3s max
                 clearInterval(populateVoices._pollTimer);
                 populateVoices._pollTimer = null;
+                // If still no voices after 3s, pre-set Google TTS mode
+                // so first speak doesn't wait 2s for detection timeout
+                const voices = window.speechSynthesis?.getVoices() || [];
+                if (voices.length === 0 && ttsMode === 'detecting') {
+                    ttsMode = 'google';
+                    console.log('[TTS] No voices after polling, pre-setting Google TTS mode');
+                }
             }
         }, 250);
     };
