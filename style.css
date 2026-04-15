@@ -2599,6 +2599,8 @@ body {
 @media (min-width: 769px) {
     .mw-btn-label  { display: inline; }
     .mw-fpill-label { display: inline; }
+    .mw-mt-btn { width: auto; height: auto; padding: 6px 12px; font-size: 14px; }
+    .mw-toggle-cn-btn { width: auto; height: auto; padding: 5px 12px; font-size: 13px; }
 }
 
 @media (max-width: 640px) {
