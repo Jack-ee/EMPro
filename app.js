@@ -322,12 +322,19 @@ window.App = (function() {
 
     // --- Global TTS ---
     function speak(text, rate) {
-        if (!text || !window.speechSynthesis) return;
+        if (!text || !window.speechSynthesis) {
+            console.warn('[TTS] No text or speechSynthesis not available');
+            return;
+        }
         const autoSpeak = window.DB.getPref('auto_speak', 'true');
         // If called from navigate (no explicit rate) and auto-speak is off, skip
         if (!rate && autoSpeak === 'false') return;
 
-        window.speechSynthesis.cancel();
+        // Cancel any in-progress speech first
+        if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+            window.speechSynthesis.cancel();
+        }
+
         const u       = new SpeechSynthesisUtterance(text);
         u.lang        = 'en-US';
         u.rate        = rate || parseFloat(window.DB.getPref('speech_speed', '0.85'));
@@ -338,8 +345,23 @@ window.App = (function() {
         const fallback = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google'))
                       || voices.find(v => v.lang.startsWith('en-US'))
                       || voices.find(v => v.lang.startsWith('en'));
-        u.voice = selected || fallback || null;
+        // Only set voice if we found one; leave undefined to use system default
+        if (selected || fallback) u.voice = selected || fallback;
+
+        u.onerror = (e) => {
+            console.error('[TTS] Error:', e.error);
+            window.App?.showToast?.('TTS error: ' + (e.error || 'unknown'));
+        };
+
+        console.log('[TTS] Speaking:', text.slice(0, 30), '| voice:', u.voice?.name || 'system default');
         window.speechSynthesis.speak(u);
+
+        // Android Chrome bug: synthesis can get stuck in "paused" state
+        setTimeout(() => {
+            if (window.speechSynthesis.paused) {
+                window.speechSynthesis.resume();
+            }
+        }, 200);
     }
 
     // Delegated speak-btn handler
