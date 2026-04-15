@@ -381,7 +381,31 @@ window.App = (function() {
         // Restore saved selection
         const saved = window.DB.getPref('voice_id', '');
         if (saved) sel.value = saved;
+
+        // Stop polling once voices are loaded
+        if (list.length > 0 && populateVoices._pollTimer) {
+            clearInterval(populateVoices._pollTimer);
+            populateVoices._pollTimer = null;
+        }
     }
+
+    // Android Chrome often returns [] from getVoices() on first call.
+    // Poll every 250ms up to 3 seconds until voices appear.
+    populateVoices.startPolling = function() {
+        // Run once immediately
+        populateVoices();
+        // Clear any previous polling
+        if (populateVoices._pollTimer) clearInterval(populateVoices._pollTimer);
+        let attempts = 0;
+        populateVoices._pollTimer = setInterval(() => {
+            attempts++;
+            populateVoices();
+            if (attempts >= 12) {  // 12 × 250ms = 3s max
+                clearInterval(populateVoices._pollTimer);
+                populateVoices._pollTimer = null;
+            }
+        }, 250);
+    };
 
     function initSettings() {
         // Populate voice selector — use polling for Android compatibility
