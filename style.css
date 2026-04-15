@@ -2593,11 +2593,15 @@ body {
     border-color : var(--border-focus);
 }
 
-@media (max-width: 640px) {
-    /* Hide button text labels — icon-only on mobile */
-    .mw-btn-label { display: none; }
-    .mw-fpill-label { display: none; }
+/* Labels hidden by default (mobile-first), shown on desktop */
+.mw-btn-label  { display: none; }
+.mw-fpill-label { display: none; }
+@media (min-width: 769px) {
+    .mw-btn-label  { display: inline; }
+    .mw-fpill-label { display: inline; }
+}
 
+@media (max-width: 640px) {
     /* Toolbar: search full-width */
     .mw-toolbar { gap: 4px; }
 
