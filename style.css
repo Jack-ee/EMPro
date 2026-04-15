@@ -2307,33 +2307,90 @@ body {
     display         : flex;
     align-items     : center;
     justify-content : center;
-    gap             : 8px;
+    gap             : 6px;
 }
-.mw-nav-btn {
-    width           : 36px;
-    height          : 36px;
+/* Arrow buttons — borderless, compact */
+.mw-arrow-btn {
     display         : flex;
     align-items     : center;
     justify-content : center;
-    background      : var(--bg-card);
-    border          : 1px solid var(--border);
-    border-radius   : 50%;
+    background      : transparent;
+    border          : none;
+    cursor          : pointer;
+    font-size       : 16px;
+    color           : var(--text-secondary);
+    padding         : 4px;
+    transition      : color 0.12s;
+}
+.mw-arrow-btn:hover { color: var(--accent); }
+.mw-arrow-btn:active { transform: scale(0.9); }
+
+/* Legacy .mw-nav-btn kept for group info rendering */
+.mw-nav-btn {
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    background      : transparent;
+    border          : none;
     cursor          : pointer;
     font-size       : 14px;
     color           : var(--text-secondary);
-    transition      : all 0.12s;
+    padding         : 4px;
+    transition      : color 0.12s;
 }
-.mw-nav-btn:hover {
-    border-color : var(--accent);
-    color        : var(--accent);
-}
-.mw-shuffle-btn { border-radius: var(--radius-sm); width: auto; padding: 0 12px; }
+.mw-nav-btn:hover { color: var(--accent); }
+
 .mw-counter {
     font-family : var(--font-mono);
     font-size   : 14px;
     color       : var(--text-tertiary);
-    min-width   : 70px;
+    min-width   : 50px;
     text-align  : center;
+}
+
+/* "+" add button — centered */
+.mw-add-btn {
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    width           : 38px;
+    height          : 38px;
+    background      : var(--accent);
+    color           : #fff;
+    border          : none;
+    border-radius   : var(--radius-sm);
+    cursor          : pointer;
+    font-size       : 22px;
+    font-weight     : 300;
+    line-height     : 1;
+    flex-shrink     : 0;
+}
+.mw-add-btn:hover { background: var(--accent-light); }
+
+/* Compact icon-only toolbar buttons (in filter row) */
+.mw-icon-btn {
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    width           : 30px;
+    height          : 30px;
+    background      : var(--bg-card);
+    border          : 1px solid var(--border);
+    border-radius   : var(--radius-sm);
+    cursor          : pointer;
+    font-size       : 14px;
+    flex-shrink     : 0;
+    transition      : all 0.12s;
+}
+.mw-icon-btn:hover { border-color: var(--accent); background: var(--bg-hover); }
+
+/* Separator between pills and icons */
+.mw-filter-sep {
+    width       : 1px;
+    height      : 20px;
+    background  : var(--border);
+    flex-shrink : 0;
+    margin      : 0 2px;
 }
 
 /* --- Word Card --- */
@@ -2538,37 +2595,24 @@ body {
 @media (max-width: 640px) {
     /* Hide button text labels — icon-only on mobile */
     .mw-btn-label { display: none; }
+    .mw-fpill-label { display: none; }
 
-    /* Toolbar: search full-width, icon-only action buttons in a row */
-    .mw-toolbar {
-        display        : flex;
-        flex-wrap      : wrap;
-        gap            : 4px;
-        align-items    : center;
-    }
-    .mw-quick-add { min-width: 100%; order: 1; }
-    .mw-toolbar > .mw-tb-btn {
-        flex       : 0;
-        padding    : 6px 10px;
-        font-size  : 16px;
-        min-height : 36px;
-        text-align : center;
-        order      : 2;
-    }
+    /* Toolbar: search full-width */
+    .mw-toolbar { gap: 4px; }
 
-    /* Filter pills: single scrollable row */
-    .mw-filter-row { gap: 4px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 0; }
-    .mw-filter-pill { flex-shrink: 0; padding: 4px 10px; }
+    /* Filter + icon row: compact */
+    .mw-filter-row { gap: 3px; }
+    .mw-filter-pill { padding: 4px 8px; font-size: 12px; }
+    .mw-icon-btn { width: 28px; height: 28px; font-size: 13px; }
 
-    /* Nav row: tight, no wrapping */
-    .mw-nav-row { gap: 4px; flex-wrap: nowrap; overflow-x: auto; }
+    /* Nav row: tight */
+    .mw-nav-row { gap: 4px; flex-wrap: nowrap; }
     .mw-mode-toggle { flex-shrink: 0; }
     .mw-mt-btn { padding: 5px 10px; font-size: 14px; }
     .mw-toggle-cn-btn { padding: 4px 10px; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
-    .mw-counter { font-size: 13px; min-width: 44px; }
-    .mw-nav-btn { width: 30px; height: 30px; font-size: 14px; }
-    .mw-shuffle-btn { padding: 0 8px; }
-    .mw-vt-btn { padding: 4px 8px; font-size: 13px; }
+    .mw-counter { font-size: 13px; min-width: 36px; }
+    .mw-arrow-btn { font-size: 15px; padding: 2px; }
+    .mw-vt-btn { padding: 4px 6px; font-size: 13px; }
 
     /* Card: tighter padding */
     .mw-card { padding: 14px; }
@@ -3169,19 +3213,15 @@ body {
     display     : flex;
     align-items : center;
     gap         : 4px;
-    flex-wrap   : wrap;
-}
-.mw-filter-label {
-    font-size   : 13px;
-    color       : var(--text-tertiary);
-    font-weight : 500;
-    margin-right: 2px;
+    flex-wrap   : nowrap;
+    overflow-x  : auto;
+    -webkit-overflow-scrolling : touch;
 }
 .mw-filter-pill {
     display       : flex;
     align-items   : center;
-    gap           : 3px;
-    padding       : 5px 12px;
+    gap           : 2px;
+    padding       : 4px 10px;
     background    : var(--bg-card);
     border        : 1px solid var(--border);
     border-radius : 14px;
@@ -3191,6 +3231,7 @@ body {
     color         : var(--text-tertiary);
     transition    : all 0.12s;
     white-space   : nowrap;
+    flex-shrink   : 0;
 }
 .mw-filter-pill:hover {
     border-color : var(--accent);
@@ -3248,7 +3289,7 @@ html {
         font-size  : 16px;
     }
     .nav-tab, .sc-tab, .mw-filter-pill, .mw-mt-btn,
-    .ec-chip, .ec-nav-btn, .mw-nav-btn {
+    .ec-chip, .ec-nav-btn, .mw-arrow-btn {
         min-height : 38px;
     }
 
@@ -3272,33 +3313,29 @@ html {
         padding   : 10px 14px;
         min-height: 44px;
     }
-    .mw-quick-add .wl-btn-primary {
+    .mw-add-btn {
         min-width  : 44px;
         min-height : 44px;
-        font-size  : 20px;
+        font-size  : 24px;
     }
 
-    /* --- Toolbar buttons (Import, Batch enrich, Paste back) --- */
-    .mw-toolbar > .wl-btn-secondary {
-        font-size  : 14px;
-        min-height : 40px;
-        padding    : 8px 10px;
-    }
-
-    /* --- Filter pills --- */
-    .mw-filter-label { font-size: 14px; }
+    /* --- Filter + icon row --- */
     .mw-filter-pill {
         font-size  : 14px;
-        padding    : 6px 14px;
+        padding    : 6px 12px;
         min-height : 36px;
     }
     .mw-fpill-count { font-size: 12px; }
+    .mw-icon-btn {
+        width      : 36px;
+        height     : 36px;
+        font-size  : 16px;
+    }
 
     /* --- Nav row (Browse/Quiz, Show CN, arrows, counter) --- */
     .mw-nav-row {
         gap      : 6px;
         flex-wrap: nowrap;
-        overflow-x: auto;
     }
     .mw-mode-toggle { flex-shrink: 0; }
     .mw-mt-btn {
@@ -3313,21 +3350,20 @@ html {
     }
     .mw-counter {
         font-size  : 15px;
-        min-width  : 60px;
+        min-width  : 50px;
+    }
+    .mw-arrow-btn {
+        font-size : 18px;
+        padding   : 4px;
     }
     .mw-nav-btn {
-        width     : 40px;
-        height    : 40px;
-        font-size : 18px;
+        font-size : 16px;
     }
-    .mw-shuffle-btn { padding: 0 12px; }
     .mw-vt-btn {
         padding   : 6px 10px;
         font-size : 16px;
     }
     .mw-grp-btn {
-        width     : 32px;
-        height    : 32px;
         font-size : 14px;
     }
     .mw-grp-label { font-size: 13px; }
