@@ -228,7 +228,7 @@ body {
     width      : 100%;
     max-width  : var(--max-width);
     margin     : 0 auto;
-    padding    : 10px 20px 60px;
+    padding    : 8px 20px 60px;
 }
 
 /* --- Views --- */
@@ -1149,15 +1149,15 @@ body {
     .app-title  { font-size: 16px; }
     .title-accent { font-size: 18px; }
     .header-stats { display: none; }
-    .app-main { padding: 8px 12px 48px; }
+    .app-main { padding: 6px 10px 48px; }
     .wl-modes { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
     .wl-mode-label { display: none; }
     .wl-mode-btn { padding: 8px 10px; }
     .wl-input-footer { flex-wrap: wrap; gap: 8px; }
     .wl-result-card { padding: 16px; }
     .modal-card { border-radius: var(--radius-lg); }
-    .app-nav { gap: 2px; }
-    .nav-tab { padding: 6px 8px; }
+    .app-nav { gap: 2px; margin-bottom: 4px; }
+    .nav-tab { padding: 5px 6px; }
     .nav-label { display: none; }
     .vd-header-row { flex-direction: column; align-items: flex-start; }
     .vd-drill-btns { width: 100%; }
@@ -1178,7 +1178,7 @@ body {
 .app-nav {
     display        : flex;
     gap            : 3px;
-    margin-bottom  : 14px;
+    margin-bottom  : 8px;
     padding        : 3px;
     background     : var(--bg-card);
     border         : 1px solid var(--border);
@@ -2185,13 +2185,13 @@ body {
 .mw-container {
     display        : flex;
     flex-direction : column;
-    gap            : 10px;
+    gap            : 6px;
 }
 
 .mw-toolbar {
     display     : flex;
     align-items : center;
-    gap         : 8px;
+    gap         : 6px;
     flex-wrap   : wrap;
 }
 .mw-quick-add {
@@ -2307,7 +2307,7 @@ body {
     display         : flex;
     align-items     : center;
     justify-content : center;
-    gap             : 12px;
+    gap             : 8px;
 }
 .mw-nav-btn {
     width           : 36px;
@@ -2341,10 +2341,10 @@ body {
     background    : var(--bg-card);
     border        : 1px solid var(--border);
     border-radius : var(--radius-lg);
-    padding       : 24px;
+    padding       : 18px;
     display       : flex;
     flex-direction: column;
-    gap           : 14px;
+    gap           : 10px;
     animation     : fadeSlideIn 0.25s ease;
 }
 .mw-card-top { }
@@ -2536,39 +2536,42 @@ body {
 }
 
 @media (max-width: 640px) {
-    /* Toolbar: search full-width, action buttons in a compact row */
+    /* Hide button text labels — icon-only on mobile */
+    .mw-btn-label { display: none; }
+
+    /* Toolbar: search full-width, icon-only action buttons in a row */
     .mw-toolbar {
         display        : flex;
         flex-wrap      : wrap;
-        gap            : 6px;
+        gap            : 4px;
         align-items    : center;
     }
     .mw-quick-add { min-width: 100%; order: 1; }
-    .mw-toolbar > .wl-btn-secondary {
-        flex    : 1;
-        padding : 6px 4px;
-        font-size: 13px;
-        min-height: 36px;
-        text-align: center;
-        order   : 2;
+    .mw-toolbar > .mw-tb-btn {
+        flex       : 0;
+        padding    : 6px 10px;
+        font-size  : 16px;
+        min-height : 36px;
+        text-align : center;
+        order      : 2;
     }
 
-    /* Nav row: compact, no wrapping */
-    .mw-nav-row { gap: 6px; flex-wrap: nowrap; overflow-x: auto; }
+    /* Filter pills: single scrollable row */
+    .mw-filter-row { gap: 4px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 0; }
+    .mw-filter-pill { flex-shrink: 0; padding: 4px 10px; }
+
+    /* Nav row: tight, no wrapping */
+    .mw-nav-row { gap: 4px; flex-wrap: nowrap; overflow-x: auto; }
     .mw-mode-toggle { flex-shrink: 0; }
-    .mw-mt-btn { padding: 5px 10px; font-size: 13px; }
-    .mw-toggle-cn-btn { padding: 4px 8px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
-    .mw-counter { font-size: 13px; min-width: 50px; }
-    .mw-nav-btn { width: 32px; height: 32px; font-size: 14px; }
+    .mw-mt-btn { padding: 5px 10px; font-size: 14px; }
+    .mw-toggle-cn-btn { padding: 4px 10px; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
+    .mw-counter { font-size: 13px; min-width: 44px; }
+    .mw-nav-btn { width: 30px; height: 30px; font-size: 14px; }
     .mw-shuffle-btn { padding: 0 8px; }
     .mw-vt-btn { padding: 4px 8px; font-size: 13px; }
 
-    /* Filter pills: scroll horizontally */
-    .mw-filter-row { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
-    .mw-filter-pill { flex-shrink: 0; }
-
-    /* Card: slightly less padding */
-    .mw-card { padding: 16px; }
+    /* Card: tighter padding */
+    .mw-card { padding: 14px; }
     .mw-card-word { font-size: 24px; }
 }
 
@@ -3025,9 +3028,9 @@ body {
 /* --- Two-column card top --- */
 .mw-row-top {
     display     : flex;
-    gap         : 16px;
+    gap         : 12px;
     align-items : flex-start;
-    padding-bottom: 8px;
+    padding-bottom: 6px;
     border-bottom : 1px solid var(--border);
 }
 .mw-col-word {
@@ -3045,8 +3048,8 @@ body {
 }
 
 @media (max-width: 480px) {
-    .mw-row-top { flex-direction: column; gap: 6px; }
-    .mw-col-def { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 6px; }
+    .mw-row-top { flex-direction: column; gap: 4px; }
+    .mw-col-def { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 4px; }
 }
 
 /* --- Wide modal + settings grid --- */
