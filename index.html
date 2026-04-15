@@ -56,9 +56,9 @@
                     <button class="wl-btn-primary" id="mw-add-single" style="padding:6px 12px" title="Add as new word">+</button>
                     <div class="mw-search-dropdown" id="mw-search-dropdown"></div>
                 </div>
-                <button class="wl-btn-secondary" id="mw-import-btn" onclick="document.getElementById('mw-import-modal').classList.add('open')">&#x1F4E5; Import</button>
-                <button class="wl-btn-secondary" id="mw-batch-enrich" title="Copy AI prompt for incomplete words">&#x2728; Batch enrich</button>
-                <button class="wl-btn-secondary" id="mw-batch-paste" title="Paste enriched data back">&#x1F4CB; Paste back</button>
+                <button class="wl-btn-secondary mw-tb-btn" id="mw-import-btn" onclick="document.getElementById('mw-import-modal').classList.add('open')" title="Import">&#x1F4E5;<span class="mw-btn-label"> Import</span></button>
+                <button class="wl-btn-secondary mw-tb-btn" id="mw-batch-enrich" title="Copy AI prompt for incomplete words">&#x2728;<span class="mw-btn-label"> Batch enrich</span></button>
+                <button class="wl-btn-secondary mw-tb-btn" id="mw-batch-paste" title="Paste enriched data back">&#x1F4CB;<span class="mw-btn-label"> Paste back</span></button>
             </div>
             <div class="mw-filter-row" id="mw-filter-row">
                 <span class="mw-filter-label">Study:</span>
@@ -70,10 +70,10 @@
             </div>
             <div class="mw-nav-row">
                 <div class="mw-mode-toggle">
-                    <button class="mw-mt-btn active" id="mw-mode-browse">&#x1F4D6; Browse</button>
-                    <button class="mw-mt-btn" id="mw-mode-quiz">&#x1F3AF; Quiz</button>
+                    <button class="mw-mt-btn active" id="mw-mode-browse">&#x1F4D6;<span class="mw-btn-label"> Browse</span></button>
+                    <button class="mw-mt-btn" id="mw-mode-quiz">&#x1F3AF;<span class="mw-btn-label"> Quiz</span></button>
                 </div>
-                <button class="mw-toggle-cn-btn" id="mw-toggle-cn" title="Show/Hide Chinese (Space)">&#x1F441; Show CN</button>
+                <button class="mw-toggle-cn-btn" id="mw-toggle-cn" title="Show/Hide Chinese (Space)">&#x1F441;<span class="mw-btn-label"> Show CN</span></button>
                 <div class="mw-group-info" id="mw-group-info" style="display:none"></div>
                 <button class="mw-nav-btn" id="mw-prev">&#x25C0;</button>
                 <span class="mw-counter" id="mw-counter">0 words</span>
