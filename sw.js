@@ -1,5 +1,5 @@
 // sw.js — English Master Pro Service Worker
-const CACHE_NAME = 'emp-v1';
+const CACHE_NAME = 'emp-v3';
 const ASSETS = [
     './',
     './index.html',
