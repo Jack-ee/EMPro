@@ -1,5 +1,5 @@
 // sw.js — English Master Pro Service Worker
-const CACHE_NAME = 'emp-v7';
+const CACHE_NAME = 'emp-v8';
 const ASSETS = [
     './',
     './index.html',
@@ -61,8 +61,14 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // Local assets: cache-first
+    // Local assets: network-first, fall back to cache when offline
     e.respondWith(
-        caches.match(e.request).then(cached => cached || fetch(e.request))
+        fetch(e.request)
+            .then(response => {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+                return response;
+            })
+            .catch(() => caches.match(e.request))
     );
 });
