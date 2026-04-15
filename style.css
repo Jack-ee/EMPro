@@ -2609,7 +2609,7 @@ body {
     /* Nav row: tight */
     .mw-nav-row { gap: 4px; flex-wrap: nowrap; }
     .mw-mode-toggle { flex-shrink: 0; }
-    .mw-mt-btn { padding: 5px 10px; font-size: 15px; }
+    .mw-mt-btn { font-size: 16px; padding: 4px; }
     .mw-toggle-cn-btn { padding: 4px 10px; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
     .mw-counter { font-size: 13px; min-width: 36px; }
     .mw-arrow-btn { font-size: 15px; padding: 2px; }
@@ -2623,34 +2623,27 @@ body {
 /* --- Mode toggle (Browse / Quiz) --- */
 .mw-mode-toggle {
     display       : inline-flex;
-    gap           : 0;
-    border        : 1px solid var(--border);
-    border-radius : var(--radius-sm);
-    overflow      : hidden;
+    gap           : 2px;
     flex          : 0 0 auto;
 }
 .mw-mt-btn {
-    display       : flex;
-    align-items   : center;
+    display         : flex;
+    align-items     : center;
     justify-content : center;
-    padding       : 6px 10px;
-    background    : transparent;
-    border        : none;
-    cursor        : pointer;
-    font-family   : var(--font-body);
-    font-size     : 14px;
-    color         : var(--text-tertiary);
-    transition    : all 0.1s;
-    white-space   : nowrap;
-    line-height   : 1;
+    padding         : 4px 6px;
+    background      : transparent;
+    border          : none;
+    border-radius   : var(--radius-sm);
+    cursor          : pointer;
+    font-size       : 16px;
+    color           : var(--text-tertiary);
+    transition      : all 0.1s;
+    line-height     : 1;
 }
 .mw-mt-btn.active {
-    background : var(--accent-bg);
-    color      : var(--accent-text);
-    font-weight: 500;
+    color      : var(--accent);
 }
 .mw-mt-btn:hover:not(.active) {
-    background : var(--bg-hover);
     color      : var(--text-primary);
 }
 
@@ -3348,8 +3341,8 @@ html {
     }
     .mw-mode-toggle { flex-shrink: 0; }
     .mw-mt-btn {
-        padding   : 7px 10px;
-        font-size : 16px;
+        padding   : 4px 6px;
+        font-size : 18px;
     }
     .mw-toggle-cn-btn {
         padding   : 6px 12px;
