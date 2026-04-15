@@ -733,7 +733,7 @@ IMPORTANT:
                 groupInfo.style.display = 'flex';
                 groupInfo.innerHTML = `
                     <button class="mw-nav-btn mw-grp-btn" id="mw-prev-group">&#x25C0;</button>
-                    <span class="mw-grp-label">Group ${currentGroup + 1}/${groupCount}</span>
+                    <span class="mw-grp-label">G${currentGroup + 1}/${groupCount}</span>
                     <button class="mw-nav-btn mw-grp-btn" id="mw-next-group">&#x25B6;</button>`;
                 document.getElementById('mw-prev-group')?.addEventListener('click', () => navigateGroup(-1));
                 document.getElementById('mw-next-group')?.addEventListener('click', () => navigateGroup(1));
@@ -749,7 +749,7 @@ IMPORTANT:
             if (studyMode === 'quiz' && quizTotal > 0) {
                 counter.textContent = `${currentIdx + 1}/${words.length} (${quizScore}/${quizTotal})`;
             } else {
-                counter.textContent = words.length > 0 ? `${currentIdx + 1} / ${words.length}${incompTag}` : '0 words';
+                counter.textContent = words.length > 0 ? `${currentIdx + 1}/${words.length}${incompTag}` : '0 words';
             }
         }
 
