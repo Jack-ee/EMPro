@@ -2597,9 +2597,11 @@ body {
 /* Labels hidden by default (mobile-first), shown on desktop */
 .mw-btn-label  { display: none; }
 .mw-fpill-label { display: none; }
+.mw-grp-short  { display: inline; }
 @media (min-width: 769px) {
     .mw-btn-label  { display: inline; }
     .mw-fpill-label { display: inline; }
+    .mw-grp-short  { display: none; }
 }
 
 @media (max-width: 640px) {
