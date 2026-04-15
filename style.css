@@ -2308,7 +2308,7 @@ body {
     display         : flex;
     align-items     : center;
     justify-content : center;
-    gap             : 6px;
+    gap             : 4px;
 }
 /* Arrow buttons — borderless, compact */
 .mw-arrow-btn {
@@ -2345,8 +2345,9 @@ body {
     font-family : var(--font-mono);
     font-size   : 14px;
     color       : var(--text-tertiary);
-    min-width   : 50px;
+    min-width   : 40px;
     text-align  : center;
+    padding     : 0 2px;
 }
 
 /* "+" add button — centered */
@@ -2611,13 +2612,15 @@ body {
     .mw-icon-btn { width: 28px; height: 28px; font-size: 13px; }
 
     /* Nav row: tight */
-    .mw-nav-row { gap: 4px; flex-wrap: nowrap; }
+    .mw-nav-row { gap: 3px; flex-wrap: nowrap; }
     .mw-mode-toggle { flex-shrink: 0; }
-    .mw-mt-btn { width: 32px; height: 28px; font-size: 15px; }
-    .mw-toggle-cn-btn { width: 32px; height: 28px; font-size: 14px; }
-    .mw-counter { font-size: 13px; min-width: 36px; }
-    .mw-arrow-btn { font-size: 15px; padding: 2px; }
-    .mw-vt-btn { padding: 4px 6px; font-size: 13px; }
+    .mw-mt-btn { width: 30px; height: 28px; font-size: 14px; }
+    .mw-toggle-cn-btn { width: auto; height: 28px; font-size: 12px; padding: 3px 6px; }
+    .mw-counter { font-size: 12px; min-width: 30px; padding: 0 1px; }
+    .mw-arrow-btn { font-size: 14px; padding: 1px; }
+    .mw-vt-btn { padding: 3px 5px; font-size: 12px; }
+    .mw-grp-label { font-size: 10px; }
+    .mw-grp-btn { font-size: 10px; padding: 1px; }
 
     /* Card: tighter padding */
     .mw-card { padding: 14px; }
@@ -2779,12 +2782,13 @@ body {
     display       : flex;
     align-items   : center;
     justify-content : center;
-    padding       : 5px 12px;
+    padding       : 4px 8px;
     background    : var(--bg-card);
     border        : 1px solid var(--border);
     border-radius : var(--radius-sm);
     cursor        : pointer;
     font-size     : 13px;
+    font-weight   : 600;
     transition    : all 0.12s;
     flex          : 0 0 auto;
     line-height   : 1;
@@ -3138,7 +3142,7 @@ body {
 .mw-group-info {
     display     : flex;
     align-items : center;
-    gap         : 4px;
+    gap         : 2px;
     flex        : 0 0 auto;
 }
 .mw-grp-label {
@@ -3147,10 +3151,11 @@ body {
     color       : var(--accent);
     font-weight : 500;
     white-space : nowrap;
+    padding     : 0;
 }
 .mw-grp-btn {
-    font-size  : 12px;
-    padding    : 2px;
+    font-size  : 11px;
+    padding    : 1px;
     width      : auto;
     height     : auto;
 }
@@ -3343,39 +3348,41 @@ html {
 
     /* --- Nav row (Browse/Quiz, Show CN, arrows, counter) --- */
     .mw-nav-row {
-        gap      : 6px;
+        gap      : 4px;
         flex-wrap: nowrap;
     }
     .mw-mode-toggle { flex-shrink: 0; }
     .mw-mt-btn {
-        width     : 38px;
+        width     : 36px;
         height    : 34px;
-        font-size : 18px;
+        font-size : 16px;
     }
     .mw-toggle-cn-btn {
-        width     : 38px;
+        width     : auto;
         height    : 34px;
-        font-size : 16px;
+        font-size : 14px;
+        padding   : 4px 8px;
     }
     .mw-counter {
-        font-size  : 15px;
-        min-width  : 50px;
+        font-size  : 14px;
+        min-width  : 36px;
+        padding    : 0 2px;
     }
     .mw-arrow-btn {
-        font-size : 18px;
-        padding   : 4px;
+        font-size : 16px;
+        padding   : 3px;
     }
     .mw-nav-btn {
-        font-size : 16px;
-    }
-    .mw-vt-btn {
-        padding   : 6px 10px;
-        font-size : 16px;
-    }
-    .mw-grp-btn {
         font-size : 14px;
     }
-    .mw-grp-label { font-size: 13px; }
+    .mw-vt-btn {
+        padding   : 5px 8px;
+        font-size : 14px;
+    }
+    .mw-grp-btn {
+        font-size : 12px;
+    }
+    .mw-grp-label { font-size: 12px; }
 
     /* --- Word cards --- */
     .mw-card { padding: 18px; }
