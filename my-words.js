@@ -102,7 +102,7 @@ window.MyWords = (function() {
         if (cnBtn) {
             cnBtn.style.display = studyMode === 'browse' ? '' : 'none';
             cnBtn.classList.toggle('active', showChinese);
-            cnBtn.textContent = showChinese ? '\u{1F441} Hide CN' : '\u{1F441} Show CN';
+            cnBtn.innerHTML = showChinese ? '\u{1F441}<span class="mw-btn-label"> Hide CN</span>' : '\u{1F441}<span class="mw-btn-label"> Show CN</span>';
         }
 
         render();
@@ -236,7 +236,7 @@ window.MyWords = (function() {
         const btn = document.getElementById('mw-toggle-cn');
         if (btn) {
             btn.classList.toggle('active', showChinese);
-            btn.textContent = showChinese ? '\u{1F441} Hide CN' : '\u{1F441} Show CN';
+            btn.innerHTML = showChinese ? '\u{1F441}<span class="mw-btn-label"> Hide CN</span>' : '\u{1F441}<span class="mw-btn-label"> Show CN</span>';
         }
         // Toggle all Chinese text elements
         document.querySelectorAll('.mw-cn').forEach(el => {
@@ -533,7 +533,7 @@ window.MyWords = (function() {
         document.getElementById('mw-mode-browse')?.classList.toggle('active', true);
         document.getElementById('mw-mode-quiz')?.classList.toggle('active', false);
         const cnBtn = document.getElementById('mw-toggle-cn');
-        if (cnBtn) { cnBtn.style.display = ''; cnBtn.classList.add('active'); cnBtn.textContent = '\u{1F441} Hide CN'; }
+        if (cnBtn) { cnBtn.style.display = ''; cnBtn.classList.add('active'); cnBtn.innerHTML = '\u{1F441}<span class="mw-btn-label"> Hide CN</span>'; }
 
         saveProgress();
         render();
@@ -647,7 +647,7 @@ IMPORTANT:
                 currentIdx = 0;
                 showChinese = true;
                 const cnBtn = document.getElementById('mw-toggle-cn');
-                if (cnBtn) { cnBtn.classList.add('active'); cnBtn.textContent = '\u{1F441} Hide CN'; }
+                if (cnBtn) { cnBtn.classList.add('active'); cnBtn.innerHTML = '\u{1F441}<span class="mw-btn-label"> Hide CN</span>'; }
                 render();
                 modal.classList.remove('open');
                 document.getElementById('mw-batch-input').value = '';
@@ -672,7 +672,7 @@ IMPORTANT:
         const cnBtn = document.getElementById('mw-toggle-cn');
         if (cnBtn) {
             cnBtn.classList.toggle('active', showChinese);
-            cnBtn.textContent = showChinese ? '\u{1F441} Hide CN' : '\u{1F441} Show CN';
+            cnBtn.innerHTML = showChinese ? '\u{1F441}<span class="mw-btn-label"> Hide CN</span>' : '\u{1F441}<span class="mw-btn-label"> Show CN</span>';
         }
         saveProgress();
         render();
@@ -1054,7 +1054,7 @@ NOTE: [usage tip for Chinese speakers, 1-2 sentences]`;
             if (idx >= 0) currentIdx = idx;
             showChinese = true;
             const cnBtn = document.getElementById('mw-toggle-cn');
-            if (cnBtn) { cnBtn.classList.add('active'); cnBtn.textContent = '\u{1F441} Hide CN'; }
+            if (cnBtn) { cnBtn.classList.add('active'); cnBtn.innerHTML = '\u{1F441}<span class="mw-btn-label"> Hide CN</span>'; }
             render();
             modal.classList.remove('open');
             document.getElementById('mw-single-paste-input').value = '';
@@ -1082,7 +1082,7 @@ Return ONLY valid JSON.`;
             });
             refreshStudyList(); showChinese = true;
             const cnBtn = document.getElementById('mw-toggle-cn');
-            if (cnBtn) { cnBtn.classList.add('active'); cnBtn.textContent = '\u{1F441} Hide CN'; }
+            if (cnBtn) { cnBtn.classList.add('active'); cnBtn.innerHTML = '\u{1F441}<span class="mw-btn-label"> Hide CN</span>'; }
             render();
         } catch (err) { window.App?.showToast?.(window.AIEngine.friendlyError(err)); }
         finally { isEnriching = false; }
