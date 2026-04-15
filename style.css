@@ -2609,8 +2609,8 @@ body {
     /* Nav row: tight */
     .mw-nav-row { gap: 4px; flex-wrap: nowrap; }
     .mw-mode-toggle { flex-shrink: 0; }
-    .mw-mt-btn { font-size: 16px; padding: 4px; }
-    .mw-toggle-cn-btn { padding: 4px 10px; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
+    .mw-mt-btn { width: 32px; height: 28px; font-size: 15px; }
+    .mw-toggle-cn-btn { width: 32px; height: 28px; font-size: 14px; }
     .mw-counter { font-size: 13px; min-width: 36px; }
     .mw-arrow-btn { font-size: 15px; padding: 2px; }
     .mw-vt-btn { padding: 4px 6px; font-size: 13px; }
@@ -2623,28 +2623,33 @@ body {
 /* --- Mode toggle (Browse / Quiz) --- */
 .mw-mode-toggle {
     display       : inline-flex;
-    gap           : 2px;
+    gap           : 0;
+    border        : 1px solid var(--border);
+    border-radius : var(--radius-sm);
+    overflow      : hidden;
     flex          : 0 0 auto;
 }
 .mw-mt-btn {
     display         : flex;
     align-items     : center;
     justify-content : center;
-    padding         : 4px 6px;
+    width           : 34px;
+    height          : 30px;
     background      : transparent;
     border          : none;
-    border-radius   : var(--radius-sm);
     cursor          : pointer;
     font-size       : 16px;
-    color           : var(--text-tertiary);
     transition      : all 0.1s;
     line-height     : 1;
 }
+.mw-mt-btn + .mw-mt-btn {
+    border-left : 1px solid var(--border);
+}
 .mw-mt-btn.active {
-    color      : var(--accent);
+    background : var(--accent-bg);
 }
 .mw-mt-btn:hover:not(.active) {
-    color      : var(--text-primary);
+    background : var(--bg-hover);
 }
 
 /* --- Chinese text toggle --- */
@@ -2770,17 +2775,19 @@ body {
 
 /* --- Show CN toggle button --- */
 .mw-toggle-cn-btn {
-    padding       : 5px 10px;
+    display       : flex;
+    align-items   : center;
+    justify-content : center;
+    width         : 34px;
+    height        : 30px;
     background    : var(--bg-card);
     border        : 1px solid var(--border);
     border-radius : var(--radius-sm);
     cursor        : pointer;
-    font-family   : var(--font-body);
-    font-size     : 13px;
-    color         : var(--text-tertiary);
+    font-size     : 15px;
     transition    : all 0.12s;
-    white-space   : nowrap;
     flex          : 0 0 auto;
+    line-height   : 1;
 }
 .mw-toggle-cn-btn:hover {
     border-color : var(--accent);
@@ -3341,14 +3348,14 @@ html {
     }
     .mw-mode-toggle { flex-shrink: 0; }
     .mw-mt-btn {
-        padding   : 4px 6px;
+        width     : 38px;
+        height    : 34px;
         font-size : 18px;
     }
     .mw-toggle-cn-btn {
-        padding   : 6px 12px;
-        font-size : 14px;
-        white-space: nowrap;
-        flex-shrink: 0;
+        width     : 38px;
+        height    : 34px;
+        font-size : 16px;
     }
     .mw-counter {
         font-size  : 15px;
