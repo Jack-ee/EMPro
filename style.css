@@ -2599,8 +2599,6 @@ body {
 @media (min-width: 769px) {
     .mw-btn-label  { display: inline; }
     .mw-fpill-label { display: inline; }
-    .mw-mt-btn { width: auto; height: auto; padding: 6px 12px; font-size: 14px; }
-    .mw-toggle-cn-btn { width: auto; height: auto; padding: 5px 12px; font-size: 13px; }
 }
 
 @media (max-width: 640px) {
@@ -2639,12 +2637,11 @@ body {
     display         : flex;
     align-items     : center;
     justify-content : center;
-    width           : 34px;
-    height          : 30px;
+    padding         : 6px 12px;
     background      : transparent;
     border          : none;
     cursor          : pointer;
-    font-size       : 16px;
+    font-size       : 14px;
     transition      : all 0.1s;
     line-height     : 1;
 }
@@ -2775,8 +2772,6 @@ body {
 
 @media (max-width: 640px) {
     .mw-quiz-options { grid-template-columns: 1fr; }
-    .mw-mode-toggle { width: 100%; }
-    .mw-mt-btn { flex: 1; text-align: center; }
 }
 
 /* --- Show CN toggle button --- */
@@ -2784,13 +2779,12 @@ body {
     display       : flex;
     align-items   : center;
     justify-content : center;
-    width         : 34px;
-    height        : 30px;
+    padding       : 5px 12px;
     background    : var(--bg-card);
     border        : 1px solid var(--border);
     border-radius : var(--radius-sm);
     cursor        : pointer;
-    font-size     : 15px;
+    font-size     : 13px;
     transition    : all 0.12s;
     flex          : 0 0 auto;
     line-height   : 1;
