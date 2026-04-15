@@ -3452,3 +3452,140 @@ html {
 .app-view, .modal-body, .ec-browse-list, .mw-area {
     -webkit-overflow-scrolling : touch;
 }
+
+/* ============================================================
+   MY WORDS NAV TOOLBAR REFRESH
+   Prevent label overlap on medium-width windows and touch devices
+   ============================================================ */
+
+.mw-nav-row {
+    display         : flex;
+    align-items     : center;
+    justify-content : flex-start;
+    gap             : 10px;
+    flex-wrap       : wrap;
+}
+
+.mw-nav-group {
+    display     : flex;
+    align-items : center;
+    gap         : 8px;
+    min-width   : 0;
+}
+
+.mw-nav-group-main {
+    flex      : 1 1 auto;
+    flex-wrap : wrap;
+}
+
+.mw-nav-group-progress {
+    flex        : 0 0 auto;
+    padding     : 4px 8px;
+    border      : 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background  : var(--bg-card);
+}
+
+.mw-nav-group-view {
+    margin-left : auto;
+    flex        : 0 0 auto;
+}
+
+.mw-mode-toggle,
+.mw-view-toggle,
+.mw-group-info {
+    flex-shrink : 0;
+}
+
+.mw-mt-btn,
+.mw-toggle-cn-btn {
+    width       : auto;
+    min-width   : 38px;
+    white-space : nowrap;
+}
+
+.mw-mt-btn,
+.mw-toggle-cn-btn,
+.mw-vt-btn,
+.mw-arrow-btn,
+.mw-nav-btn {
+    display     : inline-flex;
+    align-items : center;
+    gap         : 6px;
+}
+
+.mw-btn-label,
+.mw-fpill-label,
+.mw-grp-label {
+    white-space : nowrap;
+}
+
+.mw-toggle-cn-btn {
+    min-height : 32px;
+}
+
+.mw-counter {
+    min-width : 72px;
+}
+
+.mw-group-info {
+    padding       : 2px 6px;
+    border        : 1px solid var(--border);
+    border-radius : var(--radius-sm);
+    background    : var(--bg-card);
+}
+
+.mw-grp-btn {
+    min-width   : 20px;
+    min-height  : 20px;
+    white-space : nowrap;
+}
+
+@media (max-width: 1099px) {
+    .mw-btn-label,
+    .mw-fpill-label {
+        display : none;
+    }
+
+    .mw-nav-row {
+        gap : 8px;
+    }
+
+    .mw-nav-group-main {
+        flex : 1 1 100%;
+    }
+
+    .mw-nav-group-progress {
+        order : 2;
+    }
+
+    .mw-nav-group-view {
+        order        : 3;
+        margin-left  : 0;
+    }
+}
+
+@media (max-width: 720px) {
+    .mw-nav-row {
+        align-items : stretch;
+    }
+
+    .mw-nav-group-main,
+    .mw-nav-group-progress,
+    .mw-nav-group-view {
+        width           : 100%;
+        justify-content : flex-start;
+    }
+
+    .mw-nav-group-main {
+        gap : 6px;
+    }
+
+    .mw-nav-group-progress {
+        flex-wrap : wrap;
+    }
+
+    .mw-counter {
+        min-width : 60px;
+    }
+}
