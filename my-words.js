@@ -745,7 +745,7 @@ IMPORTANT:
         // Update counter
         if (counter) {
             const incomplete = studyList.filter(w => !isWordComplete(w)).length;
-            const incompTag  = incomplete > 0 ? ` \u00B7 ${incomplete} need enrich` : '';
+            const incompTag  = incomplete > 0 ? `\u2728${incomplete}` : '';
             if (studyMode === 'quiz' && quizTotal > 0) {
                 counter.textContent = `${currentIdx + 1}/${words.length} (${quizScore}/${quizTotal})`;
             } else {
@@ -807,7 +807,7 @@ IMPORTANT:
 
         const colloHtml = colloItems.length > 0 ? `
             <div class="mw-collo-grid2">
-                ${colloItems.map((c, i) => `<div class="mw-collo2"><button class="speak-btn speak-btn-s" data-text="${escAttr(c)}">&#x1F50A;</button><span class="mw-collo-en2">${escHtml(c)}</span>${colloCnItems[i] ? `<span class="mw-cn mw-collo-cn2 ${cnVis}">${escHtml(colloCnItems[i])}</span>` : ''}</div>`).join('')}
+                ${colloItems.map((c, i) => `<div class="mw-collo2 mw-speakable" data-speak="${escAttr(c)}"><span class="mw-collo-icon2">&#x1F50A;</span><span class="mw-collo-en2">${escHtml(c)}</span>${colloCnItems[i] ? `<span class="mw-cn mw-collo-cn2 ${cnVis}">${escHtml(colloCnItems[i])}</span>` : ''}</div>`).join('')}
             </div>` : '';
 
         const exHtml = w.context ? `
