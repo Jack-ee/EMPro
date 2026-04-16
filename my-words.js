@@ -87,22 +87,20 @@ window.MyWords = (function() {
         if (prog.qScore != null) quizScore = prog.qScore;
         if (prog.qTotal != null) quizTotal = prog.qTotal;
 
-        // Sync UI toggles
-        document.getElementById('mw-mode-browse')?.classList.toggle('active', studyMode === 'browse');
-        document.getElementById('mw-mode-quiz')?.classList.toggle('active', studyMode === 'quiz');
-        document.getElementById('mw-view-cards')?.classList.toggle('active', viewMode === 'cards');
-        document.getElementById('mw-view-list')?.classList.toggle('active', viewMode === 'list');
-        const filterSel = document.getElementById('mw-filter');
-        if (filterSel) filterSel.value = studyFilter;
+        // Sync UI toggles — derive display mode from saved studyMode + viewMode
+        const dm = studyMode === 'quiz' ? 'quiz' : viewMode === 'list' ? 'list' : 'cards';
+        document.getElementById('mw-dm-cards')?.classList.toggle('active', dm === 'cards');
+        document.getElementById('mw-dm-list')?.classList.toggle('active', dm === 'list');
+        document.getElementById('mw-dm-quiz')?.classList.toggle('active', dm === 'quiz');
         // Sync filter pills
         document.querySelectorAll('.mw-filter-pill').forEach(b => {
             b.classList.toggle('active', b.dataset.filter === studyFilter);
         });
         const cnBtn = document.getElementById('mw-toggle-cn');
         if (cnBtn) {
-            cnBtn.style.display = studyMode === 'browse' ? '' : 'none';
+            cnBtn.style.display = studyMode === 'quiz' ? 'none' : '';
             cnBtn.classList.toggle('active', showChinese);
-            cnBtn.innerHTML = showChinese ? '\u{1F441}<span class="mw-btn-label"> Hide CN</span>' : '\u{1F441}<span class="mw-btn-label"> Show CN</span>';
+            cnBtn.innerHTML = showChinese ? '中<span class="mw-btn-label"> CN</span>' : '中<span class="mw-btn-label"> CN</span>';
         }
 
         render();
@@ -159,11 +157,10 @@ window.MyWords = (function() {
         document.getElementById('mw-next')?.addEventListener('click', () => navigate(1));
         document.getElementById('mw-shuffle')?.addEventListener('click', shuffleList);
 
-        // View / mode toggles
-        document.getElementById('mw-view-cards')?.addEventListener('click', () => setView('cards'));
-        document.getElementById('mw-view-list')?.addEventListener('click', () => setView('list'));
-        document.getElementById('mw-mode-browse')?.addEventListener('click', () => setStudyMode('browse'));
-        document.getElementById('mw-mode-quiz')?.addEventListener('click', () => setStudyMode('quiz'));
+        // View / mode toggles — unified three-way
+        document.getElementById('mw-dm-cards')?.addEventListener('click', () => setDisplayMode('cards'));
+        document.getElementById('mw-dm-list')?.addEventListener('click', () => setDisplayMode('list'));
+        document.getElementById('mw-dm-quiz')?.addEventListener('click', () => setDisplayMode('quiz'));
 
         // Show/hide Chinese toggle
         document.getElementById('mw-toggle-cn')?.addEventListener('click', toggleChinese);
@@ -209,26 +206,37 @@ window.MyWords = (function() {
     // MODE / VIEW
     // =====================================================
 
-    function setStudyMode(mode) {
-        studyMode    = mode;
-        showChinese  = window.DB.getPref('show_cn_default', 'false') === 'true';
-        quizAnswered = false;
-        currentIdx   = 0;
-        document.getElementById('mw-mode-browse')?.classList.toggle('active', mode === 'browse');
-        document.getElementById('mw-mode-quiz')?.classList.toggle('active', mode === 'quiz');
+    function setDisplayMode(dm) {
+        // dm = 'cards' | 'list' | 'quiz'
+        if (dm === 'quiz') {
+            studyMode    = 'quiz';
+            viewMode     = 'cards';
+            showChinese  = window.DB.getPref('show_cn_default', 'false') === 'true';
+            quizAnswered = false;
+            currentIdx   = 0;
+            quizScore    = 0;
+            quizTotal    = 0;
+        } else {
+            studyMode = 'browse';
+            viewMode  = dm;  // 'cards' or 'list'
+        }
+        // Update three-way toggle active state
+        document.getElementById('mw-dm-cards')?.classList.toggle('active', dm === 'cards');
+        document.getElementById('mw-dm-list')?.classList.toggle('active', dm === 'list');
+        document.getElementById('mw-dm-quiz')?.classList.toggle('active', dm === 'quiz');
+        // CN toggle: visible in cards/list, hidden in quiz
         const cnBtn = document.getElementById('mw-toggle-cn');
-        if (cnBtn) cnBtn.style.display = mode === 'browse' ? '' : 'none';
-        if (mode === 'quiz') { quizScore = 0; quizTotal = 0; }
+        if (cnBtn) cnBtn.style.display = dm === 'quiz' ? 'none' : '';
         saveProgress();
         render();
     }
 
+    // Legacy wrappers (for any external callers)
+    function setStudyMode(mode) {
+        setDisplayMode(mode === 'quiz' ? 'quiz' : 'cards');
+    }
     function setView(mode) {
-        viewMode = mode;
-        document.getElementById('mw-view-cards')?.classList.toggle('active', mode === 'cards');
-        document.getElementById('mw-view-list')?.classList.toggle('active', mode === 'list');
-        saveProgress();
-        render();
+        setDisplayMode(mode === 'list' ? 'list' : 'cards');
     }
 
     function toggleChinese() {
@@ -236,7 +244,6 @@ window.MyWords = (function() {
         const btn = document.getElementById('mw-toggle-cn');
         if (btn) {
             btn.classList.toggle('active', showChinese);
-            btn.innerHTML = showChinese ? '\u{1F441}<span class="mw-btn-label"> Hide CN</span>' : '\u{1F441}<span class="mw-btn-label"> Show CN</span>';
         }
         // Toggle all Chinese text elements
         document.querySelectorAll('.mw-cn').forEach(el => {
@@ -527,13 +534,15 @@ window.MyWords = (function() {
         currentGroup = Math.floor(globalIdx / size);
         currentIdx   = globalIdx % size;
 
-        // Switch to browse mode to show the card
+        // Switch to card mode to show the card
         studyMode    = 'browse';
+        viewMode     = 'cards';
         showChinese  = true; // show meaning since user is looking up
-        document.getElementById('mw-mode-browse')?.classList.toggle('active', true);
-        document.getElementById('mw-mode-quiz')?.classList.toggle('active', false);
+        document.getElementById('mw-dm-cards')?.classList.toggle('active', true);
+        document.getElementById('mw-dm-list')?.classList.toggle('active', false);
+        document.getElementById('mw-dm-quiz')?.classList.toggle('active', false);
         const cnBtn = document.getElementById('mw-toggle-cn');
-        if (cnBtn) { cnBtn.style.display = ''; cnBtn.classList.add('active'); cnBtn.innerHTML = '\u{1F441}<span class="mw-btn-label"> Hide CN</span>'; }
+        if (cnBtn) { cnBtn.style.display = ''; cnBtn.classList.add('active'); }
 
         saveProgress();
         render();
