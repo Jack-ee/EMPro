@@ -433,6 +433,21 @@ window.App = (function() {
         }
     });
 
+    // Delegated handler for speakable rows (whole row triggers TTS)
+    document.addEventListener('click', (e) => {
+        const row = e.target.closest('.mw-speakable');
+        if (!row) return;
+        // Don't double-fire if a speak-btn was clicked inside
+        if (e.target.closest('.speak-btn')) return;
+        const text = row.dataset.speak || '';
+        if (text) {
+            const r = parseFloat(window.DB.getPref('speech_speed', '0.85'));
+            speak(text, r);
+            row.classList.add('mw-speaking');
+            setTimeout(() => row.classList.remove('mw-speaking'), 800);
+        }
+    });
+
     // --- Settings Initialization ---
     // --- Voice population (hoisted so openSettings can re-trigger) ---
     // On many Android devices, getVoices() returns [] forever even though TTS works
