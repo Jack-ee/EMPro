@@ -3024,6 +3024,19 @@ body {
     border-radius : var(--radius-sm);
     flex-wrap     : wrap;
 }
+.mw-collo2.mw-speakable {
+    cursor     : pointer;
+    transition : background 0.15s;
+}
+.mw-collo2.mw-speakable:active,
+.mw-collo2.mw-speaking {
+    background : var(--accent-bg);
+}
+.mw-collo-icon2 {
+    font-size   : 12px;
+    flex-shrink : 0;
+    opacity     : 0.5;
+}
 .mw-collo-en2 {
     font-family : var(--font-mono);
     font-size   : 12px;
