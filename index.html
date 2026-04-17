@@ -247,6 +247,11 @@ One word or phrase per line</pre>
                 </div>
                 <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Create at github.com/settings/tokens &rarr; scope: <strong>gist</strong> only. Each device auto-syncs every 30s when active, on focus, and on data changes.</p>
             </div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" id="install-section">
+                <h3 style="font-size:13px;margin-bottom:8px">Install as app</h3>
+                <button class="wl-btn-primary" id="btn-install-app" onclick="window.promptInstall()" style="display:none;padding:8px 14px">&#x1F4F1; Install on this device</button>
+                <p id="install-hint" style="font-size:10px;color:var(--text-tertiary);margin-top:4px">On Android Chrome: menu &rarr; "Install app" or "Add to Home Screen". On iOS Safari: Share &rarr; "Add to Home Screen".</p>
+            </div>
             <div class="settings-btn-row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
                 <button class="wl-btn-secondary" id="btn-export">Export</button>
                 <button class="wl-btn-secondary" id="btn-import">Import</button>
@@ -285,6 +290,36 @@ One word or phrase per line</pre>
 <script src="sync.js"></script>
 <script src="app.js"></script>
 <script>
+// --- PWA install: capture the browser's install prompt ---
+// Chrome fires beforeinstallprompt when install criteria are met.
+// We stash the event and expose an explicit "Install app" button in
+// Settings, because the passive install bubble is easy to miss.
+window.deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window.deferredInstallPrompt = e;
+    const btn = document.getElementById('btn-install-app');
+    if (btn) btn.style.display = '';
+    console.log('[PWA] Install prompt available');
+});
+window.addEventListener('appinstalled', () => {
+    console.log('[PWA] App installed');
+    window.deferredInstallPrompt = null;
+    const btn = document.getElementById('btn-install-app');
+    if (btn) btn.style.display = 'none';
+    window.App?.showToast?.('App installed!');
+});
+window.promptInstall = async function() {
+    if (!window.deferredInstallPrompt) {
+        window.App?.showToast?.('Install not available. Try Chrome menu → "Install app" or "Add to Home Screen".');
+        return;
+    }
+    window.deferredInstallPrompt.prompt();
+    const { outcome } = await window.deferredInstallPrompt.userChoice;
+    console.log('[PWA] Install choice:', outcome);
+    window.deferredInstallPrompt = null;
+};
+
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').then(reg => {
