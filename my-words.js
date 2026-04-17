@@ -799,9 +799,13 @@ IMPORTANT:
 
         // Build the speech queue for this card:
         //   1. the word itself
-        //   2. each collocation (split by middle-dot separator)
-        //   3. the example sentence (if present)
+        //   2. the English definition (if present)
+        //   3. each collocation (split by middle-dot separator)
+        //   4. the example sentence (if present)
         const queue = [w.word];
+        if (w.enDef && w.enDef.trim()) {
+            queue.push(w.enDef);
+        }
         if (w.collo) {
             (w.collo || '').split(/\s*·\s*/).map(s => s.trim()).filter(Boolean).forEach(c => queue.push(c));
         }
