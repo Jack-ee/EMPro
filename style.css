@@ -3517,6 +3517,23 @@ html {
         height : 20px;
         margin : 0 4px;
     }
+    /* Arrow buttons that carry a label (Play / Shuffle) get proper
+       button-like framing on PC; the unlabeled ones stay borderless. */
+    .mw-arrow-btn:has(.mw-btn-label) {
+        padding       : 4px 10px 4px 8px;
+        border-radius : var(--radius-sm);
+    }
+    .mw-arrow-btn:has(.mw-btn-label):hover {
+        background : var(--bg-hover);
+    }
+    .mw-arrow-btn .mw-btn-label {
+        font-size   : 12px;
+        font-weight : 500;
+        color       : var(--text-secondary);
+    }
+    .mw-arrow-btn:hover .mw-btn-label {
+        color : var(--text-primary);
+    }
 }
 
 /* Autoplay button — active state + subtle pulse when playing */
