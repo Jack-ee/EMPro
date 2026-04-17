@@ -241,7 +241,11 @@ One word or phrase per line</pre>
                     <input type="password" id="sync-github-token" placeholder="ghp_..." class="settings-input" style="flex:1;min-width:120px">
                     <button class="wl-btn-primary" id="btn-save-sync-token" style="padding:6px 10px">Save</button>
                 </div>
-                <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Create at github.com/settings/tokens &rarr; scope: <strong>gist</strong> only. Syncs learning progress across all devices.</p>
+                <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+                    <button class="wl-btn-secondary" id="btn-sync-push" style="padding:6px 10px">&#x2601;&#xFE0F; Push now</button>
+                    <button class="wl-btn-secondary" id="btn-sync-pull" style="padding:6px 10px">&#x2B07;&#xFE0F; Pull now</button>
+                </div>
+                <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Create at github.com/settings/tokens &rarr; scope: <strong>gist</strong> only. Each device auto-syncs every 30s when active, on focus, and on data changes.</p>
             </div>
             <div class="settings-btn-row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
                 <button class="wl-btn-secondary" id="btn-export">Export</button>
@@ -285,8 +289,32 @@ One word or phrase per line</pre>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').then(reg => {
         console.log('[PWA] Service worker registered, scope:', reg.scope);
+
+        // Check for updates every 60s while the page is open
+        setInterval(() => reg.update().catch(() => {}), 60000);
+
+        // When a new SW is waiting, tell it to activate immediately
+        reg.addEventListener('updatefound', () => {
+            const nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener('statechange', () => {
+                if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                    console.log('[PWA] New version installed — activating');
+                    nw.postMessage('SKIP_WAITING');
+                }
+            });
+        });
     }).catch(err => {
         console.warn('[PWA] SW registration failed:', err);
+    });
+
+    // Auto-reload once when the new SW takes control
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloaded) return;
+        reloaded = true;
+        console.log('[PWA] Controller changed — reloading for fresh assets');
+        location.reload();
     });
 }
 // Initialize sync after app boots
