@@ -44,6 +44,8 @@ window.App = (function() {
         document.getElementById('btn-save-api-key')?.addEventListener('click', saveAPIKey);
         document.getElementById('btn-test-api')?.addEventListener('click', testAPIKey);
         document.getElementById('btn-save-sync-token')?.addEventListener('click', saveSyncToken);
+        document.getElementById('btn-sync-push')?.addEventListener('click', manualPush);
+        document.getElementById('btn-sync-pull')?.addEventListener('click', manualPull);
         document.getElementById('btn-export')?.addEventListener('click', exportData);
         document.getElementById('btn-import')?.addEventListener('click', importData);
         document.getElementById('btn-factory-reset')?.addEventListener('click', factoryReset);
@@ -85,10 +87,10 @@ window.App = (function() {
         const keyInput = document.getElementById('api-key-input');
         const k        = window.DB.getAPIKey();
         if (keyInput) keyInput.value = k || '';
-        // Load sync token
+        // Load sync token (read via SyncManager — raw localStorage, not profile-prefixed)
         const syncInput = document.getElementById('sync-github-token');
-        const st        = window.DB.getPref('sync_github_token', '');
-        if (syncInput) syncInput.value = st || '';
+        const st        = window.SyncManager?.getToken?.() || '';
+        if (syncInput) syncInput.value = st;
         // Re-trigger voice population (user gesture context helps Android Chrome)
         populateVoices.startPolling();
     }
@@ -107,14 +109,23 @@ window.App = (function() {
     function saveSyncToken() {
         const input = document.getElementById('sync-github-token');
         const token = (input?.value || '').trim();
-        window.DB.setPref('sync_github_token', token);
+        window.SyncManager?.setToken?.(token);
         if (token) {
-            showToast('GitHub token saved. Sync will start automatically.');
-            // Trigger first sync
-            setTimeout(() => window.SyncManager?.triggerSave?.(), 1000);
+            showToast('GitHub token saved. Pushing first snapshot...');
+            // Push immediately so a Gist is created and we get a gist_id
+            setTimeout(() => window.SyncManager?.push?.(true), 500);
         } else {
             showToast('GitHub token cleared. Sync disabled.');
+            window.SyncManager?.updateSyncUI?.();
         }
+    }
+
+    function manualPush() {
+        window.SyncManager?.push?.(true);
+    }
+
+    function manualPull() {
+        window.SyncManager?.pull?.(true);
     }
 
     async function testAPIKey() {
