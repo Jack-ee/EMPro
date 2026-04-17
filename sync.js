@@ -234,6 +234,7 @@ window.SyncManager = (function() {
             return false;
         }
         isSyncing = true;
+        updateSyncUI();
         if (showToast) window.App?.showToast?.('Pulling...');
         try {
             const payload = await readGist();
@@ -265,6 +266,7 @@ window.SyncManager = (function() {
             return false;
         } finally {
             isSyncing = false;
+            updateSyncUI();
         }
     }
 
@@ -274,6 +276,7 @@ window.SyncManager = (function() {
             return false;
         }
         isSyncing = true;
+        updateSyncUI();
         if (showToast) window.App?.showToast?.('Syncing to cloud...');
         try {
             const ok = await writeGist(collectSyncData());
@@ -281,6 +284,7 @@ window.SyncManager = (function() {
             return ok;
         } finally {
             isSyncing = false;
+            updateSyncUI();
         }
     }
 
@@ -347,10 +351,10 @@ window.SyncManager = (function() {
             el = document.createElement('button');
             el.id = 'sync-indicator';
             el.className = 'header-btn';
-            el.style.cssText = 'font-size:14px;';
             hr.insertBefore(el, hr.firstChild);
             el.addEventListener('click', handleSyncClick);
         }
+        el.classList.toggle('syncing', isSyncing);
         const hasToken = Boolean(getToken());
         const hasGist  = Boolean(getGistId());
         const lastPush = getLastPush();
