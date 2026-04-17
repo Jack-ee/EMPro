@@ -741,11 +741,11 @@ IMPORTANT:
         const btn = document.getElementById('mw-autoplay');
         if (!btn) return;
         if (autoplayOn) {
-            btn.innerHTML = '&#x23F8;&#xFE0F;';   // ⏸️ pause
+            btn.innerHTML = '&#x23F8;&#xFE0F;<span class="mw-btn-label"> Stop</span>';   // ⏸️ pause
             btn.title     = 'Stop auto-play';
             btn.classList.add('mw-autoplay-on');
         } else {
-            btn.innerHTML = '&#x25B6;&#xFE0F;';   // ▶️ play
+            btn.innerHTML = '&#x25B6;&#xFE0F;<span class="mw-btn-label"> Play</span>';   // ▶️ play
             btn.title     = 'Auto-play pronunciations';
             btn.classList.remove('mw-autoplay-on');
         }
