@@ -3479,6 +3479,37 @@ html {
    UI POLISH — v11 (PWA install + sync UI refinements)
    ============================================================ */
 
+/* Left-align both toolbar rows on PC so they share the same
+   starting edge — more stable than the previous centered nav row. */
+@media (min-width: 769px) {
+    .mw-nav-row {
+        justify-content : flex-start;
+        flex-wrap       : wrap;
+        gap             : 6px;
+    }
+    /* Icon buttons expand to fit label text on PC */
+    .mw-icon-btn {
+        width    : auto;
+        height   : 30px;
+        padding  : 0 10px;
+        gap      : 4px;
+        font-size: 13px;
+    }
+    .mw-icon-btn .mw-btn-label {
+        font-size   : 12px;
+        font-weight : 500;
+        color       : var(--text-secondary);
+    }
+    .mw-icon-btn:hover .mw-btn-label {
+        color : var(--text-primary);
+    }
+    /* Sep inside nav-row gets a touch more breathing room on PC */
+    .mw-nav-row .mw-filter-sep {
+        height : 20px;
+        margin : 0 4px;
+    }
+}
+
 /* Autoplay button — active state + subtle pulse when playing */
 .mw-autoplay-on {
     background   : var(--accent-bg) !important;
