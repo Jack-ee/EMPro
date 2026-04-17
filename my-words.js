@@ -773,6 +773,8 @@ IMPORTANT:
         autoplayToken++;    // invalidates any pending callbacks
         if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null; }
         window.App?.stopSpeak?.();
+        document.querySelectorAll('.mw-card-playing, .mw-speaking-now')
+            .forEach(el => el.classList.remove('mw-card-playing', 'mw-speaking-now'));
         updateAutoplayBtn();
     }
 
@@ -781,7 +783,7 @@ IMPORTANT:
         else            startAutoplay();
     }
 
-    // Speak current word → (optionally) its example → wait → advance → repeat.
+    // Speak current word → each collocation → example sentence → wait → next.
     // The `myToken` pattern prevents stale callbacks from firing after stop.
     function speakCurrentAndQueueNext(myToken) {
         if (!autoplayOn || myToken !== autoplayToken) return;
@@ -795,23 +797,54 @@ IMPORTANT:
 
         const rate = parseFloat(window.DB.getPref('speech_speed', '0.85'));
 
-        // Step 1: speak the word itself
-        window.App?.speak?.(w.word, rate, () => {
-            if (!autoplayOn || myToken !== autoplayToken) return;
+        // Build the speech queue for this card:
+        //   1. the word itself
+        //   2. each collocation (split by middle-dot separator)
+        //   3. the example sentence (if present)
+        const queue = [w.word];
+        if (w.collo) {
+            (w.collo || '').split(/\s*·\s*/).map(s => s.trim()).filter(Boolean).forEach(c => queue.push(c));
+        }
+        if (autoplayWithEx && w.context && w.context.trim()) {
+            queue.push(w.context);
+        }
 
-            // Step 2: optionally speak the example sentence after a brief pause
-            if (autoplayWithEx && w.context && w.context.trim()) {
-                autoplayTimer = setTimeout(() => {
-                    if (!autoplayOn || myToken !== autoplayToken) return;
-                    window.App?.speak?.(w.context, rate, () => {
-                        if (!autoplayOn || myToken !== autoplayToken) return;
-                        scheduleNext(myToken);
-                    });
-                }, 400);
-            } else {
-                scheduleNext(myToken);
-            }
+        playQueue(queue, rate, myToken, () => {
+            if (!autoplayOn || myToken !== autoplayToken) return;
+            scheduleNext(myToken);
         });
+    }
+
+    // Play a list of strings sequentially with a short pause between each.
+    // Stops cleanly if autoplay is cancelled or the token is invalidated.
+    function playQueue(items, rate, myToken, onDone) {
+        let i = 0;
+        const next = () => {
+            if (!autoplayOn || myToken !== autoplayToken) return;
+            if (i >= items.length) { onDone && onDone(); return; }
+            const text = items[i++];
+            // Briefly highlight which collocation/example is being spoken
+            highlightSpeakable(text);
+            window.App?.speak?.(text, rate, () => {
+                if (!autoplayOn || myToken !== autoplayToken) return;
+                // Small pause between items (shorter than between-cards gap)
+                autoplayTimer = setTimeout(next, 350);
+            });
+        };
+        next();
+    }
+
+    // Add a transient glow to the collocation/example currently being spoken
+    // so the user can visually track progress through the card.
+    function highlightSpeakable(text) {
+        const norm = (text || '').trim().toLowerCase();
+        if (!norm) return;
+        // Clear any prior highlights
+        document.querySelectorAll('.mw-speaking-now').forEach(el => el.classList.remove('mw-speaking-now'));
+        // Find a .mw-speakable element whose dataset.speak matches
+        const match = Array.from(document.querySelectorAll('.mw-speakable'))
+            .find(el => (el.dataset.speak || '').trim().toLowerCase() === norm);
+        if (match) match.classList.add('mw-speaking-now');
     }
 
     function scheduleNext(myToken) {
@@ -819,7 +852,8 @@ IMPORTANT:
         autoplayTimer = setTimeout(() => {
             if (!autoplayOn || myToken !== autoplayToken) return;
             // Clear the "playing" highlight from the outgoing card
-            document.querySelectorAll('.mw-card-playing').forEach(el => el.classList.remove('mw-card-playing'));
+            document.querySelectorAll('.mw-card-playing, .mw-speaking-now')
+                .forEach(el => el.classList.remove('mw-card-playing', 'mw-speaking-now'));
 
             const words = getGroupWords();
             if (words.length === 0) { stopAutoplay(); return; }
