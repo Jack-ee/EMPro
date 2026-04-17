@@ -996,7 +996,7 @@ IMPORTANT:
                     </div>
                     <div class="mw-col-def">
                         ${w.meaning ? `<div class="mw-cn mw-cn2 ${cnVis}">${escHtml(w.meaning)}</div>` : ''}
-                        ${w.enDef   ? `<div class="mw-en2">${escHtml(w.enDef)}</div>` : ''}
+                        ${w.enDef   ? `<div class="mw-en2 mw-speakable" data-speak="${escAttr(w.enDef)}"><span class="mw-endef-icon">&#x1F50A;</span>${escHtml(w.enDef)}</div>` : ''}
                     </div>
                 </div>
                 ${colloHtml}
