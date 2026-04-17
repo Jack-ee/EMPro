@@ -1,8 +1,17 @@
 // sw.js — English Master Pro Service Worker
-const CACHE_NAME = 'emp-v10';
+// v11 — fixes install failure on mobile:
+//   • Removed phantom files (dictionary.js, vocab.js, stories.js, i18n.js)
+//     that don't exist in the project. cache.addAll() is atomic: a single
+//     404 fails the whole install, blocking the PWA install prompt.
+//   • Resilient install: individual cache.put calls so any single missing
+//     file is logged as a warning, not a fatal error.
+//   • Network-first for local assets (picks up deploys without a hard reload).
+
+const CACHE_NAME = 'emp-v11';
 const ASSETS = [
     './',
     './index.html',
+    './manifest.json',
     './style.css',
     './expressions-coach.css',
     './config.js',
@@ -19,56 +28,79 @@ const ASSETS = [
     './sentence-drill.js',
     './sync.js',
     './app.js',
-    './dictionary.js',
-    './vocab.js',
-    './stories.js',
-    './i18n.js',
     './icon-192.png',
     './icon-512.png'
 ];
 
-// Install — cache all assets
+// Install — cache assets individually so a single failure doesn't kill install.
+// This is essential for PWA installability: if install fails, the SW never
+// activates, and Chrome on Android won't offer the "Install" prompt.
 self.addEventListener('install', (e) => {
-    e.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
-    );
+    e.waitUntil((async () => {
+        const cache = await caches.open(CACHE_NAME);
+        await Promise.all(ASSETS.map(async (url) => {
+            try {
+                const resp = await fetch(url, { cache: 'reload' });
+                if (resp && resp.ok) {
+                    await cache.put(url, resp);
+                } else {
+                    console.warn('[SW] Skipped (bad response):', url, resp && resp.status);
+                }
+            } catch (err) {
+                console.warn('[SW] Skipped (fetch failed):', url, err && err.message);
+            }
+        }));
+    })());
     self.skipWaiting();
 });
 
-// Activate — clean old caches
+// Activate — clean old caches, take control immediately
 self.addEventListener('activate', (e) => {
-    e.waitUntil(
-        caches.keys().then(names =>
-            Promise.all(names.filter(n => n !== CACHE_NAME).map(n => caches.delete(n)))
-        )
-    );
-    self.clients.claim();
+    e.waitUntil((async () => {
+        const names = await caches.keys();
+        await Promise.all(names.filter(n => n !== CACHE_NAME).map(n => caches.delete(n)));
+        await self.clients.claim();
+    })());
 });
 
-// Fetch — cache-first for local assets, network-first for API calls
+// Fetch — network-first for local GETs, fall back to cache when offline.
+// Cross-origin requests (API providers, GitHub Gist, Google Fonts, Google TTS)
+// pass straight through — never cached, never intercepted.
 self.addEventListener('fetch', (e) => {
     const url = new URL(e.request.url);
 
-    // API calls: always go to network (AI providers, etc.)
+    // Cross-origin: pass through untouched
     if (url.hostname !== location.hostname) {
+        return;  // let browser handle it
+    }
+
+    // Any non-GET (or sync file): never cache
+    if (e.request.method !== 'GET' || url.pathname.includes('emp-sync')) {
         e.respondWith(fetch(e.request));
         return;
     }
 
-    // Sync file + POST requests: always network (never cache)
-    if (url.pathname.includes('emp-sync') || e.request.method !== 'GET') {
-        e.respondWith(fetch(e.request));
-        return;
-    }
+    // Local GETs: network-first, fall back to cache when offline
+    e.respondWith((async () => {
+        try {
+            const fresh = await fetch(e.request);
+            if (fresh && fresh.ok && fresh.type !== 'opaque') {
+                const cache = await caches.open(CACHE_NAME);
+                cache.put(e.request, fresh.clone()).catch(() => {});
+            }
+            return fresh;
+        } catch {
+            const cached = await caches.match(e.request);
+            if (cached) return cached;
+            if (e.request.destination === 'document') {
+                return (await caches.match('./index.html')) || new Response('Offline', { status: 504 });
+            }
+            return new Response('Offline', { status: 504 });
+        }
+    })());
+});
 
-    // Local assets: network-first, fall back to cache when offline
-    e.respondWith(
-        fetch(e.request)
-            .then(response => {
-                const clone = response.clone();
-                caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-                return response;
-            })
-            .catch(() => caches.match(e.request))
-    );
+// Support a manual "activate new SW" message from the page
+self.addEventListener('message', (e) => {
+    if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
