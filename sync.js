@@ -62,6 +62,7 @@ window.SyncManager = (function() {
         if (initialized) return;
         initialized = true;
         migrateLegacyToken();
+        fixPoisonedSyncTime();
         hookSaves();
         if (getToken() && getGistId()) {
             await pull(false);  // silent initial pull
@@ -70,6 +71,19 @@ window.SyncManager = (function() {
         startPolling();
         window.addEventListener('focus', onFocus);
         document.addEventListener('visibilitychange', onVisibilityChange);
+    }
+
+    // One-time migration: earlier versions of sync.js incorrectly advanced
+    // `lastPull` to Date.now() on no-op pulls, which could push it far
+    // beyond any legitimate Gist timestamp and block all future pulls.
+    // Zero it out once so the first pull after this upgrade always applies.
+    function fixPoisonedSyncTime() {
+        const FIX_FLAG = 'emp_sync_v2_fix_applied';
+        if (localStorage.getItem(FIX_FLAG)) return;
+        localStorage.removeItem(K_LAST_PULL);
+        localStorage.removeItem(K_LAST_PUSH);
+        localStorage.setItem(FIX_FLAG, '1');
+        console.log('[Sync] Applied v2 timestamp fix');
     }
 
     function onFocus() {
@@ -246,18 +260,14 @@ window.SyncManager = (function() {
             const lastPull   = getLastPull();
             const lastPush   = getLastPush();
 
-            // If remote is newer than our last pull, apply it. We used to also
-            // require remote >= lastPush to avoid overwriting a just-pushed
-            // change, but that caused a nasty silent bug: after Device A
-            // pushed at time T1, Device B edits and pushes at T2, then Device
-            // A pulls — the remote is T2 which IS > A's lastPush of T1, so
-            // that case was fine. The broken case was: Device A pushes at T1,
-            // Device B has never pushed (so B's lastPush=0), B's first pull
-            // of the bootstrap worked. But on subsequent pulls, B's lastPush
-            // would be from its OWN pushes, potentially making remote < local
-            // lastPush even when remote has legitimate new content from A.
-            // Trust lastPull alone as the "have we seen this version?" marker.
-            if (remoteTime > lastPull) {
+            // Manual pulls (showToast=true) always apply remote if it has
+            // a newer or equal _syncTime. Background polls use the strict
+            // "strictly newer than last pull" check to avoid reload loops.
+            const shouldApply = showToast
+                ? (remoteTime >= lastPull)
+                : (remoteTime > lastPull);
+
+            if (shouldApply && remoteTime > 0) {
                 mergeSyncData(payload);
                 if (showToast) window.App?.showToast?.('Synced from cloud. Reloading...');
                 else           console.log('[Sync] Pulled newer data from Gist');
@@ -265,7 +275,11 @@ window.SyncManager = (function() {
                 return true;
             } else {
                 if (showToast) window.App?.showToast?.('Already up to date.');
-                setLastPull(Date.now());
+                // IMPORTANT: do NOT advance lastPull here. The whole point of
+                // lastPull is "the newest remote timestamp we've applied" — if
+                // we update it on no-op pulls, future legitimate pulls (where
+                // a different device pushed at a timestamp between our last
+                // applied pull and now) get rejected.
                 updateSyncUI();
                 return true;
             }
