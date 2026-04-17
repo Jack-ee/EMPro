@@ -3479,6 +3479,33 @@ html {
    UI POLISH — v11 (PWA install + sync UI refinements)
    ============================================================ */
 
+/* Autoplay button — active state + subtle pulse when playing */
+.mw-autoplay-on {
+    background   : var(--accent-bg) !important;
+    color        : var(--accent) !important;
+    border-color : var(--accent) !important;
+}
+.mw-autoplay-on::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    border: 1px solid var(--accent);
+    opacity: 0.5;
+    animation: mw-autoplay-pulse 1.4s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes mw-autoplay-pulse {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50%      { opacity: 0;   transform: scale(1.15); }
+}
+
+/* Card being played — subtle left-border accent */
+.mw-card-playing {
+    box-shadow : inset 4px 0 0 var(--accent), var(--shadow-sm);
+    transition : box-shadow 0.2s;
+}
+
 /* Fix: in standalone mode, safe-area was being applied twice
    (once on <html>, once on header padding-top). In PWA mode the
    header IS the top of the viewport, so html's top inset is
