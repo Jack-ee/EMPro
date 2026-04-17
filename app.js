@@ -91,6 +91,22 @@ window.App = (function() {
         const syncInput = document.getElementById('sync-github-token');
         const st        = window.SyncManager?.getToken?.() || '';
         if (syncInput) syncInput.value = st;
+        // Install button visibility: show if prompt is available, or if we're
+        // running in a browser (not already installed as standalone PWA)
+        const installBtn  = document.getElementById('btn-install-app');
+        const installHint = document.getElementById('install-hint');
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                          || window.navigator.standalone === true;
+        if (installBtn) {
+            if (isStandalone) {
+                installBtn.style.display = 'none';
+                if (installHint) installHint.textContent = '\u2713 Already installed on this device.';
+            } else if (window.deferredInstallPrompt) {
+                installBtn.style.display = '';
+            } else {
+                installBtn.style.display = 'none';
+            }
+        }
         // Re-trigger voice population (user gesture context helps Android Chrome)
         populateVoices.startPolling();
     }
