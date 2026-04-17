@@ -3474,3 +3474,69 @@ html {
 .app-view, .modal-body, .ec-browse-list, .mw-area {
     -webkit-overflow-scrolling : touch;
 }
+
+/* ============================================================
+   UI POLISH — v11 (PWA install + sync UI refinements)
+   ============================================================ */
+
+/* Fix: in standalone mode, safe-area was being applied twice
+   (once on <html>, once on header padding-top). In PWA mode the
+   header IS the top of the viewport, so html's top inset is
+   enough — the header only needs its normal vertical padding. */
+@media (display-mode: standalone) {
+    .app-header {
+        padding-top : 6px;   /* override the doubled safe-area */
+    }
+}
+
+/* Sync indicator — visually distinct from other header buttons */
+#sync-indicator {
+    font-size : 15px;
+    /* When sync is active (cloud icon), use a subtle accent tint */
+    transition : background 0.2s, border-color 0.2s;
+}
+#sync-indicator:hover {
+    border-color : var(--accent);
+    color        : var(--accent);
+}
+#sync-indicator.syncing {
+    animation : sync-pulse 1.2s ease-in-out infinite;
+}
+@keyframes sync-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.45; }
+}
+
+/* Header button row: ensure sync indicator doesn't push other
+   buttons off-screen on narrow phones. */
+@media (max-width: 420px) {
+    .header-right { gap: 3px; }
+    .header-btn   { width: 32px; height: 32px; }
+    #sync-indicator { width: 30px; height: 30px; font-size: 14px; }
+}
+
+/* Settings: Cloud Sync — clarify button grouping on mobile */
+@media (max-width: 640px) {
+    #btn-sync-push, #btn-sync-pull {
+        flex : 1 1 auto;       /* each takes half-width */
+        font-size : 13px;
+        padding   : 8px 10px;
+    }
+}
+
+/* Install prompt helper — reserve space so a browser-supplied
+   install button in the header doesn't overlap on desktop */
+@media (display-mode: browser) {
+    .app-header { padding-right : 16px; }
+}
+
+/* Better modal scroll inertia on iOS/Android for long settings */
+.modal-body {
+    overscroll-behavior : contain;
+}
+
+/* Toast: ensure it sits above everything and respects safe area */
+#toast-container {
+    z-index : 10000;
+    padding-bottom : env(safe-area-inset-bottom, 0px);
+}
