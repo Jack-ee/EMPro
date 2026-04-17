@@ -17,6 +17,12 @@ window.MyWords = (function() {
     let currentGroup = 0;
     let studyFilter  = 'all'; // 'all' | 'core' | 'pronunciation' | 'spelling'
 
+    // --- Autoplay state ---
+    let autoplayOn      = false;
+    let autoplayTimer   = null;  // timeout id for next-word scheduling
+    let autoplayToken   = 0;     // increments on every stop; callbacks check this to abort
+    let autoplayWithEx  = true;  // speak example sentence after the word
+
     // --- Progress persistence (per-filter) ---
     function saveProgress() {
         const data = { idx: currentIdx, group: currentGroup, mode: studyMode, view: viewMode,
@@ -153,14 +159,17 @@ window.MyWords = (function() {
         document.getElementById('mw-batch-paste')?.addEventListener('click', openBatchPasteModal);
 
         // Navigation
-        document.getElementById('mw-prev')?.addEventListener('click', () => navigate(-1));
-        document.getElementById('mw-next')?.addEventListener('click', () => navigate(1));
-        document.getElementById('mw-shuffle')?.addEventListener('click', shuffleList);
+        document.getElementById('mw-prev')?.addEventListener('click', () => { stopAutoplay(); navigate(-1); });
+        document.getElementById('mw-next')?.addEventListener('click', () => { stopAutoplay(); navigate(1); });
+        document.getElementById('mw-shuffle')?.addEventListener('click', () => { stopAutoplay(); shuffleList(); });
+
+        // Autoplay toggle
+        document.getElementById('mw-autoplay')?.addEventListener('click', toggleAutoplay);
 
         // View / mode toggles — unified three-way
-        document.getElementById('mw-dm-cards')?.addEventListener('click', () => setDisplayMode('cards'));
-        document.getElementById('mw-dm-list')?.addEventListener('click', () => setDisplayMode('list'));
-        document.getElementById('mw-dm-quiz')?.addEventListener('click', () => setDisplayMode('quiz'));
+        document.getElementById('mw-dm-cards')?.addEventListener('click', () => { stopAutoplay(); setDisplayMode('cards'); });
+        document.getElementById('mw-dm-list')?.addEventListener('click', () => { stopAutoplay(); setDisplayMode('list'); });
+        document.getElementById('mw-dm-quiz')?.addEventListener('click', () => { stopAutoplay(); setDisplayMode('quiz'); });
 
         // Show/hide Chinese toggle
         document.getElementById('mw-toggle-cn')?.addEventListener('click', toggleChinese);
@@ -168,6 +177,7 @@ window.MyWords = (function() {
         // Focus filter pills
         document.querySelectorAll('.mw-filter-pill').forEach(btn => {
             btn.addEventListener('click', () => {
+                stopAutoplay();
                 // Save current filter's position before switching
                 saveProgress();
                 // Switch filter
@@ -194,9 +204,10 @@ window.MyWords = (function() {
             const view = document.getElementById('view-my-words');
             if (!view || !view.classList.contains('active')) return;
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            if (e.key === 'ArrowLeft')  { e.preventDefault(); navigate(-1); }
-            if (e.key === 'ArrowRight') { e.preventDefault(); navigate(1); }
+            if (e.key === 'ArrowLeft')  { e.preventDefault(); stopAutoplay(); navigate(-1); }
+            if (e.key === 'ArrowRight') { e.preventDefault(); stopAutoplay(); navigate(1); }
             if (e.key === ' ')          { e.preventDefault(); toggleChinese(); }
+            if (e.key === 'p' || e.key === 'P') { e.preventDefault(); toggleAutoplay(); }
         });
     }
 
@@ -723,6 +734,113 @@ IMPORTANT:
     }
 
     // =====================================================
+    // AUTOPLAY — walk through words reading each one aloud
+    // =====================================================
+
+    function updateAutoplayBtn() {
+        const btn = document.getElementById('mw-autoplay');
+        if (!btn) return;
+        if (autoplayOn) {
+            btn.innerHTML = '&#x23F8;&#xFE0F;';   // ⏸️ pause
+            btn.title     = 'Stop auto-play';
+            btn.classList.add('mw-autoplay-on');
+        } else {
+            btn.innerHTML = '&#x25B6;&#xFE0F;';   // ▶️ play
+            btn.title     = 'Auto-play pronunciations';
+            btn.classList.remove('mw-autoplay-on');
+        }
+    }
+
+    function startAutoplay() {
+        // Autoplay only makes sense in card view (browsing one word at a time).
+        // If user is in list view, flip them to cards first.
+        if (viewMode !== 'cards' || studyMode === 'quiz') {
+            setDisplayMode('cards');
+        }
+        const words = getGroupWords();
+        if (words.length === 0) {
+            window.App?.showToast?.('No words to play.');
+            return;
+        }
+        autoplayOn = true;
+        autoplayToken++;
+        updateAutoplayBtn();
+        speakCurrentAndQueueNext(autoplayToken);
+    }
+
+    function stopAutoplay() {
+        autoplayOn = false;
+        autoplayToken++;    // invalidates any pending callbacks
+        if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null; }
+        window.App?.stopSpeak?.();
+        updateAutoplayBtn();
+    }
+
+    function toggleAutoplay() {
+        if (autoplayOn) stopAutoplay();
+        else            startAutoplay();
+    }
+
+    // Speak current word → (optionally) its example → wait → advance → repeat.
+    // The `myToken` pattern prevents stale callbacks from firing after stop.
+    function speakCurrentAndQueueNext(myToken) {
+        if (!autoplayOn || myToken !== autoplayToken) return;
+        const words = getGroupWords();
+        const w     = words[currentIdx];
+        if (!w) { stopAutoplay(); return; }
+
+        // Highlight current card so the user can follow along on mobile
+        const cardEl = document.querySelector('.mw-card');
+        if (cardEl) cardEl.classList.add('mw-card-playing');
+
+        const rate = parseFloat(window.DB.getPref('speech_speed', '0.85'));
+
+        // Step 1: speak the word itself
+        window.App?.speak?.(w.word, rate, () => {
+            if (!autoplayOn || myToken !== autoplayToken) return;
+
+            // Step 2: optionally speak the example sentence after a brief pause
+            if (autoplayWithEx && w.context && w.context.trim()) {
+                autoplayTimer = setTimeout(() => {
+                    if (!autoplayOn || myToken !== autoplayToken) return;
+                    window.App?.speak?.(w.context, rate, () => {
+                        if (!autoplayOn || myToken !== autoplayToken) return;
+                        scheduleNext(myToken);
+                    });
+                }, 400);
+            } else {
+                scheduleNext(myToken);
+            }
+        });
+    }
+
+    function scheduleNext(myToken) {
+        // Pause between words so the user has a beat to register it
+        autoplayTimer = setTimeout(() => {
+            if (!autoplayOn || myToken !== autoplayToken) return;
+            // Clear the "playing" highlight from the outgoing card
+            document.querySelectorAll('.mw-card-playing').forEach(el => el.classList.remove('mw-card-playing'));
+
+            const words = getGroupWords();
+            if (words.length === 0) { stopAutoplay(); return; }
+
+            // Advance. If we hit the end of the group, stop gracefully
+            // rather than looping — looping would play forever.
+            if (currentIdx >= words.length - 1) {
+                stopAutoplay();
+                window.App?.showToast?.('Finished this group.');
+                return;
+            }
+            currentIdx++;
+            showChinese  = window.DB.getPref('show_cn_default', 'false') === 'true';
+            quizAnswered = false;
+            saveProgress();
+            render();
+            speakCurrentAndQueueNext(myToken);
+        }, 1200);
+    }
+
+    // =====================================================
     // RENDER
     // =====================================================
 
@@ -1156,5 +1274,5 @@ Return ONLY valid JSON.`;
     function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
     function escAttr(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' '); }
 
-    return { init, render, refreshStudyList };
+    return { init, render, refreshStudyList, startAutoplay, stopAutoplay, toggleAutoplay };
 })();
