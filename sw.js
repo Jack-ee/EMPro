@@ -1,13 +1,16 @@
 // sw.js — English Master Pro Service Worker
-// v11 — fixes install failure on mobile:
-//   • Removed phantom files (dictionary.js, vocab.js, stories.js, i18n.js)
-//     that don't exist in the project. cache.addAll() is atomic: a single
-//     404 fails the whole install, blocking the PWA install prompt.
+// v12 — fixes PWA install on mobile:
+//   • v11: removed phantom files (dictionary.js, vocab.js, stories.js,
+//     i18n.js) that were breaking cache.addAll().
+//   • v12: added maskable icon entries for proper Android webapk build.
+//     The previous icons were JPEG-in-PNG files (wrong MIME and wrong
+//     dimensions), which made Android silently fail the install-to-
+//     launcher step after reporting "installed successfully".
 //   • Resilient install: individual cache.put calls so any single missing
 //     file is logged as a warning, not a fatal error.
 //   • Network-first for local assets (picks up deploys without a hard reload).
 
-const CACHE_NAME = 'emp-v11';
+const CACHE_NAME = 'emp-v12';
 const ASSETS = [
     './',
     './index.html',
@@ -29,7 +32,9 @@ const ASSETS = [
     './sync.js',
     './app.js',
     './icon-192.png',
-    './icon-512.png'
+    './icon-512.png',
+    './icon-maskable-192.png',
+    './icon-maskable-512.png'
 ];
 
 // Install — cache assets individually so a single failure doesn't kill install.
