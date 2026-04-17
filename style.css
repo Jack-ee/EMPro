@@ -3515,6 +3515,26 @@ html {
     transition   : background 0.2s, border-color 0.2s;
 }
 
+/* Speaker icon for the English definition — matches collocation icon style.
+   The whole line is a .mw-speakable row (tap anywhere to speak). */
+.mw-en2 {
+    cursor : pointer;
+}
+.mw-en2:hover {
+    background : var(--bg-hover);
+}
+.mw-endef-icon {
+    display      : inline-block;
+    margin-right : 6px;
+    color        : var(--text-tertiary);
+    font-size    : 0.9em;
+    vertical-align : baseline;
+}
+.mw-en2.mw-speaking .mw-endef-icon,
+.mw-en2.mw-speaking-now .mw-endef-icon {
+    color : var(--accent);
+}
+
 /* Fix: in standalone mode, safe-area was being applied twice
    (once on <html>, once on header padding-top). In PWA mode the
    header IS the top of the viewport, so html's top inset is
