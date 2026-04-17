@@ -606,7 +606,9 @@ window.MyWords = (function() {
 
         const prompt = `Please provide detailed vocabulary entries for each word/phrase below. Use this EXACT format for EACH word, separated by "---":
 
-WORD: [the word/phrase exactly as given]
+LEMMA RULE: If a word is inflected (plural, past tense, -ing/-ed form, comparative, superlative, irregular form), provide the entry for its BASE FORM (lemma) and put the lemma in the WORD field, not the original input. Examples: "capping" → entry for "cap"; "went" → entry for "go"; "studies" → entry for "study"; "better" → entry for "good". For phrases, keep the phrase intact (don't lemmatize individual words inside a phrase). If the input is already in base form, use it unchanged.
+
+WORD: [the base form / lemma of the input word; for phrases, the phrase as given]
 PHONETIC: [IPA pronunciation, e.g. /\u02C8r\u00E6m.b\u028A.t\u0259n/]
 MEANING_CN: [Chinese meaning, concise but complete, 2-20 chars]
 MEANING_EN: [Clear English definition, 1-2 sentences]
@@ -627,6 +629,7 @@ IMPORTANT:
 - Collocations and their Chinese translations must be in the same order
 - Example sentences should reflect real-world usage, not textbook-style
 - Notes should highlight what a Chinese speaker specifically needs to know
+- Apply the LEMMA RULE above: return entries for base forms, not inflected input
 - Separate each entry with "---"
 - Do NOT use markdown formatting, just plain text`;
 
