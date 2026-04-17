@@ -3480,20 +3480,29 @@ html {
    ============================================================ */
 
 /* Left-align both toolbar rows on PC so they share the same
-   starting edge — more stable than the previous centered nav row. */
+   starting edge — more stable than the previous centered nav row.
+   Also switch both rows from overflow-scrolling to wrapping, since
+   labeled buttons need more width than mobile icon-only buttons. */
 @media (min-width: 769px) {
+    .mw-filter-row {
+        flex-wrap  : wrap;
+        overflow-x : visible;
+        row-gap    : 6px;
+    }
     .mw-nav-row {
         justify-content : flex-start;
         flex-wrap       : wrap;
         gap             : 6px;
+        row-gap         : 6px;
     }
     /* Icon buttons expand to fit label text on PC */
     .mw-icon-btn {
-        width    : auto;
-        height   : 30px;
-        padding  : 0 10px;
-        gap      : 4px;
-        font-size: 13px;
+        width       : auto;
+        height      : 30px;
+        padding     : 0 10px;
+        gap         : 4px;
+        font-size   : 13px;
+        white-space : nowrap;
     }
     .mw-icon-btn .mw-btn-label {
         font-size   : 12px;
@@ -3503,7 +3512,7 @@ html {
     .mw-icon-btn:hover .mw-btn-label {
         color : var(--text-primary);
     }
-    /* Sep inside nav-row gets a touch more breathing room on PC */
+    /* Separator inside nav-row gets a touch more breathing room on PC */
     .mw-nav-row .mw-filter-sep {
         height : 20px;
         margin : 0 4px;
