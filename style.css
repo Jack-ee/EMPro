@@ -3506,6 +3506,15 @@ html {
     transition : box-shadow 0.2s;
 }
 
+/* The specific collocation / example sentence currently being spoken.
+   Gives the user a clear visual anchor while autoplay reads through
+   multiple items on the same card. */
+.mw-speaking-now {
+    background   : var(--accent-bg) !important;
+    border-color : var(--accent) !important;
+    transition   : background 0.2s, border-color 0.2s;
+}
+
 /* Fix: in standalone mode, safe-area was being applied twice
    (once on <html>, once on header padding-top). In PWA mode the
    header IS the top of the viewport, so html's top inset is
