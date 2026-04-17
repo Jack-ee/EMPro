@@ -246,9 +246,18 @@ window.SyncManager = (function() {
             const lastPull   = getLastPull();
             const lastPush   = getLastPush();
 
-            // If remote is newer than our last pull AND newer than our last local push,
-            // apply it. Otherwise, our local state already reflects (or supersedes) remote.
-            if (remoteTime > lastPull && remoteTime >= lastPush) {
+            // If remote is newer than our last pull, apply it. We used to also
+            // require remote >= lastPush to avoid overwriting a just-pushed
+            // change, but that caused a nasty silent bug: after Device A
+            // pushed at time T1, Device B edits and pushes at T2, then Device
+            // A pulls — the remote is T2 which IS > A's lastPush of T1, so
+            // that case was fine. The broken case was: Device A pushes at T1,
+            // Device B has never pushed (so B's lastPush=0), B's first pull
+            // of the bootstrap worked. But on subsequent pulls, B's lastPush
+            // would be from its OWN pushes, potentially making remote < local
+            // lastPush even when remote has legitimate new content from A.
+            // Trust lastPull alone as the "have we seen this version?" marker.
+            if (remoteTime > lastPull) {
                 mergeSyncData(payload);
                 if (showToast) window.App?.showToast?.('Synced from cloud. Reloading...');
                 else           console.log('[Sync] Pulled newer data from Gist');
