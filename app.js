@@ -130,9 +130,11 @@ window.App = (function() {
         const token = (input?.value || '').trim();
         window.SyncManager?.setToken?.(token);
         if (token) {
-            showToast('GitHub token saved. Pushing first snapshot...');
-            // Push immediately so a Gist is created and we get a gist_id
-            setTimeout(() => window.SyncManager?.push?.(true), 500);
+            showToast('GitHub token saved. Looking for existing sync...');
+            // Call setupSync which will search for an existing Gist and pull
+            // it if found (preserving data from other devices), or create a
+            // new one if this is the first device to sync.
+            setTimeout(() => window.SyncManager?.setupSync?.(), 500);
         } else {
             showToast('GitHub token cleared. Sync disabled.');
             window.SyncManager?.updateSyncUI?.();
