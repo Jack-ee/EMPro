@@ -72,6 +72,9 @@ window.App = (function() {
     // --- Navigation ---
     function navigateTo(view) {
         currentView = view;
+        // Stop any in-progress autoplay / speech when switching views
+        window.MyWords?.stopAutoplay?.();
+        stopSpeak();
         document.querySelectorAll('.app-view').forEach(v => {
             v.classList.toggle('active', v.id === `view-${view}`);
         });
@@ -361,15 +364,25 @@ window.App = (function() {
         return ttsAudioEl;
     }
 
-    function speakGoogle(text, rate) {
+    function speakGoogle(text, rate, onEnd) {
         const audio   = getTTSAudio();
         const encoded = encodeURIComponent(text.slice(0, 200));
+        // Detach any prior end handler so we don't fire the previous callback
+        audio.onended = null;
+        audio.onerror = null;
         audio.src          = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=' + encoded;
         audio.playbackRate = Math.max(0.5, Math.min(rate || 0.85, 2.0));
-        audio.play().catch(err => console.warn('[TTS-Google] play() error:', err.message));
+        if (typeof onEnd === 'function') {
+            audio.onended = () => { audio.onended = null; onEnd(); };
+            audio.onerror = () => { audio.onerror = null; onEnd(); };
+        }
+        audio.play().catch(err => {
+            console.warn('[TTS-Google] play() error:', err.message);
+            if (typeof onEnd === 'function') onEnd();
+        });
     }
 
-    function speakNative(text, rate) {
+    function speakNative(text, rate, onEnd) {
         if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
             window.speechSynthesis.cancel();
         }
@@ -385,25 +398,30 @@ window.App = (function() {
                       || voices.find(v => v.lang.startsWith('en'));
         if (selected || fallback) u.voice = selected || fallback;
 
-        u.onerror = (e) => console.warn('[TTS-Native] Error:', e.error);
+        let done = false;
+        const fire = () => { if (!done) { done = true; if (typeof onEnd === 'function') onEnd(); } };
+        u.onend   = fire;
+        u.onerror = (e) => { console.warn('[TTS-Native] Error:', e.error); fire(); };
         window.speechSynthesis.speak(u);
     }
 
-    function speak(text, rate) {
-        if (!text) return;
+    function speak(text, rate, onEnd) {
+        // onEnd: optional callback fired when audio finishes (or fails).
+        //        Used by autoplay to chain word→example→next word.
+        if (!text) { if (typeof onEnd === 'function') onEnd(); return; }
         const autoSpeak = window.DB.getPref('auto_speak', 'true');
         // If called from navigate (no explicit rate) and auto-speak is off, skip
-        if (!rate && autoSpeak === 'false') return;
+        if (!rate && autoSpeak === 'false') { if (typeof onEnd === 'function') onEnd(); return; }
 
         const r = rate || parseFloat(window.DB.getPref('speech_speed', '0.85'));
 
         // Already decided which engine to use
         if (ttsMode === 'google') {
-            speakGoogle(text, r);
+            speakGoogle(text, r, onEnd);
             return;
         }
         if (ttsMode === 'native') {
-            speakNative(text, r);
+            speakNative(text, r, onEnd);
             return;
         }
 
@@ -411,7 +429,7 @@ window.App = (function() {
         if (!window.speechSynthesis) {
             ttsMode = 'google';
             console.log('[TTS] No speechSynthesis API, using Google TTS');
-            speakGoogle(text, r);
+            speakGoogle(text, r, onEnd);
             return;
         }
 
@@ -419,17 +437,22 @@ window.App = (function() {
         u.lang        = 'en-US';
         u.rate        = r;
         let started   = false;
+        let ended     = false;
+        const fire    = () => { if (!ended) { ended = true; if (typeof onEnd === 'function') onEnd(); } };
 
         u.onstart = () => {
             started = true;
             ttsMode = 'native';
             console.log('[TTS] Native engine works, using native mode');
         };
+        u.onend = fire;
         u.onerror = (e) => {
             if (!started) {
                 ttsMode = 'google';
                 console.log('[TTS] Native error (' + e.error + '), switching to Google TTS');
-                speakGoogle(text, r);
+                speakGoogle(text, r, onEnd);
+            } else {
+                fire();
             }
         };
 
@@ -441,9 +464,22 @@ window.App = (function() {
                 ttsMode = 'google';
                 console.log('[TTS] Native stuck (no onstart after 2s), switching to Google TTS');
                 window.speechSynthesis.cancel();
-                speakGoogle(text, r);
+                speakGoogle(text, r, onEnd);
             }
         }, 2000);
+    }
+
+    // Stop any in-progress TTS. Used by autoplay to interrupt cleanly.
+    function stopSpeak() {
+        try {
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+        } catch {}
+        if (ttsAudioEl) {
+            ttsAudioEl.onended = null;
+            ttsAudioEl.onerror = null;
+            try { ttsAudioEl.pause(); } catch {}
+            try { ttsAudioEl.currentTime = 0; } catch {}
+        }
     }
 
     // Delegated speak-btn handler
@@ -695,7 +731,8 @@ window.App = (function() {
         showToast,
         refreshStats,
         updateNotebookBadge,
-        speak
+        speak,
+        stopSpeak
     };
 })();
 
