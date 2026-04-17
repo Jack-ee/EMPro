@@ -311,6 +311,74 @@ window.SyncManager = (function() {
         }
     }
 
+    // First-time setup: after a token is saved, look for an existing Gist
+    // that matches our profile's sync file. If found, pull it (don't
+    // overwrite). If not found, push to create one.
+    // This prevents the footgun where a fresh device with empty data
+    // would clobber an existing Gist on first save.
+    async function setupSync() {
+        if (!getToken()) return false;
+        isSyncing = true;
+        updateSyncUI();
+        try {
+            // If we already have a gist ID (legacy setup), just pull
+            if (getGistId()) {
+                window.App?.showToast?.('Syncing from cloud...');
+                const payload = await readGist().catch(() => null);
+                if (payload && payload._syncTime) {
+                    mergeSyncData(payload);
+                    window.App?.showToast?.('Synced from cloud. Reloading...');
+                    setTimeout(() => location.reload(), 600);
+                    return true;
+                }
+                // Gist exists but is empty — push current state
+                await writeGist(collectSyncData());
+                window.App?.showToast?.('Synced to cloud.');
+                return true;
+            }
+
+            // No gist ID — search user's gists for one matching our sync filename
+            window.App?.showToast?.('Looking for existing sync...');
+            const resp = await fetch(`${GIST_API}?per_page=100`, {
+                headers: { 'Authorization': `Bearer ${getToken()}`, 'Accept': 'application/vnd.github+json' }
+            });
+            if (!resp.ok) throw new Error(`Gist list failed: ${resp.status}`);
+            const list = await resp.json();
+            const target = gistFile();
+            const match = (list || []).find(g => g.files && g.files[target]);
+
+            if (match) {
+                // Found an existing Gist — adopt and pull
+                setGistId(match.id);
+                console.log('[Sync] Found existing Gist:', match.id);
+                window.App?.showToast?.('Found existing sync. Pulling...');
+                const payload = await readGist();
+                if (payload && payload._syncTime) {
+                    mergeSyncData(payload);
+                    window.App?.showToast?.('Synced from cloud. Reloading...');
+                    setTimeout(() => location.reload(), 600);
+                    return true;
+                }
+                window.App?.showToast?.('Gist was empty. Pushed local data.');
+                await writeGist(collectSyncData());
+                return true;
+            }
+
+            // No existing Gist — create one via push
+            window.App?.showToast?.('Creating new sync Gist...');
+            const ok = await writeGist(collectSyncData());
+            window.App?.showToast?.(ok ? 'Synced to cloud. Future devices will merge here.' : 'Setup failed — check token.');
+            return ok;
+        } catch (e) {
+            console.warn('[Sync] setupSync error:', e.message || e);
+            window.App?.showToast?.('Sync setup failed. Check token + network.');
+            return false;
+        } finally {
+            isSyncing = false;
+            updateSyncUI();
+        }
+    }
+
     function triggerSave() {
         if (suspendHooks || !getToken()) return;
         if (saveTimer) clearTimeout(saveTimer);
@@ -419,6 +487,7 @@ window.SyncManager = (function() {
         triggerSave,
         pull,
         push,
+        setupSync,      // first-time setup: find existing Gist or create new
         updateSyncUI,
         setToken,       // for settings UI
         getToken        // for settings UI
