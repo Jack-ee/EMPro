@@ -22,6 +22,7 @@ window.MyWords = (function() {
     let autoplayTimer   = null;  // timeout id for next-word scheduling
     let autoplayToken   = 0;     // increments on every stop; callbacks check this to abort
     let autoplayWithEx  = true;  // speak example sentence after the word
+    let wakeLock        = null;  // Screen Wake Lock sentinel while autoplay runs
 
     // --- Progress persistence (per-filter) ---
     function saveProgress() {
@@ -767,6 +768,7 @@ IMPORTANT:
         }
         autoplayOn = true;
         autoplayToken++;
+        acquireWakeLock();   // keep screen on while autoplay runs
         updateAutoplayBtn();
         speakCurrentAndQueueNext(autoplayToken);
     }
@@ -776,10 +778,53 @@ IMPORTANT:
         autoplayToken++;    // invalidates any pending callbacks
         if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null; }
         window.App?.stopSpeak?.();
+        releaseWakeLock();   // let the screen sleep again
         document.querySelectorAll('.mw-card-playing, .mw-speaking-now')
             .forEach(el => el.classList.remove('mw-card-playing', 'mw-speaking-now'));
         updateAutoplayBtn();
     }
+
+    // --- Screen Wake Lock --------------------------------------------
+    // Prevents the phone's screen from auto-dimming/locking during
+    // autoplay sessions. Without this, Chrome suspends the tab when
+    // the screen goes dark and TTS stops mid-session.
+    // Browser auto-releases the lock when the tab is hidden; we re-
+    // acquire it when autoplay is still on and the tab becomes visible.
+    async function acquireWakeLock() {
+        if (!('wakeLock' in navigator)) {
+            console.log('[Autoplay] Wake Lock API not supported — screen may dim during playback');
+            return;
+        }
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log('[Autoplay] Screen wake lock acquired');
+            wakeLock.addEventListener('release', () => {
+                console.log('[Autoplay] Wake lock released by system');
+                wakeLock = null;
+            });
+        } catch (err) {
+            console.warn('[Autoplay] Wake lock request failed:', err.message);
+            wakeLock = null;
+        }
+    }
+
+    async function releaseWakeLock() {
+        if (!wakeLock) return;
+        try {
+            await wakeLock.release();
+        } catch (err) {
+            console.warn('[Autoplay] Wake lock release failed:', err.message);
+        }
+        wakeLock = null;
+    }
+
+    // Re-acquire wake lock if the user switches to another tab and comes back
+    // while autoplay is still running. The browser auto-releases on hide.
+    document.addEventListener('visibilitychange', () => {
+        if (autoplayOn && !document.hidden && !wakeLock) {
+            acquireWakeLock();
+        }
+    });
 
     function toggleAutoplay() {
         if (autoplayOn) stopAutoplay();
