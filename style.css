@@ -3536,6 +3536,16 @@ html {
     }
 }
 
+/* Toolbar action group: Import / AI enrich / Paste back.
+   Sits inline with the search box, right-aligned. On narrow
+   mobile widths it wraps to its own line below the search. */
+.mw-toolbar-actions {
+    display     : flex;
+    align-items : center;
+    gap         : 4px;
+    flex-shrink : 0;
+}
+
 /* Autoplay button — active state + subtle pulse when playing */
 .mw-autoplay-on {
     background   : var(--accent-bg) !important;
