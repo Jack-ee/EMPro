@@ -14,8 +14,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="expressions-coach.css">
+    <!-- =========================================================
+         Cache-busting version: bump this number on every deploy
+         to force the browser to refetch all local CSS/JS files.
+         Find-and-replace "?v=15" → "?v=16" across this file, then
+         also bump CACHE_NAME in sw.js to match (e.g. 'emp-v16').
+         ========================================================= -->
+    <link rel="stylesheet" href="style.css?v=15">
+    <link rel="stylesheet" href="expressions-coach.css?v=15">
 </head>
 <body>
 
@@ -278,20 +284,20 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js"></script>
-<script src="db.js"></script>
-<script src="ai-engine.js"></script>
-<script src="my-words.js"></script>
-<script src="writing-lab.js"></script>
-<script src="vocab-drill.js"></script>
-<script src="reader.js"></script>
-<script src="speaking-coach.js"></script>
-<script src="expressions-data.js"></script>
-<script src="expressions-coach.js"></script>
-<script src="sentence.js"></script>
-<script src="sentence-drill.js"></script>
-<script src="sync.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=15"></script>
+<script src="db.js?v=15"></script>
+<script src="ai-engine.js?v=15"></script>
+<script src="my-words.js?v=15"></script>
+<script src="writing-lab.js?v=15"></script>
+<script src="vocab-drill.js?v=15"></script>
+<script src="reader.js?v=15"></script>
+<script src="speaking-coach.js?v=15"></script>
+<script src="expressions-data.js?v=15"></script>
+<script src="expressions-coach.js?v=15"></script>
+<script src="sentence.js?v=15"></script>
+<script src="sentence-drill.js?v=15"></script>
+<script src="sync.js?v=15"></script>
+<script src="app.js?v=15"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.
