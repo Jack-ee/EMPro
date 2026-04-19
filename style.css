@@ -3593,7 +3593,7 @@ html {
         font-size  : 22px;
     }
     .mw-toolbar-actions {
-        margin-left : 6px;   /* clear breathing room between + and Import */
+        margin-left : 8px;   /* clear visual gap between + and Import */
         gap         : 4px;
     }
     .mw-toolbar-actions .mw-icon-btn {
@@ -3641,13 +3641,15 @@ html {
        heights are pixel-identical and they read as a single control.
        Play/Shuffle are sized generously to use reclaimed space. */
     .mw-nav-row {
-        gap         : 4px;
+        gap         : 3px;
         flex-wrap   : nowrap;
         align-items : center;
+        min-width   : 0;
     }
 
     /* Unified 4-button segmented control: Card | List | Quiz | 中
-       Re-enable the container box that base CSS defined (desktop uses it too);
+       32px per segment keeps row 3 within viewport while play/shuffle
+       stay prominent at 48px. Container provides outer border;
        children share borders via border-left on adjacent siblings. */
     .mw-mode-toggle {
         display       : inline-flex;
@@ -3656,11 +3658,11 @@ html {
         border-radius : var(--radius-sm);
         overflow      : hidden;
         flex          : 0 0 auto;
-        height        : 36px;
+        height        : 32px;
     }
     .mw-mt-btn,
     .mw-mode-toggle .mw-toggle-cn-btn {
-        width         : 36px;
+        width         : 32px;
         height        : 100%;
         padding       : 0;
         background    : var(--bg-card);
@@ -3705,9 +3707,10 @@ html {
         margin     : 0;
     }
 
-    /* Prev/Next arrows: larger tap targets, still borderless */
+    /* Prev/Next arrows: generous icon size with tight horizontal padding
+       so row 3 stays within viewport; vertical padding keeps tap area ≥32px. */
     .mw-arrow-btn {
-        padding     : 4px 6px;
+        padding     : 4px 4px;
         flex-shrink : 0;
         font-size   : 16px;
         background  : transparent;
