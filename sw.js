@@ -10,7 +10,7 @@
 //     file is logged as a warning, not a fatal error.
 //   • Network-first for local assets (picks up deploys without a hard reload).
 
-const CACHE_NAME = 'emp-v12';
+const CACHE_NAME = 'emp-v13';
 const ASSETS = [
     './',
     './index.html',
