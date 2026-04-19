@@ -3537,8 +3537,7 @@ html {
 }
 
 /* Toolbar action group: Import / AI enrich / Paste back.
-   Sits inline with the search box, right-aligned. On narrow
-   mobile widths it wraps to its own line below the search. */
+   Sits inline with the search box, right-aligned. */
 .mw-toolbar-actions {
     display     : flex;
     align-items : center;
@@ -3546,18 +3545,22 @@ html {
     flex-shrink : 0;
 }
 
-/* On mobile (narrow phones), force the action group onto its own
-   line so it doesn't get clipped or overlap with the + button. The
-   input's min-width of 160px plus the 44px + button can already eat
-   most of the row on a 380px viewport. Putting actions on their own
-   line gives all three icons room to breathe. */
+/* On mobile, the action icons stay on the same row as the search
+   input but shrink to compact 32px squares to fit. The search input
+   flexes to fill whatever width remains. */
 @media (max-width: 640px) {
-    .mw-quick-add {
-        flex-basis : 100%;   /* claim the full row */
+    .mw-toolbar {
+        flex-wrap : nowrap;    /* keep everything on one row */
+        gap       : 4px;
     }
-    .mw-toolbar-actions {
-        flex-basis      : 100%;   /* drop to its own line */
-        justify-content : flex-end;
+    .mw-quick-add {
+        min-width : 0;         /* allow the input to shrink below its content width */
+    }
+    .mw-toolbar-actions .mw-icon-btn {
+        width   : 32px;
+        height  : 32px;
+        padding : 0;
+        font-size: 14px;
     }
 }
 
