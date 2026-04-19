@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EM Pro — Sync Diagnostic</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: -apple-system, system-ui, sans-serif;
+        background: #faf9f7;
+        color: #1a1916;
+        padding: 12px;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+    h1 { font-size: 18px; margin-bottom: 8px; color: #2d5a3d; }
+    h2 { font-size: 14px; margin: 12px 0 6px; color: #5c5952; }
+    .card {
+        background: #fff;
+        border: 1px solid #e2dfd9;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    input, select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #e2dfd9;
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: inherit;
+        margin-bottom: 6px;
+    }
+    button {
+        background: #2d5a3d;
+        color: #fff;
+        border: none;
+        padding: 9px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        margin: 3px;
+    }
+    button:active { background: #1e3d29; }
+    button.secondary {
+        background: #fff;
+        color: #2d5a3d;
+        border: 1px solid #2d5a3d;
+    }
+    button.danger {
+        background: #fff;
+        color: #b5362a;
+        border: 1px solid #b5362a;
+    }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .btn-row button { flex: 1 1 auto; margin: 0; }
+    #log {
+        background: #1a1916;
+        color: #e0e0e0;
+        padding: 10px;
+        border-radius: 6px;
+        font-family: 'Menlo', 'Monaco', monospace;
+        font-size: 11px;
+        line-height: 1.5;
+        max-height: 50vh;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .log-info  { color: #7fc4ff; }
+    .log-ok    { color: #8fe0a0; }
+    .log-err   { color: #ff8070; }
+    .log-warn  { color: #f0c868; }
+    .log-dim   { color: #808080; }
+    .kv {
+        font-family: 'Menlo', 'Monaco', monospace;
+        font-size: 12px;
+        background: #f5f3f0;
+        padding: 6px 8px;
+        border-radius: 4px;
+        margin: 3px 0;
+        word-break: break-all;
+    }
+    .kv b { color: #2d5a3d; }
+    .hint { font-size: 11px; color: #8a857d; margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<h1>🔧 EM Pro — Sync Diagnostic</h1>
+<p class="hint">Standalone tool. Bypasses the service worker. Every step is logged.</p>
+
+<div class="card">
+    <h2>1. Token</h2>
+    <input type="password" id="token" placeholder="ghp_... (paste your GitHub token)">
+    <div class="btn-row">
+        <button onclick="saveToken()">Save token</button>
+        <button class="secondary" onclick="loadToken()">Reload from storage</button>
+        <button class="danger" onclick="clearToken()">Clear token</button>
+    </div>
+    <p class="hint">Token is saved to localStorage under <code>emp_sync_token</code>.</p>
+</div>
+
+<div class="card">
+    <h2>2. Profile &amp; target file</h2>
+    <div class="kv">Profile: <b id="profile-id">JackChen</b></div>
+    <div class="kv">Target filename: <b id="filename">emp-sync-JackChen.json</b></div>
+    <div class="kv">Saved gist ID: <b id="gist-id">(none)</b></div>
+</div>
+
+<div class="card">
+    <h2>3. Tests</h2>
+    <div class="btn-row">
+        <button onclick="testNetwork()">A. Ping GitHub API</button>
+        <button onclick="listGists()">B. List my gists</button>
+    </div>
+    <div class="btn-row">
+        <button onclick="findAndAdoptGist()">C. Find &amp; adopt existing sync Gist</button>
+    </div>
+    <div class="btn-row">
+        <button onclick="readGist()">D. Read current Gist</button>
+        <button onclick="countAmbiguity()">E. Check for "ambiguity"</button>
+    </div>
+    <div class="btn-row">
+        <button onclick="writeTestPing()">F. Write test ping (safe)</button>
+    </div>
+    <p class="hint">Run A → B → C → D → E in order. Each step logs what it finds.</p>
+</div>
+
+<div class="card">
+    <h2>Log</h2>
+    <div id="log"></div>
+    <div class="btn-row">
+        <button class="secondary" onclick="clearLog()">Clear log</button>
+        <button class="secondary" onclick="copyLog()">Copy log</button>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Raw localStorage (emp_sync_*)</h2>
+    <div id="storage-view" class="kv"></div>
+    <button class="secondary" onclick="renderStorage()">Refresh</button>
+</div>
+
+<script>
+// ─── Constants ─────────────────────────────────────────────
+const PROFILE = 'JackChen';
+const FILENAME = `emp-sync-${PROFILE}.json`;
+const GIST_API = 'https://api.github.com/gists';
+const K_TOKEN   = 'emp_sync_token';
+const K_GIST_ID = 'emp_sync_gist_id';
+
+// ─── Logging ───────────────────────────────────────────────
+function log(msg, cls) {
+    const el = document.getElementById('log');
+    const ts = new Date().toTimeString().slice(0, 8);
+    const line = document.createElement('div');
+    line.className = cls || '';
+    line.textContent = `[${ts}] ${msg}`;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+}
+function logInfo(m)  { log(m, 'log-info'); }
+function logOk(m)    { log('✓ ' + m, 'log-ok'); }
+function logErr(m)   { log('✗ ' + m, 'log-err'); }
+function logWarn(m)  { log('! ' + m, 'log-warn'); }
+function logDim(m)   { log(m, 'log-dim'); }
+
+function clearLog() { document.getElementById('log').textContent = ''; }
+async function copyLog() {
+    const text = document.getElementById('log').innerText;
+    try { await navigator.clipboard.writeText(text); alert('Log copied.'); }
+    catch { prompt('Copy manually:', text); }
+}
+
+// ─── Storage ───────────────────────────────────────────────
+function getToken()  { return localStorage.getItem(K_TOKEN) || ''; }
+function getGistId() { return localStorage.getItem(K_GIST_ID) || ''; }
+function saveToken() {
+    const t = document.getElementById('token').value.trim();
+    if (!t) { logWarn('Token field is empty.'); return; }
+    localStorage.setItem(K_TOKEN, t);
+    logOk('Token saved to localStorage (' + t.length + ' chars).');
+    renderStorage();
+}
+function loadToken() {
+    const t = getToken();
+    document.getElementById('token').value = t;
+    logInfo(t ? 'Token loaded from storage (' + t.length + ' chars).' : 'No token in storage.');
+}
+function clearToken() {
+    localStorage.removeItem(K_TOKEN);
+    localStorage.removeItem(K_GIST_ID);
+    document.getElementById('token').value = '';
+    logWarn('Cleared token and gist ID from localStorage.');
+    renderStorage();
+    renderGistId();
+}
+function setGistId(id) {
+    if (id) localStorage.setItem(K_GIST_ID, id);
+    else    localStorage.removeItem(K_GIST_ID);
+    renderGistId();
+}
+function renderGistId() {
+    const id = getGistId();
+    document.getElementById('gist-id').textContent = id || '(none)';
+}
+function renderStorage() {
+    const view = document.getElementById('storage-view');
+    const rows = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('emp_sync_')) {
+            const v = localStorage.getItem(k);
+            const shown = v.length > 60 ? v.slice(0, 40) + '…(' + v.length + ' chars)' : v;
+            rows.push(`<div><b>${k}</b> = ${shown}</div>`);
+        }
+    }
+    view.innerHTML = rows.length ? rows.join('') : '<i>(no emp_sync_* keys found)</i>';
+}
+
+// ─── HTTP helper with full logging ─────────────────────────
+async function http(method, url, opts) {
+    opts = opts || {};
+    const headers = Object.assign({
+        'Accept': 'application/vnd.github+json'
+    }, opts.headers || {});
+    if (getToken()) headers['Authorization'] = 'Bearer ' + getToken();
+    if (opts.body)  headers['Content-Type']  = 'application/json';
+
+    logDim(`→ ${method} ${url}`);
+    let resp;
+    try {
+        resp = await fetch(url, { method, headers, body: opts.body });
+    } catch (e) {
+        logErr(`Network error: ${e.message}`);
+        throw e;
+    }
+    logDim(`← ${resp.status} ${resp.statusText}`);
+
+    const text = await resp.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch { /* not JSON */ }
+    if (!resp.ok) {
+        logErr(`HTTP ${resp.status}: ${text.slice(0, 200)}`);
+    }
+    return { ok: resp.ok, status: resp.status, data, text };
+}
+
+// ─── Tests ─────────────────────────────────────────────────
+
+// A. Basic network test
+async function testNetwork() {
+    if (!getToken()) { logErr('No token. Save a token first.'); return; }
+    logInfo('--- A. Pinging GitHub API ---');
+    const r = await http('GET', 'https://api.github.com/user');
+    if (r.ok && r.data) {
+        logOk(`Authenticated as: ${r.data.login} (${r.data.name || 'no name'})`);
+        logInfo(`Account created: ${r.data.created_at}`);
+    } else {
+        logErr('Could not authenticate. Check token.');
+    }
+}
+
+// B. List all gists
+async function listGists() {
+    if (!getToken()) { logErr('No token. Save a token first.'); return; }
+    logInfo('--- B. Listing gists ---');
+    const r = await http('GET', `${GIST_API}?per_page=100`);
+    if (!r.ok || !r.data) { logErr('List failed.'); return; }
+    logOk(`Got ${r.data.length} gists.`);
+    let matches = 0;
+    r.data.forEach(g => {
+        const files = Object.keys(g.files || {});
+        const hasSync = files.includes(FILENAME);
+        if (hasSync) {
+            matches++;
+            logOk(`  ★ Found sync gist: ${g.id}`);
+            logDim(`     description: ${g.description || '(none)'}`);
+            logDim(`     updated: ${g.updated_at}`);
+            logDim(`     files: ${files.join(', ')}`);
+        } else {
+            logDim(`  · ${g.id.slice(0, 8)} — ${files.join(', ').slice(0, 60)}`);
+        }
+    });
+    if (matches === 0) logWarn(`No gist contains a file named "${FILENAME}".`);
+    else               logOk(`Found ${matches} sync gist(s) matching "${FILENAME}".`);
+}
+
+// C. Find existing sync gist and adopt its ID
+async function findAndAdoptGist() {
+    if (!getToken()) { logErr('No token. Save a token first.'); return; }
+    logInfo('--- C. Finding & adopting sync gist ---');
+    const r = await http('GET', `${GIST_API}?per_page=100`);
+    if (!r.ok || !r.data) { logErr('List failed.'); return; }
+    const match = r.data.find(g => g.files && g.files[FILENAME]);
+    if (!match) {
+        logWarn(`No gist found with file "${FILENAME}".`);
+        return;
+    }
+    setGistId(match.id);
+    logOk(`Adopted gist ID: ${match.id}`);
+    logDim(`Last updated: ${match.updated_at}`);
+}
+
+// D. Read the gist content
+async function readGist() {
+    if (!getToken()) { logErr('No token.'); return; }
+    const id = getGistId();
+    if (!id) { logErr('No gist ID. Run step C first.'); return; }
+    logInfo('--- D. Reading gist ---');
+    const r = await http('GET', `${GIST_API}/${id}`);
+    if (!r.ok || !r.data) { logErr('Read failed.'); return; }
+    const file = r.data.files?.[FILENAME];
+    if (!file) { logErr(`File "${FILENAME}" not in gist.`); return; }
+    logOk(`File size: ${file.size} bytes (truncated=${file.truncated})`);
+    logInfo(`Raw URL: ${file.raw_url}`);
+    try {
+        let content = file.content;
+        // GitHub truncates file.content at 1MB; if truncated, fetch raw_url
+        if (file.truncated && file.raw_url) {
+            logWarn('Content was truncated; fetching raw_url...');
+            const rawResp = await fetch(file.raw_url);
+            content = await rawResp.text();
+            logOk(`Fetched raw content (${content.length} chars)`);
+        }
+        const payload = JSON.parse(content);
+        logOk(`Parsed JSON. _version=${payload._version}, _syncTime=${payload._syncTime}, _device=${payload._device}`);
+        if (payload._syncTime) {
+            logInfo(`_syncTime as date: ${new Date(payload._syncTime).toISOString()}`);
+        }
+        window.__lastPayload = payload;
+        const keys = Object.keys(payload.data || {});
+        logOk(`payload.data has ${keys.length} keys.`);
+        keys.slice(0, 5).forEach(k => logDim(`  ${k}`));
+        if (keys.length > 5) logDim(`  ... and ${keys.length - 5} more`);
+    } catch (e) {
+        logErr(`Failed to parse JSON: ${e.message}`);
+    }
+}
+
+// E. Count 'ambiguity' in the notebook
+async function countAmbiguity() {
+    if (!window.__lastPayload) {
+        logWarn('No payload loaded. Running step D first...');
+        await readGist();
+        if (!window.__lastPayload) return;
+    }
+    logInfo('--- E. Searching for "ambiguity" ---');
+    const data = window.__lastPayload.data || {};
+    let found = 0;
+    Object.keys(data).forEach(k => {
+        if (k.includes('notebook')) {
+            try {
+                const words = JSON.parse(data[k]);
+                const hits = words.filter(w => (w.word || '').toLowerCase().includes('ambig'));
+                if (hits.length) {
+                    logOk(`In key "${k}": ${hits.length} matching word(s)`);
+                    hits.forEach(w => {
+                        const dt = w.addedAt ? new Date(w.addedAt).toISOString() : '?';
+                        logInfo(`  "${w.word}" added ${dt}, meaning="${w.meaning || '(empty)'}"`);
+                        found++;
+                    });
+                } else {
+                    logDim(`"${k}" has ${words.length} words, no match.`);
+                }
+            } catch { logErr(`Couldn't parse "${k}" as JSON array.`); }
+        }
+    });
+    if (found === 0) logWarn('No "ambiguity" entry anywhere.');
+    else             logOk(`Total ambiguity-like entries: ${found}`);
+}
+
+// F. Write a harmless test ping — does NOT touch notebook
+async function writeTestPing() {
+    if (!getToken()) { logErr('No token.'); return; }
+    const id = getGistId();
+    if (!id) { logErr('No gist ID. Run step C first.'); return; }
+    if (!window.__lastPayload) {
+        logWarn('Reading gist first to preserve existing content...');
+        await readGist();
+        if (!window.__lastPayload) return;
+    }
+    logInfo('--- F. Writing test ping ---');
+
+    const payload = JSON.parse(JSON.stringify(window.__lastPayload));  // deep clone
+    payload._lastDiagnosticPing = {
+        at: new Date().toISOString(),
+        from: navigator.userAgent.slice(0, 80)
+    };
+    payload._syncTime = Date.now();
+
+    const body = JSON.stringify({
+        files: { [FILENAME]: { content: JSON.stringify(payload) } }
+    });
+    const r = await http('PATCH', `${GIST_API}/${id}`, { body });
+    if (r.ok) {
+        logOk('Write succeeded. Ping stamp added, _syncTime updated.');
+        logInfo('Check the Gist on github.com — you should see the updated timestamp.');
+    } else {
+        logErr('Write failed.');
+    }
+}
+
+// ─── Boot ──────────────────────────────────────────────────
+loadToken();
+renderGistId();
+renderStorage();
+logInfo('Ready. Save a token and run step A to begin.');
+logDim(`User agent: ${navigator.userAgent.slice(0, 120)}`);
+logDim(`Online: ${navigator.onLine}, Protocol: ${location.protocol}`);
+</script>
+</body>
+</html>
