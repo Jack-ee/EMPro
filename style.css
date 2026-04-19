@@ -3379,9 +3379,10 @@ html {
         padding   : 4px 8px;
     }
     .mw-counter {
-        font-size  : 14px;
-        min-width  : 36px;
+        font-size  : 13px;
+        min-width  : 64px;      /* room for '35/50  ✨4' without clipping */
         padding    : 0 2px;
+        white-space: nowrap;
     }
     .mw-arrow-btn {
         font-size : 16px;
@@ -3546,21 +3547,38 @@ html {
 }
 
 /* On mobile, the action icons stay on the same row as the search
-   input but shrink to compact 32px squares to fit. The search input
-   flexes to fill whatever width remains. */
+   input. The toolbar uses `flex-wrap: nowrap` to force single-row
+   layout, and the quick-add container gets `min-width: 0` so the
+   input can actually shrink below its intrinsic content width
+   rather than pushing siblings off-screen or overlapping them. */
 @media (max-width: 640px) {
     .mw-toolbar {
-        flex-wrap : nowrap;    /* keep everything on one row */
+        flex-wrap : nowrap;
         gap       : 4px;
     }
     .mw-quick-add {
-        min-width : 0;         /* allow the input to shrink below its content width */
+        min-width : 0;
+        flex      : 1 1 0;     /* grow + shrink freely, start from 0 */
     }
     .mw-toolbar-actions .mw-icon-btn {
         width   : 32px;
         height  : 32px;
         padding : 0;
         font-size: 14px;
+    }
+    /* Filter pills stretch to fill row evenly — no wasted edge space */
+    .mw-filter-row {
+        gap : 3px;
+    }
+    .mw-filter-pill {
+        flex         : 1 1 0;      /* equal share of row */
+        justify-content : center;
+        padding      : 6px 4px;    /* tighter so all 5 fit comfortably */
+        min-width    : 0;          /* allow shrinking */
+    }
+    /* Trim outer padding on very narrow viewports to reclaim pixels */
+    .app-main {
+        padding : 6px 6px 48px;
     }
 }
 
