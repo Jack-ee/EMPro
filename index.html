@@ -56,6 +56,11 @@
                     <button class="mw-add-btn" id="mw-add-single" title="Add as new word">+</button>
                     <div class="mw-search-dropdown" id="mw-search-dropdown"></div>
                 </div>
+                <div class="mw-toolbar-actions">
+                    <button class="mw-icon-btn" id="mw-import-btn" onclick="document.getElementById('mw-import-modal').classList.add('open')" title="Import">&#x1F4E5;<span class="mw-btn-label"> Import</span></button>
+                    <button class="mw-icon-btn" id="mw-batch-enrich" title="Batch enrich">&#x2728;<span class="mw-btn-label"> AI enrich</span></button>
+                    <button class="mw-icon-btn" id="mw-batch-paste" title="Paste back">&#x1F4CB;<span class="mw-btn-label"> Paste back</span></button>
+                </div>
             </div>
             <div class="mw-filter-row" id="mw-filter-row">
                 <button class="mw-filter-pill active" data-filter="all">All <span class="mw-fpill-count" id="mw-fc-all"></span></button>
@@ -63,10 +68,6 @@
                 <button class="mw-filter-pill" data-filter="pronunciation">&#x1F50A;<span class="mw-fpill-label"> Pron.</span> <span class="mw-fpill-count" id="mw-fc-pronunciation"></span></button>
                 <button class="mw-filter-pill" data-filter="spelling">&#x270F;&#xFE0F;<span class="mw-fpill-label"> Spell</span> <span class="mw-fpill-count" id="mw-fc-spelling"></span></button>
                 <button class="mw-filter-pill" data-filter="weak">&#x274C;<span class="mw-fpill-label"> Weak</span> <span class="mw-fpill-count" id="mw-fc-weak"></span></button>
-                <span class="mw-filter-sep"></span>
-                <button class="mw-icon-btn" id="mw-import-btn" onclick="document.getElementById('mw-import-modal').classList.add('open')" title="Import">&#x1F4E5;<span class="mw-btn-label"> Import</span></button>
-                <button class="mw-icon-btn" id="mw-batch-enrich" title="Batch enrich">&#x2728;<span class="mw-btn-label"> AI enrich</span></button>
-                <button class="mw-icon-btn" id="mw-batch-paste" title="Paste back">&#x1F4CB;<span class="mw-btn-label"> Paste back</span></button>
             </div>
             <div class="mw-nav-row">
                 <div class="mw-mode-toggle">
