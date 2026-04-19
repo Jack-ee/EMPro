@@ -955,14 +955,25 @@ IMPORTANT:
             }
         }
 
-        // Update counter
+        // Update counter (position only — incomplete-word indicator
+        // goes to a separate badge below the nav row)
         if (counter) {
-            const incomplete = studyList.filter(w => !isWordComplete(w)).length;
-            const incompTag  = incomplete > 0 ? `  \u2728${incomplete}` : '';  // 2 spaces for visual separation
             if (studyMode === 'quiz' && quizTotal > 0) {
                 counter.textContent = `${currentIdx + 1}/${words.length} (${quizScore}/${quizTotal})`;
             } else {
-                counter.textContent = words.length > 0 ? `${currentIdx + 1}/${words.length}${incompTag}` : '0 words';
+                counter.textContent = words.length > 0 ? `${currentIdx + 1}/${words.length}` : '0 words';
+            }
+        }
+
+        // Update enrich-badge (separate inline pill below the nav row)
+        const enrichBadge = document.getElementById('mw-enrich-badge');
+        if (enrichBadge) {
+            const incomplete = studyList.filter(w => !isWordComplete(w)).length;
+            if (incomplete > 0 && studyMode !== 'quiz') {
+                enrichBadge.innerHTML = `<span class="mw-eb-pill">\u2728 ${incomplete} to enrich</span>`;
+                enrichBadge.style.display = '';
+            } else {
+                enrichBadge.style.display = 'none';
             }
         }
 
