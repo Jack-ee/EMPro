@@ -965,15 +965,17 @@ IMPORTANT:
             }
         }
 
-        // Update enrich-badge (separate inline pill below the nav row)
-        const enrichBadge = document.getElementById('mw-enrich-badge');
-        if (enrichBadge) {
+        // Update enrich-badge — now shown as a dynamic tooltip on the
+        // ✨ AI enrich button in the toolbar row. Hover/long-press to see.
+        const enrichBtn = document.getElementById('mw-batch-enrich');
+        if (enrichBtn) {
             const incomplete = studyList.filter(w => !isWordComplete(w)).length;
-            if (incomplete > 0 && studyMode !== 'quiz') {
-                enrichBadge.innerHTML = `<span class="mw-eb-pill">\u2728 ${incomplete} to enrich</span>`;
-                enrichBadge.style.display = '';
+            if (incomplete > 0) {
+                enrichBtn.title = `AI enrich — ${incomplete} word${incomplete === 1 ? '' : 's'} to enrich`;
+                enrichBtn.classList.add('mw-has-pending');
             } else {
-                enrichBadge.style.display = 'none';
+                enrichBtn.title = 'AI enrich';
+                enrichBtn.classList.remove('mw-has-pending');
             }
         }
 
