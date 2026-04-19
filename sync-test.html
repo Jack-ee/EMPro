@@ -116,7 +116,10 @@
         <button onclick="listGists()">B. List my gists</button>
     </div>
     <div class="btn-row">
-        <button onclick="findAndAdoptGist()">C. Find &amp; adopt existing sync Gist</button>
+        <button onclick="findAndAdoptGist()">C. Adopt existing sync Gist (first match)</button>
+    </div>
+    <div class="btn-row">
+        <button onclick="adoptNewestGist()">C2. Adopt NEWEST sync Gist</button>
     </div>
     <div class="btn-row">
         <button onclick="readGist()">D. Read current Gist</button>
@@ -125,7 +128,16 @@
     <div class="btn-row">
         <button onclick="writeTestPing()">F. Write test ping (safe)</button>
     </div>
-    <p class="hint">Run A → B → C → D → E in order. Each step logs what it finds.</p>
+    <p class="hint">Run A → B → C2 (not C!) → D → E in order.</p>
+</div>
+
+<div class="card">
+    <h2>4. Cleanup — delete stale sync gists</h2>
+    <p class="hint">If you have multiple <code>emp-sync-JackChen.json</code> gists from past bugs, delete the stale ones. Only the currently-adopted gist is protected.</p>
+    <input type="text" id="delete-gist-id" placeholder="Gist ID to delete (paste from step B)">
+    <div class="btn-row">
+        <button class="danger" onclick="deleteGist()">Delete this gist</button>
+    </div>
 </div>
 
 <div class="card">
@@ -291,7 +303,7 @@ async function listGists() {
 // C. Find existing sync gist and adopt its ID
 async function findAndAdoptGist() {
     if (!getToken()) { logErr('No token. Save a token first.'); return; }
-    logInfo('--- C. Finding & adopting sync gist ---');
+    logInfo('--- C. Finding & adopting sync gist (first match) ---');
     const r = await http('GET', `${GIST_API}?per_page=100`);
     if (!r.ok || !r.data) { logErr('List failed.'); return; }
     const match = r.data.find(g => g.files && g.files[FILENAME]);
@@ -302,6 +314,58 @@ async function findAndAdoptGist() {
     setGistId(match.id);
     logOk(`Adopted gist ID: ${match.id}`);
     logDim(`Last updated: ${match.updated_at}`);
+}
+
+// C2. Find the NEWEST matching sync gist (by updated_at) and adopt it.
+// This is the correct behavior when multiple sync gists exist from past bugs.
+async function adoptNewestGist() {
+    if (!getToken()) { logErr('No token. Save a token first.'); return; }
+    logInfo('--- C2. Finding NEWEST sync gist ---');
+    const r = await http('GET', `${GIST_API}?per_page=100`);
+    if (!r.ok || !r.data) { logErr('List failed.'); return; }
+    const matches = r.data.filter(g => g.files && g.files[FILENAME]);
+    if (matches.length === 0) {
+        logWarn(`No gist found with file "${FILENAME}".`);
+        return;
+    }
+    // Sort by updated_at descending
+    matches.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    const newest = matches[0];
+    logOk(`Picked newest: ${newest.id}`);
+    logDim(`Updated: ${newest.updated_at}`);
+    if (matches.length > 1) {
+        logWarn(`Other (older) matching gists — candidates for deletion:`);
+        matches.slice(1).forEach(g => {
+            logDim(`  ${g.id}  (${g.updated_at})`);
+        });
+    }
+    setGistId(newest.id);
+}
+
+// Delete a gist by ID (with safety check: don't delete the currently adopted one by accident)
+async function deleteGist() {
+    if (!getToken()) { logErr('No token.'); return; }
+    const id = (document.getElementById('delete-gist-id').value || '').trim();
+    if (!id) { logErr('Paste a gist ID to delete.'); return; }
+    if (id === getGistId()) {
+        if (!confirm('That is your CURRENTLY adopted gist. Delete anyway? You will lose sync until you adopt another.')) {
+            logWarn('Delete aborted.');
+            return;
+        }
+    }
+    if (!confirm(`Really delete gist ${id}? This cannot be undone.`)) {
+        logWarn('Delete aborted.');
+        return;
+    }
+    logInfo(`--- Deleting gist ${id} ---`);
+    const r = await http('DELETE', `${GIST_API}/${id}`);
+    if (r.status === 204) {
+        logOk(`Deleted gist ${id}.`);
+        if (id === getGistId()) { setGistId(''); logWarn('Cleared stored gist ID.'); }
+        document.getElementById('delete-gist-id').value = '';
+    } else {
+        logErr(`Delete returned ${r.status}.`);
+    }
 }
 
 // D. Read the gist content
