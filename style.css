@@ -3546,6 +3546,21 @@ html {
     flex-shrink : 0;
 }
 
+/* On mobile (narrow phones), force the action group onto its own
+   line so it doesn't get clipped or overlap with the + button. The
+   input's min-width of 160px plus the 44px + button can already eat
+   most of the row on a 380px viewport. Putting actions on their own
+   line gives all three icons room to breathe. */
+@media (max-width: 640px) {
+    .mw-quick-add {
+        flex-basis : 100%;   /* claim the full row */
+    }
+    .mw-toolbar-actions {
+        flex-basis      : 100%;   /* drop to its own line */
+        justify-content : flex-end;
+    }
+}
+
 /* Autoplay button — active state + subtle pulse when playing */
 .mw-autoplay-on {
     background   : var(--accent-bg) !important;
