@@ -3549,29 +3549,12 @@ html {
     flex-shrink : 0;
 }
 
-/* Enrich-badge: inline pill shown below the nav row when there are
-   incomplete words to enrich. Hidden when all words are complete. */
-.mw-enrich-badge {
-    display     : flex;
-    justify-content : flex-end;
-    margin-top  : -2px;
-    margin-bottom : 2px;
-}
-.mw-eb-pill {
-    display       : inline-block;
-    background    : var(--warn-bg);
-    color         : var(--warn);
-    font-size     : 11px;
-    font-weight   : 500;
-    padding       : 2px 10px;
-    border-radius : 10px;
-    line-height   : 1.5;
-}
-
 /* On mobile (narrow phones), compact layout overrides. */
 @media (max-width: 640px) {
 
-    /* --- Row 1: search + plus + 3 actions, all uniform 40px tall --- */
+    /* --- Row 1: search + plus + 3 actions, all 40px tall.
+       Gap=0 between + and first action icon so they sit flush;
+       tiny 2px gap between action icons for visual separation. */
     .mw-toolbar {
         flex-wrap : nowrap;
         gap       : 4px;
@@ -3587,11 +3570,31 @@ html {
         min-height : 40px;
         font-size  : 22px;
     }
+    .mw-toolbar-actions {
+        margin-left : 0;     /* no gap between + and first icon */
+        gap         : 2px;
+    }
     .mw-toolbar-actions .mw-icon-btn {
-        width    : 36px;
-        height   : 40px;        /* match input + add button height */
+        width    : 40px;     /* same as input/+ height for a clean square */
+        height   : 40px;
         padding  : 0;
         font-size: 16px;
+    }
+
+    /* Visual hint when there are incomplete words — subtle accent dot
+       on the AI enrich icon. Keeps the counter available as a tooltip. */
+    .mw-icon-btn.mw-has-pending {
+        position : relative;
+    }
+    .mw-icon-btn.mw-has-pending::after {
+        content       : '';
+        position      : absolute;
+        top           : 4px;
+        right         : 4px;
+        width         : 6px;
+        height        : 6px;
+        background    : var(--warn);
+        border-radius : 50%;
     }
 
     /* --- Filter pills: stretch evenly across row --- */
@@ -3610,29 +3613,28 @@ html {
         padding : 6px 4px 48px;
     }
 
-    /* --- Row 3: unified view-mode cluster + nav + autoplay.
-       ALL buttons in this row are the same 36px height for visual
-       harmony. View-mode boxes, CN, Play, and Shuffle share the same
-       box styling (white bg, gray border, accent tint on active). */
+    /* --- Row 3: view-mode boxes + CN + nav arrows + Play/Shuffle.
+       View-mode + CN boxes: 32px (compact, all identical style)
+       Prev/Next/Play/Shuffle: borderless, icon-only, sized generously */
     .mw-nav-row {
-        gap         : 3px;
+        gap         : 2px;
         flex-wrap   : nowrap;
         align-items : center;
     }
 
-    /* Unbundle the segmented group so all 4 buttons are discrete boxes */
+    /* 4 discrete view-mode boxes, all identical */
     .mw-mode-toggle {
         display : contents;
     }
     .mw-mt-btn,
     .mw-toggle-cn-btn {
-        width         : 36px;
-        height        : 36px;
+        width         : 32px;
+        height        : 32px;
         padding       : 0;
         background    : var(--bg-card);
         border        : 1px solid var(--border);
         border-radius : var(--radius-sm);
-        font-size     : 15px;
+        font-size     : 14px;
         font-weight   : 400;
         flex          : 0 0 auto;
     }
@@ -3647,14 +3649,13 @@ html {
         color        : var(--accent-text);
     }
 
-    /* Group-info & counter: auto-size to content */
     .mw-group-info {
         margin-left : 4px;
     }
     .mw-counter {
         font-size   : 12px;
         min-width   : 0;
-        padding     : 0 4px;
+        padding     : 0 3px;
         white-space : nowrap;
         flex-shrink : 0;
     }
@@ -3668,41 +3669,42 @@ html {
         margin     : 0;
     }
 
-    /* Regular arrow buttons (Prev/Next by counter): compact borderless */
+    /* Prev/Next arrows: compact borderless */
     .mw-arrow-btn {
         padding     : 3px 4px;
         flex-shrink : 0;
-        font-size   : 14px;
+        font-size   : 13px;
+        background  : transparent;
+        border      : none;
     }
 
-    /* Autoplay & Shuffle: SAME box style as view modes (no orange fill).
-       Icons are larger than other row-3 buttons to signal primary action. */
+    /* Play & Shuffle: NO box frame — bare icons, larger than other
+       buttons in this row to make them prominent primary actions.
+       Sized to match row-1 icon height (40px) for vertical rhythm. */
     #mw-autoplay,
     #mw-shuffle {
-        width         : 44px;       /* slightly wider than 36px view modes */
-        height        : 36px;
+        width         : 40px;
+        height        : 40px;
         padding       : 0;
-        background    : var(--bg-card);
-        border        : 1px solid var(--border);
+        background    : transparent;
+        border        : none;
         border-radius : var(--radius-sm);
         flex-shrink   : 0;
         color         : var(--text-primary);
     }
     #mw-autoplay {
-        font-size : 18px;      /* bigger icon */
+        font-size : 22px;      /* large icon — primary action */
     }
     #mw-shuffle {
-        font-size : 16px;
+        font-size : 20px;
     }
     #mw-autoplay:hover,
     #mw-shuffle:hover {
-        border-color : var(--accent);
-        background   : var(--bg-hover);
+        background : var(--bg-hover);
     }
     #mw-autoplay.mw-autoplay-on {
-        background   : var(--accent-bg) !important;
-        border-color : var(--accent) !important;
-        color        : var(--accent) !important;
+        color      : var(--accent) !important;
+        background : var(--accent-bg) !important;
     }
 }
 
