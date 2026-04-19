@@ -3322,30 +3322,33 @@ html {
         min-height : 38px;
     }
 
-    /* --- Navigation tabs: icon-only on mobile, bigger icons --- */
+    /* --- Navigation tabs: icon-only on mobile, slightly shorter than before --- */
     .app-nav {
         overflow-x : auto;
         -webkit-overflow-scrolling : touch;
         flex-wrap  : nowrap;
         gap        : 2px;
-        padding    : 4px;
+        padding    : 3px;
     }
     .nav-tab {
         flex-shrink : 0;
-        padding     : 10px 14px;
+        padding     : 6px 14px;      /* was 10px — reduced top/bottom */
     }
-    .nav-icon { font-size : 22px; }
+    .nav-icon { font-size : 20px; }  /* was 22px — proportional shrink */
 
     /* --- Search input --- */
     .mw-quick-input {
-        font-size : 17px;
-        padding   : 10px 14px;
-        min-height: 44px;
+        font-size : 16px;
+        padding   : 8px 12px;
+        height    : 40px;             /* explicit match with action buttons */
+        min-height: 40px;
     }
     .mw-add-btn {
-        min-width  : 44px;
-        min-height : 44px;
-        font-size  : 24px;
+        min-width  : 40px;            /* match input height */
+        width      : 40px;
+        height     : 40px;
+        min-height : 40px;
+        font-size  : 22px;
     }
 
     /* --- Filter + icon row --- */
@@ -3568,25 +3571,27 @@ html {
 /* On mobile (narrow phones), compact layout overrides. */
 @media (max-width: 640px) {
 
-    /* --- Row 1: search + plus + 3 actions, single row, no overlap --- */
+    /* --- Row 1: search + plus + 3 actions, all uniform 40px tall --- */
     .mw-toolbar {
         flex-wrap : nowrap;
         gap       : 4px;
     }
     .mw-quick-add {
         min-width : 0;
-        flex      : 1 1 0;     /* shrink freely so actions get their space */
+        flex      : 1 1 0;
     }
     .mw-add-btn {
-        min-width  : 36px;     /* was 44px — tighter so it doesn't dominate */
-        min-height : 36px;
-        font-size  : 20px;
+        width      : 40px;
+        height     : 40px;
+        min-width  : 40px;
+        min-height : 40px;
+        font-size  : 22px;
     }
     .mw-toolbar-actions .mw-icon-btn {
-        width    : 32px;
-        height   : 36px;       /* match quick-add input + plus height */
+        width    : 36px;
+        height   : 40px;        /* match input + add button height */
         padding  : 0;
-        font-size: 14px;
+        font-size: 16px;
     }
 
     /* --- Filter pills: stretch evenly across row --- */
@@ -3594,125 +3599,110 @@ html {
         gap : 3px;
     }
     .mw-filter-pill {
-        flex         : 1 1 0;
+        flex            : 1 1 0;
         justify-content : center;
-        padding      : 6px 4px;
-        min-width    : 0;
+        padding         : 6px 4px;
+        min-width       : 0;
     }
 
-    /* --- Reclaim edge padding on narrow phones --- */
+    /* --- Edge padding: reclaim pixels on narrow viewports --- */
     .app-main {
-        padding : 6px 6px 48px;
+        padding : 6px 4px 48px;
     }
 
-    /* --- Row 2: unified view-mode cluster + nav + autoplay.
-       Layout strategy: 4 view-mode boxes left, autoplay+shuffle right,
-       everything else fills the middle via flex-grow. Counter stays
-       centered in its available space regardless of group-info width. */
+    /* --- Row 3: unified view-mode cluster + nav + autoplay.
+       ALL buttons in this row are the same 36px height for visual
+       harmony. View-mode boxes, CN, Play, and Shuffle share the same
+       box styling (white bg, gray border, accent tint on active). */
     .mw-nav-row {
-        gap      : 2px;
-        flex-wrap: nowrap;
+        gap         : 3px;
+        flex-wrap   : nowrap;
         align-items : center;
     }
 
-    /* Unbundle the 3-button segmented group into discrete boxes
-       that match the standalone CN button. All four look identical. */
+    /* Unbundle the segmented group so all 4 buttons are discrete boxes */
     .mw-mode-toggle {
-        display       : contents;
+        display : contents;
     }
-    .mw-mt-btn {
-        width         : 30px;
-        height        : 30px;
+    .mw-mt-btn,
+    .mw-toggle-cn-btn {
+        width         : 36px;
+        height        : 36px;
         padding       : 0;
         background    : var(--bg-card);
         border        : 1px solid var(--border);
         border-radius : var(--radius-sm);
-        font-size     : 13px;
+        font-size     : 15px;
+        font-weight   : 400;
         flex          : 0 0 auto;
     }
     .mw-mt-btn + .mw-mt-btn {
         border-left : 1px solid var(--border);
         margin-left : 0;
     }
-    .mw-mt-btn.active {
+    .mw-mt-btn.active,
+    .mw-toggle-cn-btn.active {
         background   : var(--accent-bg);
         border-color : var(--accent);
         color        : var(--accent-text);
     }
-    .mw-toggle-cn-btn {
-        width      : 30px;
-        height     : 30px;
-        padding    : 0;
-        font-size  : 13px;
-        flex       : 0 0 auto;
-        margin-left: 2px;       /* tiny gap from Quiz button */
-    }
 
-    /* The center nav cluster (group-info + prev + counter + next)
-       grows to absorb slack, pushing autoplay+shuffle to the right edge */
+    /* Group-info & counter: auto-size to content */
     .mw-group-info {
-        margin-left : 6px;      /* small separation from CN button */
+        margin-left : 4px;
     }
     .mw-counter {
         font-size   : 12px;
-        min-width   : 0;         /* size to content */
+        min-width   : 0;
         padding     : 0 4px;
         white-space : nowrap;
         flex-shrink : 0;
     }
 
-    /* Invisible spacer between the counter-nav group and the autoplay
-       cluster, forcing the latter to the far right edge */
+    /* Invisible flex spacer — pushes Play/Shuffle to the right edge */
     .mw-filter-sep {
-        flex        : 1 1 auto;  /* takes all remaining space */
-        background  : transparent;
-        width       : auto;
-        height      : 0;
-        margin      : 0;
+        flex       : 1 1 auto;
+        background : transparent;
+        width      : auto;
+        height     : 0;
+        margin     : 0;
     }
 
-    /* Regular arrow buttons: compact borderless */
+    /* Regular arrow buttons (Prev/Next by counter): compact borderless */
     .mw-arrow-btn {
         padding     : 3px 4px;
         flex-shrink : 0;
         font-size   : 14px;
     }
 
-    /* Autoplay: prominent warm-accent box, larger than siblings */
-    #mw-autoplay {
-        width         : 40px;
-        height        : 30px;
-        background    : var(--warn);
-        color         : #fff;
-        border        : none;
-        border-radius : var(--radius-sm);
-        font-size     : 15px;
-        flex-shrink   : 0;
+    /* Autoplay & Shuffle: SAME box style as view modes (no orange fill).
+       Icons are larger than other row-3 buttons to signal primary action. */
+    #mw-autoplay,
+    #mw-shuffle {
+        width         : 44px;       /* slightly wider than 36px view modes */
+        height        : 36px;
         padding       : 0;
+        background    : var(--bg-card);
+        border        : 1px solid var(--border);
+        border-radius : var(--radius-sm);
+        flex-shrink   : 0;
+        color         : var(--text-primary);
     }
-    #mw-autoplay:hover { background: #8a6612; color: #fff; }
-    #mw-autoplay.mw-autoplay-on {
-        background   : var(--accent) !important;
-        color        : #fff !important;
-        border-color : var(--accent) !important;
+    #mw-autoplay {
+        font-size : 18px;      /* bigger icon */
     }
     #mw-shuffle {
-        width         : 30px;
-        height        : 30px;
-        background    : var(--warn);
-        color         : #fff;
-        border        : none;
-        border-radius : var(--radius-sm);
-        font-size     : 13px;
-        flex-shrink   : 0;
-        padding       : 0;
-        margin-left   : 2px;
+        font-size : 16px;
     }
-    #mw-shuffle:hover { background: #8a6612; color: #fff; }
-
-    /* Edge padding: use full viewport width on very narrow phones */
-    .app-main {
-        padding : 6px 4px 48px;
+    #mw-autoplay:hover,
+    #mw-shuffle:hover {
+        border-color : var(--accent);
+        background   : var(--bg-hover);
+    }
+    #mw-autoplay.mw-autoplay-on {
+        background   : var(--accent-bg) !important;
+        border-color : var(--accent) !important;
+        color        : var(--accent) !important;
     }
 }
 
