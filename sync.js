@@ -345,7 +345,17 @@ window.SyncManager = (function() {
             if (!resp.ok) throw new Error(`Gist list failed: ${resp.status}`);
             const list = await resp.json();
             const target = gistFile();
-            const match = (list || []).find(g => g.files && g.files[target]);
+            const matches = (list || []).filter(g => g.files && g.files[target]);
+
+            // Sort newest-first by updated_at — handles the edge case where
+            // past bugs created multiple sync Gists on the same account.
+            matches.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            const match = matches[0];
+
+            if (matches.length > 1) {
+                console.warn(`[Sync] Found ${matches.length} sync Gists — picked newest (${match.id}). Older duplicates:`,
+                    matches.slice(1).map(g => `${g.id} (${g.updated_at})`));
+            }
 
             if (match) {
                 // Found an existing Gist — adopt and pull
