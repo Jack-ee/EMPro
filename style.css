@@ -3380,7 +3380,7 @@ html {
     }
     .mw-counter {
         font-size  : 13px;
-        min-width  : 64px;      /* room for '35/50  ✨4' without clipping */
+        min-width  : 56px;      /* room for 'XX/XX' and 'XX/XX (XX/XX)' */
         padding    : 0 2px;
         white-space: nowrap;
     }
@@ -3546,40 +3546,147 @@ html {
     flex-shrink : 0;
 }
 
-/* On mobile, the action icons stay on the same row as the search
-   input. The toolbar uses `flex-wrap: nowrap` to force single-row
-   layout, and the quick-add container gets `min-width: 0` so the
-   input can actually shrink below its intrinsic content width
-   rather than pushing siblings off-screen or overlapping them. */
+/* Enrich-badge: inline pill shown below the nav row when there are
+   incomplete words to enrich. Hidden when all words are complete. */
+.mw-enrich-badge {
+    display     : flex;
+    justify-content : flex-end;
+    margin-top  : -2px;
+    margin-bottom : 2px;
+}
+.mw-eb-pill {
+    display       : inline-block;
+    background    : var(--warn-bg);
+    color         : var(--warn);
+    font-size     : 11px;
+    font-weight   : 500;
+    padding       : 2px 10px;
+    border-radius : 10px;
+    line-height   : 1.5;
+}
+
+/* On mobile (narrow phones), compact layout overrides. */
 @media (max-width: 640px) {
+
+    /* --- Row 1: search + plus + 3 actions, single row, no overlap --- */
     .mw-toolbar {
         flex-wrap : nowrap;
         gap       : 4px;
     }
     .mw-quick-add {
         min-width : 0;
-        flex      : 1 1 0;     /* grow + shrink freely, start from 0 */
+        flex      : 1 1 0;     /* shrink freely so actions get their space */
+    }
+    .mw-add-btn {
+        min-width  : 36px;     /* was 44px — tighter so it doesn't dominate */
+        min-height : 36px;
+        font-size  : 20px;
     }
     .mw-toolbar-actions .mw-icon-btn {
-        width   : 32px;
-        height  : 32px;
-        padding : 0;
+        width    : 32px;
+        height   : 36px;       /* match quick-add input + plus height */
+        padding  : 0;
         font-size: 14px;
     }
-    /* Filter pills stretch to fill row evenly — no wasted edge space */
+
+    /* --- Filter pills: stretch evenly across row --- */
     .mw-filter-row {
         gap : 3px;
     }
     .mw-filter-pill {
-        flex         : 1 1 0;      /* equal share of row */
+        flex         : 1 1 0;
         justify-content : center;
-        padding      : 6px 4px;    /* tighter so all 5 fit comfortably */
-        min-width    : 0;          /* allow shrinking */
+        padding      : 6px 4px;
+        min-width    : 0;
     }
-    /* Trim outer padding on very narrow viewports to reclaim pixels */
+
+    /* --- Reclaim edge padding on narrow phones --- */
     .app-main {
         padding : 6px 6px 48px;
     }
+
+    /* --- Row 2: unified view-mode cluster + nav + autoplay --- */
+    .mw-nav-row {
+        gap      : 3px;
+        flex-wrap: nowrap;
+    }
+
+    /* Unbundle the 3-button segmented group into discrete boxes
+       that match the standalone CN button. All four (Card/List/Quiz/中)
+       look identical on mobile — just a 32px box with border. Active
+       state is a tint change, not a structural change. */
+    .mw-mode-toggle {
+        display       : contents;   /* unpack children as direct row siblings */
+    }
+    .mw-mt-btn {
+        width         : 32px;
+        height        : 32px;
+        padding       : 0;
+        background    : var(--bg-card);
+        border        : 1px solid var(--border);
+        border-radius : var(--radius-sm);
+        font-size     : 14px;
+        flex          : 0 0 auto;
+    }
+    .mw-mt-btn + .mw-mt-btn {
+        border-left : 1px solid var(--border);   /* keep same full border */
+        margin-left : 0;
+    }
+    .mw-mt-btn.active {
+        background   : var(--accent-bg);
+        border-color : var(--accent);
+        color        : var(--accent-text);
+    }
+    .mw-toggle-cn-btn {
+        width         : 32px;        /* same size as mode buttons */
+        height        : 32px;
+        padding       : 0;
+        font-size     : 13px;
+    }
+
+    /* Counter: wide enough for XX/XX format without clipping.
+       Also handles quiz-mode "XX/XX (XX/XX)" by wrapping if needed. */
+    .mw-counter {
+        font-size  : 13px;
+        min-width  : 56px;
+        padding    : 0 2px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    /* Autoplay button: larger than siblings to emphasize it as the
+       primary action in this row, with accent fill. */
+    #mw-autoplay {
+        width         : 44px;
+        height        : 36px;
+        background    : var(--warn);
+        color         : #fff;
+        border-radius : var(--radius-sm);
+        font-size     : 16px;
+        flex-shrink   : 0;
+    }
+    #mw-autoplay:hover { background: #8a6612; }
+    #mw-autoplay.mw-autoplay-on {
+        background : var(--accent) !important;
+        color      : #fff !important;
+        border-color : var(--accent) !important;
+    }
+
+    /* Regular arrow buttons: compact */
+    .mw-arrow-btn {
+        padding  : 4px 6px;
+        flex-shrink : 0;
+    }
+    #mw-shuffle {
+        width         : 36px;
+        height        : 36px;
+        background    : var(--warn);
+        color         : #fff;
+        border-radius : var(--radius-sm);
+        font-size     : 14px;
+        flex-shrink   : 0;
+    }
+    #mw-shuffle:hover { background: #8a6612; }
 }
 
 /* Autoplay button — active state + subtle pulse when playing */
