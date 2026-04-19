@@ -3605,31 +3605,33 @@ html {
         padding : 6px 6px 48px;
     }
 
-    /* --- Row 2: unified view-mode cluster + nav + autoplay --- */
+    /* --- Row 2: unified view-mode cluster + nav + autoplay.
+       Layout strategy: 4 view-mode boxes left, autoplay+shuffle right,
+       everything else fills the middle via flex-grow. Counter stays
+       centered in its available space regardless of group-info width. */
     .mw-nav-row {
-        gap      : 3px;
+        gap      : 2px;
         flex-wrap: nowrap;
+        align-items : center;
     }
 
     /* Unbundle the 3-button segmented group into discrete boxes
-       that match the standalone CN button. All four (Card/List/Quiz/中)
-       look identical on mobile — just a 32px box with border. Active
-       state is a tint change, not a structural change. */
+       that match the standalone CN button. All four look identical. */
     .mw-mode-toggle {
-        display       : contents;   /* unpack children as direct row siblings */
+        display       : contents;
     }
     .mw-mt-btn {
-        width         : 32px;
-        height        : 32px;
+        width         : 30px;
+        height        : 30px;
         padding       : 0;
         background    : var(--bg-card);
         border        : 1px solid var(--border);
         border-radius : var(--radius-sm);
-        font-size     : 14px;
+        font-size     : 13px;
         flex          : 0 0 auto;
     }
     .mw-mt-btn + .mw-mt-btn {
-        border-left : 1px solid var(--border);   /* keep same full border */
+        border-left : 1px solid var(--border);
         margin-left : 0;
     }
     .mw-mt-btn.active {
@@ -3638,55 +3640,80 @@ html {
         color        : var(--accent-text);
     }
     .mw-toggle-cn-btn {
-        width         : 32px;        /* same size as mode buttons */
-        height        : 32px;
-        padding       : 0;
-        font-size     : 13px;
-    }
-
-    /* Counter: wide enough for XX/XX format without clipping.
-       Also handles quiz-mode "XX/XX (XX/XX)" by wrapping if needed. */
-    .mw-counter {
+        width      : 30px;
+        height     : 30px;
+        padding    : 0;
         font-size  : 13px;
-        min-width  : 56px;
-        padding    : 0 2px;
-        white-space: nowrap;
-        flex-shrink: 0;
+        flex       : 0 0 auto;
+        margin-left: 2px;       /* tiny gap from Quiz button */
     }
 
-    /* Autoplay button: larger than siblings to emphasize it as the
-       primary action in this row, with accent fill. */
-    #mw-autoplay {
-        width         : 44px;
-        height        : 36px;
-        background    : var(--warn);
-        color         : #fff;
-        border-radius : var(--radius-sm);
-        font-size     : 16px;
-        flex-shrink   : 0;
+    /* The center nav cluster (group-info + prev + counter + next)
+       grows to absorb slack, pushing autoplay+shuffle to the right edge */
+    .mw-group-info {
+        margin-left : 6px;      /* small separation from CN button */
     }
-    #mw-autoplay:hover { background: #8a6612; }
-    #mw-autoplay.mw-autoplay-on {
-        background : var(--accent) !important;
-        color      : #fff !important;
-        border-color : var(--accent) !important;
-    }
-
-    /* Regular arrow buttons: compact */
-    .mw-arrow-btn {
-        padding  : 4px 6px;
+    .mw-counter {
+        font-size   : 12px;
+        min-width   : 0;         /* size to content */
+        padding     : 0 4px;
+        white-space : nowrap;
         flex-shrink : 0;
     }
-    #mw-shuffle {
-        width         : 36px;
-        height        : 36px;
+
+    /* Invisible spacer between the counter-nav group and the autoplay
+       cluster, forcing the latter to the far right edge */
+    .mw-filter-sep {
+        flex        : 1 1 auto;  /* takes all remaining space */
+        background  : transparent;
+        width       : auto;
+        height      : 0;
+        margin      : 0;
+    }
+
+    /* Regular arrow buttons: compact borderless */
+    .mw-arrow-btn {
+        padding     : 3px 4px;
+        flex-shrink : 0;
+        font-size   : 14px;
+    }
+
+    /* Autoplay: prominent warm-accent box, larger than siblings */
+    #mw-autoplay {
+        width         : 40px;
+        height        : 30px;
         background    : var(--warn);
         color         : #fff;
+        border        : none;
         border-radius : var(--radius-sm);
-        font-size     : 14px;
+        font-size     : 15px;
         flex-shrink   : 0;
+        padding       : 0;
     }
-    #mw-shuffle:hover { background: #8a6612; }
+    #mw-autoplay:hover { background: #8a6612; color: #fff; }
+    #mw-autoplay.mw-autoplay-on {
+        background   : var(--accent) !important;
+        color        : #fff !important;
+        border-color : var(--accent) !important;
+    }
+    #mw-shuffle {
+        width         : 30px;
+        height        : 30px;
+        background    : var(--warn);
+        color         : #fff;
+        border        : none;
+        border-radius : var(--radius-sm);
+        font-size     : 13px;
+        flex-shrink   : 0;
+        padding       : 0;
+        margin-left   : 2px;
+    }
+    #mw-shuffle:hover { background: #8a6612; color: #fff; }
+
+    /* Edge padding: use full viewport width on very narrow phones */
+    .app-main {
+        padding : 6px 4px 48px;
+    }
 }
 
 /* Autoplay button — active state + subtle pulse when playing */
