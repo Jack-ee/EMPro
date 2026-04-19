@@ -958,7 +958,7 @@ IMPORTANT:
         // Update counter
         if (counter) {
             const incomplete = studyList.filter(w => !isWordComplete(w)).length;
-            const incompTag  = incomplete > 0 ? `\u2728${incomplete}` : '';
+            const incompTag  = incomplete > 0 ? `  \u2728${incomplete}` : '';  // 2 spaces for visual separation
             if (studyMode === 'quiz' && quizTotal > 0) {
                 counter.textContent = `${currentIdx + 1}/${words.length} (${quizScore}/${quizTotal})`;
             } else {
