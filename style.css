@@ -3538,6 +3538,28 @@ html {
     .mw-arrow-btn:hover .mw-btn-label {
         color : var(--text-primary);
     }
+    /* CN inside the unified segmented control — strip its own frame
+       on desktop so it reads as a 4th segment, matching the mt-btns.
+       The container (.mw-mode-toggle) provides the outer border; internal
+       dividers come from the adjacent-sibling border-left below. */
+    .mw-mode-toggle .mw-toggle-cn-btn {
+        background    : transparent;
+        border        : none;
+        border-left   : 1px solid var(--border);
+        border-radius : 0;
+        padding       : 6px 12px;
+        font-size     : 14px;
+        font-weight   : 400;
+        color         : var(--text-primary);
+    }
+    .mw-mode-toggle .mw-toggle-cn-btn:hover {
+        background : var(--bg-hover);
+        color      : var(--text-primary);
+    }
+    .mw-mode-toggle .mw-toggle-cn-btn.active {
+        background : var(--accent-bg);
+        color      : var(--accent-text);
+    }
 }
 
 /* Toolbar action group: Import / AI enrich / Paste back.
@@ -3553,8 +3575,8 @@ html {
 @media (max-width: 640px) {
 
     /* --- Row 1: search + plus + 3 actions, all 40px tall.
-       Gap=0 between + and first action icon so they sit flush;
-       tiny 2px gap between action icons for visual separation. */
+       Clear gap between + and first action icon so they don't touch;
+       consistent spacing between action icons for visual separation. */
     .mw-toolbar {
         flex-wrap : nowrap;
         gap       : 4px;
@@ -3571,8 +3593,8 @@ html {
         font-size  : 22px;
     }
     .mw-toolbar-actions {
-        margin-left : 0;     /* no gap between + and first icon */
-        gap         : 2px;
+        margin-left : 6px;   /* clear breathing room between + and Import */
+        gap         : 4px;
     }
     .mw-toolbar-actions .mw-icon-btn {
         width    : 40px;     /* same as input/+ height for a clean square */
@@ -3613,37 +3635,51 @@ html {
         padding : 6px 4px 48px;
     }
 
-    /* --- Row 3: view-mode boxes + CN + nav arrows + Play/Shuffle.
-       View-mode + CN boxes: 32px (compact, all identical style)
-       Prev/Next/Play/Shuffle: borderless, icon-only, sized generously */
+    /* --- Row 3: unified segmented control (Card/List/Quiz/CN)
+       + nav arrows + Play/Shuffle (prominent).
+       The 4 view-mode buttons sit in ONE bordered container so their
+       heights are pixel-identical and they read as a single control.
+       Play/Shuffle are sized generously to use reclaimed space. */
     .mw-nav-row {
-        gap         : 2px;
+        gap         : 4px;
         flex-wrap   : nowrap;
         align-items : center;
     }
 
-    /* 4 discrete view-mode boxes, all identical */
+    /* Unified 4-button segmented control: Card | List | Quiz | 中
+       Re-enable the container box that base CSS defined (desktop uses it too);
+       children share borders via border-left on adjacent siblings. */
     .mw-mode-toggle {
-        display : contents;
-    }
-    .mw-mt-btn,
-    .mw-toggle-cn-btn {
-        width         : 32px;
-        height        : 32px;
-        padding       : 0;
-        background    : var(--bg-card);
+        display       : inline-flex;
+        gap           : 0;
         border        : 1px solid var(--border);
         border-radius : var(--radius-sm);
+        overflow      : hidden;
+        flex          : 0 0 auto;
+        height        : 36px;
+    }
+    .mw-mt-btn,
+    .mw-mode-toggle .mw-toggle-cn-btn {
+        width         : 36px;
+        height        : 100%;
+        padding       : 0;
+        background    : var(--bg-card);
+        border        : none;
+        border-radius : 0;
         font-size     : 14px;
         font-weight   : 400;
+        line-height   : 1;
         flex          : 0 0 auto;
+        box-sizing    : border-box;
     }
-    .mw-mt-btn + .mw-mt-btn {
+    /* Internal dividers between every adjacent pair (mt-mt and mt-cn) */
+    .mw-mt-btn + .mw-mt-btn,
+    .mw-mt-btn + .mw-toggle-cn-btn {
         border-left : 1px solid var(--border);
         margin-left : 0;
     }
     .mw-mt-btn.active,
-    .mw-toggle-cn-btn.active {
+    .mw-mode-toggle .mw-toggle-cn-btn.active {
         background   : var(--accent-bg);
         border-color : var(--accent);
         color        : var(--accent-text);
@@ -3669,22 +3705,22 @@ html {
         margin     : 0;
     }
 
-    /* Prev/Next arrows: compact borderless */
+    /* Prev/Next arrows: larger tap targets, still borderless */
     .mw-arrow-btn {
-        padding     : 3px 4px;
+        padding     : 4px 6px;
         flex-shrink : 0;
-        font-size   : 13px;
+        font-size   : 16px;
         background  : transparent;
         border      : none;
     }
 
-    /* Play & Shuffle: NO box frame — bare icons, larger than other
-       buttons in this row to make them prominent primary actions.
-       Sized to match row-1 icon height (40px) for vertical rhythm. */
+    /* Play & Shuffle: prominent primary actions — larger than other
+       buttons in this row to draw the eye. No box frame, bare icons,
+       with subtle hover background for feedback. */
     #mw-autoplay,
     #mw-shuffle {
-        width         : 40px;
-        height        : 40px;
+        width         : 48px;
+        height        : 48px;
         padding       : 0;
         background    : transparent;
         border        : none;
@@ -3693,10 +3729,10 @@ html {
         color         : var(--text-primary);
     }
     #mw-autoplay {
-        font-size : 22px;      /* large icon — primary action */
+        font-size : 26px;      /* large icon — primary action */
     }
     #mw-shuffle {
-        font-size : 20px;
+        font-size : 24px;
     }
     #mw-autoplay:hover,
     #mw-shuffle:hover {
