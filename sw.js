@@ -9,6 +9,11 @@
 //   • Resilient install: individual cache.put calls so any single missing
 //     file is logged as a warning, not a fatal error.
 //   • Network-first for local assets (picks up deploys without a hard reload).
+// v15 — cache-busting version strings on asset URLs:
+//   • index.html now references style.css?v=15, app.js?v=15, etc.
+//   • Offline fallback uses { ignoreSearch: true } so a versioned request
+//     like style.css?v=15 still matches the plain style.css entry cached
+//     at install time. This keeps the app working offline across deploys.
 
 const CACHE_NAME = 'emp-v15';
 const ASSETS = [
@@ -95,7 +100,11 @@ self.addEventListener('fetch', (e) => {
             }
             return fresh;
         } catch {
-            const cached = await caches.match(e.request);
+            // Offline fallback: ignore ?v=N query strings so a request for
+            // style.css?v=15 still matches the plain style.css entry cached
+            // at install time. Without ignoreSearch we'd miss every asset
+            // after the first cache-bust and break offline mode.
+            const cached = await caches.match(e.request, { ignoreSearch: true });
             if (cached) return cached;
             if (e.request.destination === 'document') {
                 return (await caches.match('./index.html')) || new Response('Offline', { status: 504 });
