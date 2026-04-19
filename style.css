@@ -3593,8 +3593,12 @@ html {
         font-size  : 22px;
     }
     .mw-toolbar-actions {
-        margin-left : 8px;   /* clear visual gap between + and Import */
+        margin-left : 10px;  /* guaranteed visual gap between + and Import */
         gap         : 4px;
+    }
+    /* Safety margin on + button's right edge in case flex-gap is overridden */
+    .mw-quick-add .mw-add-btn {
+        margin-right : 0;
     }
     .mw-toolbar-actions .mw-icon-btn {
         width    : 40px;     /* same as input/+ height for a clean square */
@@ -3649,8 +3653,11 @@ html {
 
     /* Unified 4-button segmented control: Card | List | Quiz | 中
        32px per segment keeps row 3 within viewport while play/shuffle
-       stay prominent at 48px. Container provides outer border;
-       children share borders via border-left on adjacent siblings. */
+       stay prominent at 44px. Container provides outer border;
+       children share borders via border-left on adjacent siblings.
+       Centering is stamped explicitly here to override earlier touch-device
+       overrides at @media (max-width:768px) and (pointer:coarse) that
+       otherwise reintroduce padding on .mw-mt-btn. */
     .mw-mode-toggle {
         display       : inline-flex;
         gap           : 0;
@@ -3660,30 +3667,34 @@ html {
         flex          : 0 0 auto;
         height        : 32px;
     }
-    .mw-mt-btn,
+    .mw-mode-toggle .mw-mt-btn,
     .mw-mode-toggle .mw-toggle-cn-btn {
-        width         : 32px;
-        height        : 100%;
-        padding       : 0;
-        background    : var(--bg-card);
-        border        : none;
-        border-radius : 0;
-        font-size     : 14px;
-        font-weight   : 400;
-        line-height   : 1;
-        flex          : 0 0 auto;
-        box-sizing    : border-box;
+        display         : flex;
+        align-items     : center;
+        justify-content : center;
+        width           : 32px;
+        height          : 100%;
+        padding         : 0;
+        margin          : 0;
+        background      : var(--bg-card);
+        border          : none;
+        border-radius   : 0;
+        font-size       : 14px;
+        font-weight     : 400;
+        line-height     : 1;
+        flex            : 0 0 auto;
+        box-sizing      : border-box;
+        text-align      : center;
     }
     /* Internal dividers between every adjacent pair (mt-mt and mt-cn) */
-    .mw-mt-btn + .mw-mt-btn,
-    .mw-mt-btn + .mw-toggle-cn-btn {
+    .mw-mode-toggle .mw-mt-btn + .mw-mt-btn,
+    .mw-mode-toggle .mw-mt-btn + .mw-toggle-cn-btn {
         border-left : 1px solid var(--border);
         margin-left : 0;
     }
-    .mw-mt-btn.active,
+    .mw-mode-toggle .mw-mt-btn.active,
     .mw-mode-toggle .mw-toggle-cn-btn.active {
         background   : var(--accent-bg);
-        border-color : var(--accent);
         color        : var(--accent-text);
     }
 
@@ -3719,11 +3730,13 @@ html {
 
     /* Play & Shuffle: prominent primary actions — larger than other
        buttons in this row to draw the eye. No box frame, bare icons,
-       with subtle hover background for feedback. */
+       with subtle hover background for feedback. 44px is the mobile
+       tap-target minimum and keeps the two buttons visually close
+       without leaving awkward empty space between them. */
     #mw-autoplay,
     #mw-shuffle {
-        width         : 48px;
-        height        : 48px;
+        width         : 44px;
+        height        : 44px;
         padding       : 0;
         background    : transparent;
         border        : none;
@@ -3731,11 +3744,16 @@ html {
         flex-shrink   : 0;
         color         : var(--text-primary);
     }
+    /* Pull Shuffle flush against Play — cancels the nav-row gap (3px)
+       so the pair reads as a unit rather than two isolated icons. */
+    #mw-autoplay + #mw-shuffle {
+        margin-left : -3px;
+    }
     #mw-autoplay {
-        font-size : 26px;      /* large icon — primary action */
+        font-size : 24px;      /* large icon — primary action */
     }
     #mw-shuffle {
-        font-size : 24px;
+        font-size : 22px;
     }
     #mw-autoplay:hover,
     #mw-shuffle:hover {
