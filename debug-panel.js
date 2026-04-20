@@ -29,6 +29,14 @@
     const origWarn = console.warn.bind(console);
     const origErr  = console.error.bind(console);
 
+    // Hoist these declarations up so that capture() and dbg() — which
+    // reference them via closure and may run at script-load time before
+    // build() executes — don't hit the temporal-dead-zone ReferenceError.
+    let panelRoot = null;
+    let panelBody = null;
+    let logPane   = null;
+    let isOpen    = false;
+
     function stringify(args) {
         return Array.from(args).map(a => {
             if (a instanceof Error) return a.stack || a.message;
@@ -62,6 +70,17 @@
         if (panelBody && logPane) refreshLog();
     }
 
+    // Install-event tracing: piggyback on whatever index.html does.
+    // We listen in *capture* phase so we see the event BEFORE index.html's
+    // own handler calls preventDefault. This lets us log whether Chrome
+    // even fires the event — the #1 silent failure mode for "can't install".
+    window.addEventListener('beforeinstallprompt', (e) => {
+        dbg('beforeinstallprompt fired:', 'platforms=' + (e.platforms||[]).join(',') || '(none)');
+    }, true);
+    window.addEventListener('appinstalled', () => {
+        dbg('appinstalled event fired — browser thinks install succeeded');
+    });
+
     // Log startup environment immediately so the Log tab has context
     // from the moment the panel opens.
     dbg('debug-panel.js loaded');
@@ -71,11 +90,6 @@
     dbg('url:', location.href);
     dbg('referrer:', document.referrer || '(none)');
     dbg('online:', navigator.onLine, '| cookies:', navigator.cookieEnabled, '| storage:', typeof localStorage !== 'undefined');
-
-    let panelRoot = null;
-    let panelBody = null;
-    let logPane   = null;
-    let isOpen    = false;
 
     // ---------- Styles (inline to avoid touching style.css) ----------
     const CSS = `
