@@ -965,17 +965,24 @@ IMPORTANT:
             }
         }
 
-        // Update enrich-badge — now shown as a dynamic tooltip on the
-        // ✨ AI enrich button in the toolbar row. Hover/long-press to see.
-        const enrichBtn = document.getElementById('mw-batch-enrich');
+        // Update enrich-badge — on desktop shows a parenthesized count
+        // next to the "AI enrich" label (e.g. "✨ AI enrich (12)"). On
+        // mobile the count span is hidden via CSS; the subtle accent
+        // dot from .mw-has-pending remains the only visual indicator.
+        // Tooltip is set in both cases for accessibility and for desktop
+        // hover-to-confirm before acting.
+        const enrichBtn   = document.getElementById('mw-batch-enrich');
+        const enrichCount = document.getElementById('mw-enrich-count');
         if (enrichBtn) {
             const incomplete = studyList.filter(w => !isWordComplete(w)).length;
             if (incomplete > 0) {
                 enrichBtn.title = `AI enrich — ${incomplete} word${incomplete === 1 ? '' : 's'} to enrich`;
                 enrichBtn.classList.add('mw-has-pending');
+                if (enrichCount) enrichCount.textContent = ` (${incomplete})`;
             } else {
-                enrichBtn.title = 'AI enrich';
+                enrichBtn.title = 'AI enrich — all words are fully enriched';
                 enrichBtn.classList.remove('mw-has-pending');
+                if (enrichCount) enrichCount.textContent = '';
             }
         }
 
