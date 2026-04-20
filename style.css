@@ -2595,13 +2595,15 @@ body {
 }
 
 /* Labels hidden by default (mobile-first), shown on desktop */
-.mw-btn-label  { display: none; }
-.mw-fpill-label { display: none; }
-.mw-grp-short  { display: inline; }
+.mw-btn-label    { display: none; }
+.mw-fpill-label  { display: none; }
+.mw-enrich-count { display: none; }
+.mw-grp-short    { display: inline; }
 @media (min-width: 769px) {
-    .mw-btn-label  { display: inline; }
-    .mw-fpill-label { display: inline; }
-    .mw-grp-short  { display: none; }
+    .mw-btn-label    { display: inline; }
+    .mw-fpill-label  { display: inline; }
+    .mw-enrich-count { display: inline; }
+    .mw-grp-short    { display: none; }
 }
 
 @media (max-width: 640px) {
@@ -3515,6 +3517,17 @@ html {
     }
     .mw-icon-btn:hover .mw-btn-label {
         color : var(--text-primary);
+    }
+    /* Pending-enrich count shown next to "AI enrich" label on desktop.
+       Uses --warn accent when there's work to do so the number catches
+       the eye without shouting; empty string collapses when count is 0. */
+    .mw-icon-btn .mw-enrich-count {
+        font-size   : 12px;
+        font-weight : 600;
+        color       : var(--warn);
+    }
+    .mw-icon-btn.mw-has-pending:hover .mw-enrich-count {
+        color : var(--warn);
     }
     /* Separator inside nav-row gets a touch more breathing room on PC */
     .mw-nav-row .mw-filter-sep {
