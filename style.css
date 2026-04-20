@@ -3728,15 +3728,18 @@ html {
         border      : none;
     }
 
-    /* Play & Shuffle: prominent primary actions — larger than other
-       buttons in this row to draw the eye. No box frame, bare icons,
-       with subtle hover background for feedback. 44px is the mobile
-       tap-target minimum and keeps the two buttons visually close
-       without leaving awkward empty space between them. */
+    /* Play & Shuffle: prominent primary actions. Sized to 36px square
+       so the emoji glyphs (▶️ and 🔀) nearly fill their containers.
+       Earlier tried 44px and 48px but the emoji glyphs occupy only
+       ~60% of their glyph box, leaving ~14px of apparent empty space
+       on each side — which made the pair look awkwardly separated
+       even with margin-left:-3px gap cancellation. 36px tightens the
+       visible spacing while still being prominent relative to the
+       32px segmented control on the left. */
     #mw-autoplay,
     #mw-shuffle {
-        width         : 44px;
-        height        : 44px;
+        width         : 36px;
+        height        : 36px;
         padding       : 0;
         background    : transparent;
         border        : none;
@@ -3744,16 +3747,15 @@ html {
         flex-shrink   : 0;
         color         : var(--text-primary);
     }
-    /* Pull Shuffle flush against Play — cancels the nav-row gap (3px)
-       so the pair reads as a unit rather than two isolated icons. */
+    /* Keep the pair snug — negative margin cancels the nav-row 3px gap. */
     #mw-autoplay + #mw-shuffle {
         margin-left : -3px;
     }
     #mw-autoplay {
-        font-size : 24px;      /* large icon — primary action */
+        font-size : 22px;
     }
     #mw-shuffle {
-        font-size : 22px;
+        font-size : 20px;
     }
     #mw-autoplay:hover,
     #mw-shuffle:hover {
