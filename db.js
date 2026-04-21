@@ -169,6 +169,7 @@
 
             // 1) Exact match (unchanged behavior)
             let idx = nb.findIndex(w => String(w.word || '').trim().toLowerCase() === wLow);
+            const exactHit = idx >= 0;
 
             // 2) Lemma match: look for any existing entry whose stored
             // word is a plausible inflection of the incoming `word`.
@@ -180,6 +181,8 @@
                 idx = nb.findIndex(w => isInflectionOf(String(w.word || ''), wLow));
                 if (idx >= 0) matchedViaLemma = true;
             }
+
+            console.log(`[DB.upsert] "${entry.word}" → ${exactHit ? 'EXACT' : matchedViaLemma ? `LEMMA(${nb[idx]?.word})` : 'NEW'}`);
 
             const item = {
                 word       : entry.word,
