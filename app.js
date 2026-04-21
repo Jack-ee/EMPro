@@ -129,6 +129,7 @@
     function hydrateSettingsUI() {
         // Voice
         populateVoiceSelect();
+        injectVoiceDiagnosticButton();
 
         // Speed
         const speedEl   = document.getElementById('settings-speed');
@@ -194,6 +195,103 @@
         });
         sel.innerHTML = html;
         sel.value     = saved;
+    }
+
+    // Injects a small "Test voice" diagnostic UI just below the voice
+    // dropdown. Probes speechSynthesis state and reports on-screen —
+    // useful for diagnosing Android quirks where getVoices() returns []
+    // but .speak() may or may not work.
+    function injectVoiceDiagnosticButton() {
+        const sel = document.getElementById('settings-voice');
+        if (!sel) return;
+        if (document.getElementById('tts-diag-btn')) return;  // already injected
+
+        const wrap        = document.createElement('div');
+        wrap.style.cssText = 'margin-top:6px;font-size:11px;color:var(--text-tertiary)';
+        wrap.innerHTML    = `
+            <button id="tts-diag-btn" class="wl-btn-secondary" style="padding:4px 10px;font-size:11px">\uD83D\uDD0A Test voice</button>
+            <div id="tts-diag-output" style="margin-top:6px;font-family:var(--font-mono);font-size:10px;white-space:pre-wrap;line-height:1.5"></div>
+        `;
+        sel.parentNode.insertBefore(wrap, sel.nextSibling);
+
+        document.getElementById('tts-diag-btn').addEventListener('click', runVoiceDiagnostic);
+    }
+
+    async function runVoiceDiagnostic() {
+        const out = document.getElementById('tts-diag-output');
+        if (!out) return;
+        const log = (msg) => { out.textContent += msg + '\n'; };
+        out.textContent = '';
+
+        log('=== TTS diagnostic ===');
+        log('speechSynthesis present: ' + ('speechSynthesis' in window));
+        if (!('speechSynthesis' in window)) {
+            log('No Web Speech API in this browser.');
+            return;
+        }
+
+        // Step 1: snapshot voices right now
+        const v1 = window.speechSynthesis.getVoices();
+        log(`Initial getVoices(): ${v1.length} voice(s)`);
+        if (v1.length > 0 && v1.length <= 5) {
+            v1.forEach(v => log(`  \u2022 ${v.name} [${v.lang}]${v.default ? ' *default' : ''}`));
+        } else if (v1.length > 5) {
+            log(`  (first 5 of ${v1.length}):`);
+            v1.slice(0, 5).forEach(v => log(`  \u2022 ${v.name} [${v.lang}]`));
+        }
+
+        // Step 2: try a silent warm-up speak to see if that triggers voice loading
+        log('\nAttempting warm-up speak...');
+        try {
+            window.speechSynthesis.cancel();
+            const u1 = new SpeechSynthesisUtterance('test');
+            u1.volume = 0;
+            u1.rate   = 1;
+            let spoke = false, errored = null;
+            u1.onstart = () => { spoke = true; };
+            u1.onerror = (e) => { errored = e.error || 'unknown'; };
+            window.speechSynthesis.speak(u1);
+
+            // Wait up to 1.5s for the utterance to start or fail
+            await new Promise(r => setTimeout(r, 1500));
+            window.speechSynthesis.cancel();
+
+            log(`  speak() started: ${spoke}`);
+            if (errored) log(`  speak() error: ${errored}`);
+        } catch (e) {
+            log(`  speak() threw: ${e.message}`);
+        }
+
+        // Step 3: re-check voices after warm-up
+        const v2 = window.speechSynthesis.getVoices();
+        log(`\nPost-warmup getVoices(): ${v2.length} voice(s)`);
+
+        // Step 4: audible test speak
+        log('\nPlaying audible test: "hello" ...');
+        try {
+            window.speechSynthesis.cancel();
+            const u2 = new SpeechSynthesisUtterance('hello');
+            u2.volume = 1;
+            u2.rate   = 0.9;
+            let started = false, ended = false, err = null;
+            u2.onstart = () => { started = true; };
+            u2.onend   = () => { ended = true; };
+            u2.onerror = (e) => { err = e.error || 'unknown'; };
+            window.speechSynthesis.speak(u2);
+
+            await new Promise(r => setTimeout(r, 2500));
+
+            log(`  started: ${started} | ended: ${ended}${err ? ' | error: ' + err : ''}`);
+            log(started ? '\u2705 Audio should have played.' : '\u274C Audio did NOT start — TTS is broken in this browser.');
+        } catch (e) {
+            log(`  speak() threw: ${e.message}`);
+        }
+
+        // Step 5: re-populate the dropdown in case voices appeared
+        if (v2.length > v1.length) {
+            log(`\nVoices appeared after warm-up \u2014 refreshing dropdown.`);
+            populateVoiceSelect();
+        }
     }
 
     function populateProviderSelect() {
