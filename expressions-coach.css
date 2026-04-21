@@ -581,3 +581,71 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     gap: 4px;
     margin-top: 6px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   LISTEN MODE (sentence-drill.js)
+   ═══════════════════════════════════════════════════════════════ */
+
+.sd-listen-card {
+    text-align: center;
+}
+
+.sd-listen-phase {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+    min-width: 110px;
+    text-align: right;
+}
+
+.sd-listen-sentence {
+    font-size: 1.05rem;
+    line-height: 1.55;
+    color: var(--text-primary);
+    padding: 14px 12px;
+    margin: 12px 0 8px;
+    border-radius: 8px;
+    background: var(--surface-2, rgba(0, 0, 0, 0.02));
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sd-listen-cn {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    padding: 10px 12px;
+    margin: 6px 0 14px;
+    border-radius: 8px;
+    background: var(--surface-2, rgba(0, 0, 0, 0.02));
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sd-listen-active {
+    background: var(--accent-bg, rgba(45, 90, 61, 0.08));
+    box-shadow: inset 0 0 0 1.5px var(--accent, #2d5a3d);
+}
+
+.sd-listen-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+
+.sd-listen-playpause {
+    min-width: 110px;
+    font-weight: 600;
+}
+
+/* Mobile: tighter spacing */
+@media (max-width: 600px) {
+    .sd-listen-sentence { font-size: 0.98rem; padding: 12px 10px; }
+    .sd-listen-cn       { font-size: 0.88rem; padding: 8px 10px; }
+    .sd-listen-phase    { font-size: 10px; min-width: 90px; }
+    .sd-listen-controls { gap: 6px; }
+}
