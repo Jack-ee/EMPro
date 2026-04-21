@@ -16,6 +16,120 @@
         catch { return fallback; }
     }
 
+    // ─── Lemma matcher ───────────────────────────────────────
+    // Tests whether `inflected` is a plausible English inflection of
+    // `base`. Designed for precision over recall — false negatives just
+    // mean a word silently won't match and the existing "create new
+    // row" behavior kicks in (annoying, not corrupting). False
+    // positives could merge unrelated words, so we err on caution.
+    // Covers the cases described in the memory note about inflected
+    // forms (proved/prove, collections/collection, etc.).
+    const IRREGULAR = {
+        'am':['be'],'is':['be'],'are':['be'],'was':['be'],'were':['be'],'been':['be'],'being':['be'],
+        'has':['have'],'had':['have'],'having':['have'],
+        'does':['do'],'did':['do'],'done':['do'],'doing':['do'],
+        'goes':['go'],'went':['go'],'gone':['go'],'going':['go'],
+        'ran':['run'],'running':['run'],
+        'saw':['see'],'seen':['see'],'seeing':['see'],
+        'ate':['eat'],'eaten':['eat'],'eating':['eat'],
+        'took':['take'],'taken':['take'],'taking':['take'],
+        'gave':['give'],'given':['give'],'giving':['give'],
+        'came':['come'],'coming':['come'],
+        'made':['make'],'making':['make'],
+        'knew':['know'],'known':['know'],'knowing':['know'],
+        'thought':['think'],'thinking':['think'],
+        'brought':['bring'],'bringing':['bring'],
+        'bought':['buy'],'buying':['buy'],
+        'caught':['catch'],'catching':['catch'],
+        'taught':['teach'],'teaching':['teach'],
+        'said':['say'],'saying':['say'],
+        'told':['tell'],'telling':['tell'],
+        'found':['find'],'finding':['find'],
+        'got':['get'],'gotten':['get'],'getting':['get'],
+        'putting':['put'],
+        'setting':['set'],
+        'lost':['lose'],'losing':['lose'],
+        'held':['hold'],'holding':['hold'],
+        'led':['lead'],'leading':['lead'],
+        'met':['meet'],'meeting':['meet'],
+        'reading':['read'],
+        'wrote':['write'],'written':['write'],'writing':['write'],
+        'spoke':['speak'],'spoken':['speak'],'speaking':['speak'],
+        'broke':['break'],'broken':['break'],'breaking':['break'],
+        'chose':['choose'],'chosen':['choose'],'choosing':['choose'],
+        'drew':['draw'],'drawn':['draw'],
+        'men':['man'],'women':['woman'],'children':['child'],
+        'feet':['foot'],'teeth':['tooth'],'mice':['mouse'],'geese':['goose'],'people':['person'],
+        'better':['good','well'],'best':['good','well'],
+        'worse':['bad','ill'],'worst':['bad','ill'],
+        'more':['many','much'],'most':['many','much'],
+        'less':['little'],'least':['little'],
+        'further':['far'],'furthest':['far'],'farther':['far'],'farthest':['far']
+    };
+
+    function _isCVC(w) {
+        if (w.length < 2) return false;
+        if (/[wxy]$/.test(w)) return false;
+        return /[^aeiou][aeiou][^aeiou]$/i.test(w);
+    }
+
+    function isInflectionOf(inflected, base) {
+        const a = String(inflected || '').trim().toLowerCase();
+        const b = String(base       || '').trim().toLowerCase();
+        if (!a || !b) return false;
+
+        // Identity
+        if (a === b) return true;
+
+        // Irregulars
+        const bases = IRREGULAR[a];
+        if (bases && bases.includes(b)) return true;
+
+        // Regulars: inflected must be longer than base
+        if (a.length <= b.length) return false;
+
+        // Skip regular rules for phrases
+        if (a.includes(' ') || b.includes(' ')) return false;
+
+        const cand = new Set();
+
+        // Plurals / 3rd-singular
+        cand.add(b + 's');
+        cand.add(b + 'es');
+        if (/[^aeiou]y$/.test(b)) cand.add(b.slice(0, -1) + 'ies');
+        if (/f$/.test(b))         cand.add(b.slice(0, -1) + 'ves');
+        if (/fe$/.test(b))        cand.add(b.slice(0, -2) + 'ves');
+
+        // Past tense / past participle
+        if (/e$/.test(b)) {
+            cand.add(b + 'd');
+        } else {
+            cand.add(b + 'ed');
+            if (/[^aeiou]y$/.test(b)) cand.add(b.slice(0, -1) + 'ied');
+            if (_isCVC(b))            cand.add(b + b.slice(-1) + 'ed');
+        }
+
+        // Present participle / gerund
+        if (/ie$/.test(b)) {
+            cand.add(b.slice(0, -2) + 'ying');
+        } else if (/e$/.test(b) && !/ee$/.test(b)) {
+            cand.add(b.slice(0, -1) + 'ing');
+        } else {
+            cand.add(b + 'ing');
+            if (_isCVC(b)) cand.add(b + b.slice(-1) + 'ing');
+        }
+
+        // Adverb -ly
+        cand.add(b + 'ly');
+        if (/y$/.test(b) && !/[aeou]y$/.test(b)) cand.add(b.slice(0, -1) + 'ily');
+
+        // Comparatives: NOT generated from rules — irregular table
+        // handles good/better/best etc. Regular rules would cause
+        // false positives like bet→better.
+
+        return cand.has(a);
+    }
+
     window.DB = {
         // --- Profile ---
         getProfile: function() {
@@ -51,8 +165,21 @@
         },
         upsertNotebookWord: function(entry) {
             const nb    = this.loadNotebook();
-            const wLow  = String(entry.word || '').toLowerCase();
-            const idx   = nb.findIndex(w => String(w.word || '').toLowerCase() === wLow);
+            const wLow  = String(entry.word || '').trim().toLowerCase();
+
+            // 1) Exact match (unchanged behavior)
+            let idx = nb.findIndex(w => String(w.word || '').trim().toLowerCase() === wLow);
+
+            // 2) Lemma match: look for any existing entry whose stored
+            // word is a plausible inflection of the incoming `word`.
+            // Runs only if the exact match failed. The incoming word
+            // is assumed to be a base form (that's what the batch-
+            // enrich prompt asks the AI to return).
+            let matchedViaLemma = false;
+            if (idx < 0 && wLow) {
+                idx = nb.findIndex(w => isInflectionOf(String(w.word || ''), wLow));
+                if (idx >= 0) matchedViaLemma = true;
+            }
 
             const item = {
                 word       : entry.word,
@@ -76,17 +203,29 @@
             };
 
             if (idx >= 0) {
-                // Merge: keep existing fields if new ones are empty
+                // Merge: keep existing fields if new ones are empty.
+                // When lemma-matched, we DO overwrite the stored
+                // word with the canonical base form so the notebook
+                // standardizes on lemmas (squeezed → squeeze).
                 const old = nb[idx];
                 Object.keys(item).forEach(k => {
-                    if (k === 'word' || k === 'addedAt') return;
-                    // For arrays, keep old if new is empty
+                    if (k === 'addedAt') return;
+                    if (k === 'word') {
+                        // Lemma match: adopt the canonical base form
+                        // Exact match: already equal, no-op
+                        return;
+                    }
                     if (Array.isArray(item[k]) && item[k].length === 0 && Array.isArray(old[k]) && old[k].length > 0) {
                         item[k] = old[k];
                         return;
                     }
                     if (!item[k] && old[k]) item[k] = old[k];
                 });
+                // Preserve original addedAt
+                item.addedAt = old.addedAt || item.addedAt;
+                if (matchedViaLemma) {
+                    console.log(`[DB] Lemma-matched "${old.word}" → "${item.word}", merged.`);
+                }
                 nb[idx] = item;
             } else {
                 nb.push(item);
@@ -216,6 +355,77 @@
                 }
             }
             toRemove.forEach(k => localStorage.removeItem(k));
+        },
+
+        // --- Lemma utilities (exposed for debugging / sweeps) ---
+
+        /**
+         * Test whether one word is a plausible English inflection of another.
+         * Useful from DevTools to verify match behavior:
+         *   window.DB.isInflectionOf('squeezed', 'squeeze')  // true
+         */
+        isInflectionOf: isInflectionOf,
+
+        /**
+         * One-time sweep: find notebook entries where the stored word is
+         * an inflection of another stored word, and merge them into the
+         * base-form entry. Useful after a botched paste-back to clean
+         * up duplicates like [squeezed (incomplete), squeeze (enriched)].
+         *
+         * Returns { merged, removed } counts. Dry run by default — pass
+         * `{apply: true}` to actually modify the notebook.
+         */
+        dedupByLemma: function(opts) {
+            const apply = Boolean(opts && opts.apply);
+            const nb    = this.loadNotebook();
+            const keep  = nb.slice();
+            const actions = [];
+
+            // For each pair (i, j) where keep[i] is an inflection of keep[j],
+            // merge i into j. We iterate with a "dropped" set to avoid
+            // merging the same entry twice.
+            const dropped = new Set();
+
+            for (let i = 0; i < keep.length; i++) {
+                if (dropped.has(i)) continue;
+                const wi = String(keep[i]?.word || '').trim();
+                if (!wi) continue;
+
+                for (let j = 0; j < keep.length; j++) {
+                    if (i === j || dropped.has(j)) continue;
+                    const wj = String(keep[j]?.word || '').trim();
+                    if (!wj) continue;
+
+                    // Is wi an inflection of wj?
+                    if (isInflectionOf(wi, wj)) {
+                        // Merge i into j: for each field, prefer non-empty value
+                        const a = keep[i], b = keep[j];
+                        Object.keys(a).forEach(k => {
+                            if (k === 'word' || k === 'addedAt') return;
+                            if (Array.isArray(b[k]) && b[k].length === 0 && Array.isArray(a[k]) && a[k].length > 0) {
+                                b[k] = a[k];
+                                return;
+                            }
+                            if (!b[k] && a[k]) b[k] = a[k];
+                        });
+                        // Keep earliest addedAt
+                        if (a.addedAt && (!b.addedAt || a.addedAt < b.addedAt)) b.addedAt = a.addedAt;
+                        actions.push({ drop: wi, keep: wj });
+                        dropped.add(i);
+                        break;
+                    }
+                }
+            }
+
+            const next = keep.filter((_, i) => !dropped.has(i));
+            const result = { merged: actions.length, removed: dropped.size, actions, dryRun: !apply };
+
+            if (apply) {
+                this.saveNotebook(next);
+            }
+            console.log(`[DB] dedupByLemma: ${apply ? 'APPLIED' : 'DRY RUN'} — would merge ${actions.length} entries.`);
+            actions.forEach(a => console.log(`  merge "${a.drop}" → "${a.keep}"`));
+            return result;
         }
     };
 })();
