@@ -14,6 +14,19 @@ window.SentenceDrill = (function() {
     let score          = 0;
     let total          = 0;
 
+    // ─── Listen-mode state ───────────────────────────────────
+    // Listen mode is an independent playback loop that auto-pronounces
+    // each sentence (English normal → English slow → Chinese → next).
+    // It reuses window.App.speak() for TTS. Driven by a monotonically
+    // increasing token so async onEnd callbacks from old utterances
+    // can detect cancellation.
+    let listenActive   = false;
+    let listenPaused   = false;
+    let listenToken    = 0;
+    let listenTimer    = null;
+    let listenIdx      = 0;
+    let listenPhase    = '';  // 'en-normal' | 'en-slow' | 'zh' | 'idle'
+
     // ─── Storage (profile-scoped) ────────────────────────────
     function loadState() {
         try {
@@ -78,6 +91,7 @@ window.SentenceDrill = (function() {
                     ${total > 0 ? `<span class="ec-ts">${score}/${total}</span>` : ''}
                 </div>
                 <button class="ec-btn-primary" id="sd-start-btn">&#x25B6; Start</button>
+                <button class="ec-btn-ghost" id="sd-listen-btn" title="Listen mode \u2014 auto-pronounce every sentence">&#x1F3A7; Listen</button>
             </div>
             <div id="sd-exercise-area">
                 <div class="ec-start-prompt">
@@ -87,7 +101,11 @@ window.SentenceDrill = (function() {
         </div>`;
 
         container.querySelector('#sd-start-btn')?.addEventListener('click', () => {
+            stopListen();
             renderExercise();
+        });
+        container.querySelector('#sd-listen-btn')?.addEventListener('click', () => {
+            startListen();
         });
     }
 
@@ -367,6 +385,211 @@ window.SentenceDrill = (function() {
     }
 
     // ─── Utilities ───────────────────────────────────────────
+    // ═════════════════════════════════════════════════════════
+    //  LISTEN MODE — auto-pronounce every sentence in sequence
+    // ═════════════════════════════════════════════════════════
+    // Playback loop per sentence:
+    //   1. English at user's saved speech_speed  (default 0.85)
+    //   2. Pause 600ms
+    //   3. English at 0.75x of that speed       (slow immersion)
+    //   4. Pause 600ms
+    //   5. Chinese via zh-CN voice              (comprehension anchor)
+    //   6. Pause 1000ms, then auto-advance to next sentence
+    // Loops back to sentence 1 after the last one.
+
+    const LISTEN_PAUSE_MID  = 600;
+    const LISTEN_PAUSE_NEXT = 1000;
+    const LISTEN_SLOW_MULT  = 0.75;
+
+    function startListen() {
+        if (listenActive) return;
+        if (sentences.length === 0) {
+            window.App?.showToast?.('No sentences loaded.');
+            return;
+        }
+        // Restore last position from saved state if available
+        const state = loadState();
+        listenIdx    = Math.min(Math.max(0, state.idx || 0), sentences.length - 1);
+        listenActive = true;
+        listenPaused = false;
+        listenToken++;
+        renderListenView();
+        playListenLoop(listenToken);
+    }
+
+    function stopListen() {
+        listenActive = false;
+        listenPaused = false;
+        listenPhase  = 'idle';
+        listenToken++;  // invalidate any pending callbacks
+        if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
+        window.App?.stopSpeak?.();
+    }
+
+    function pauseListen() {
+        listenPaused = true;
+        listenToken++;  // cancel in-flight utterance callbacks
+        if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
+        window.App?.stopSpeak?.();
+        updateListenControls();
+    }
+
+    function resumeListen() {
+        if (!listenActive || !listenPaused) return;
+        listenPaused = false;
+        listenToken++;
+        updateListenControls();
+        playListenLoop(listenToken);
+    }
+
+    function nextListen() {
+        if (!listenActive) return;
+        listenIdx = (listenIdx + 1) % sentences.length;
+        currentIdx = listenIdx;
+        saveState();
+        listenToken++;
+        if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
+        window.App?.stopSpeak?.();
+        renderListenView();
+        if (!listenPaused) playListenLoop(listenToken);
+    }
+
+    function prevListen() {
+        if (!listenActive) return;
+        listenIdx = (listenIdx - 1 + sentences.length) % sentences.length;
+        currentIdx = listenIdx;
+        saveState();
+        listenToken++;
+        if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
+        window.App?.stopSpeak?.();
+        renderListenView();
+        if (!listenPaused) playListenLoop(listenToken);
+    }
+
+    function restartCurrent() {
+        if (!listenActive) return;
+        listenToken++;
+        if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
+        window.App?.stopSpeak?.();
+        if (!listenPaused) playListenLoop(listenToken);
+    }
+
+    // Core playback loop. Uses a token so that if the user hits
+    // Pause/Next/Prev mid-utterance, the stale onEnd callback from the
+    // old utterance sees myToken !== listenToken and returns silently.
+    function playListenLoop(myToken) {
+        if (!listenActive || listenPaused || myToken !== listenToken) return;
+        const s = sentences[listenIdx];
+        if (!s) { stopListen(); return; }
+
+        const baseRate = parseFloat(window.DB?.getPref?.('speech_speed', '0.85')) || 0.85;
+        const slowRate = baseRate * LISTEN_SLOW_MULT;
+
+        // Phase 1: English at normal speed
+        listenPhase = 'en-normal';
+        updateListenPhaseIndicator();
+        window.App?.speak?.(s.sentence_en, baseRate, () => {
+            if (myToken !== listenToken || !listenActive || listenPaused) return;
+            listenTimer = setTimeout(() => {
+                if (myToken !== listenToken || !listenActive || listenPaused) return;
+
+                // Phase 2: English at 0.75x slow
+                listenPhase = 'en-slow';
+                updateListenPhaseIndicator();
+                window.App?.speak?.(s.sentence_en, slowRate, () => {
+                    if (myToken !== listenToken || !listenActive || listenPaused) return;
+                    listenTimer = setTimeout(() => {
+                        if (myToken !== listenToken || !listenActive || listenPaused) return;
+
+                        // Phase 3: Chinese for comprehension
+                        listenPhase = 'zh';
+                        updateListenPhaseIndicator();
+                        window.App?.speak?.(s.sentence_cn, baseRate, () => {
+                            if (myToken !== listenToken || !listenActive || listenPaused) return;
+                            listenTimer = setTimeout(() => {
+                                if (myToken !== listenToken || !listenActive || listenPaused) return;
+
+                                // Advance to next sentence and recurse
+                                listenIdx = (listenIdx + 1) % sentences.length;
+                                currentIdx = listenIdx;
+                                saveState();
+                                renderListenView();
+                                playListenLoop(myToken);
+                            }, LISTEN_PAUSE_NEXT);
+                        }, { lang: 'zh-CN' });
+                    }, LISTEN_PAUSE_MID);
+                });
+            }, LISTEN_PAUSE_MID);
+        });
+    }
+
+    // ─── Listen-mode UI ──────────────────────────────────────
+    function renderListenView() {
+        const area = container?.querySelector('#sd-exercise-area');
+        if (!area) return;
+        const s = sentences[listenIdx];
+        if (!s) return;
+
+        area.innerHTML = `
+        <div class="ec-card sd-listen-card">
+            <div class="ec-card-top">
+                <span class="ec-card-cat" style="background:var(--accent-bg);color:var(--accent)">
+                    &#x1F3A7; Listening ${listenIdx + 1}/${sentences.length}
+                </span>
+                <span id="sd-listen-phase" class="sd-listen-phase">&#x1F50A; English</span>
+            </div>
+
+            <div class="sd-listen-sentence" id="sd-listen-en">${escHtml(s.sentence_en)}</div>
+            <div class="sd-listen-cn" id="sd-listen-cn">${escHtml(s.sentence_cn)}</div>
+
+            <div class="sd-listen-controls">
+                <button class="ec-nav-btn" id="sd-listen-prev" title="Previous sentence">&#x23EE;</button>
+                <button class="ec-btn-primary sd-listen-playpause" id="sd-listen-playpause" title="Pause / Resume">
+                    ${listenPaused ? '&#x25B6; Resume' : '&#x23F8; Pause'}
+                </button>
+                <button class="ec-nav-btn" id="sd-listen-restart" title="Replay current sentence">&#x21BB;</button>
+                <button class="ec-nav-btn" id="sd-listen-next" title="Next sentence">&#x23ED;</button>
+                <button class="ec-btn-ghost" id="sd-listen-exit" title="Exit listen mode">&#x2715; Stop</button>
+            </div>
+        </div>`;
+
+        area.querySelector('#sd-listen-playpause')?.addEventListener('click', () => {
+            if (listenPaused) resumeListen(); else pauseListen();
+        });
+        area.querySelector('#sd-listen-prev')?.addEventListener('click', prevListen);
+        area.querySelector('#sd-listen-next')?.addEventListener('click', nextListen);
+        area.querySelector('#sd-listen-restart')?.addEventListener('click', restartCurrent);
+        area.querySelector('#sd-listen-exit')?.addEventListener('click', () => {
+            stopListen();
+            render();  // back to toolbar + start prompt
+        });
+    }
+
+    function updateListenPhaseIndicator() {
+        const el = container?.querySelector('#sd-listen-phase');
+        if (!el) return;
+        const labels = {
+            'en-normal' : '\u{1F50A} English',
+            'en-slow'   : '\u{1F40C} English (slow)',
+            'zh'        : '\u{1F1E8}\u{1F1F3} Chinese',
+            'idle'      : ''
+        };
+        el.innerHTML = labels[listenPhase] || '';
+
+        // Visually highlight which block is active
+        const en = container?.querySelector('#sd-listen-en');
+        const cn = container?.querySelector('#sd-listen-cn');
+        if (en) en.classList.toggle('sd-listen-active', listenPhase === 'en-normal' || listenPhase === 'en-slow');
+        if (cn) cn.classList.toggle('sd-listen-active', listenPhase === 'zh');
+    }
+
+    function updateListenControls() {
+        const btn = container?.querySelector('#sd-listen-playpause');
+        if (btn) btn.innerHTML = listenPaused ? '&#x25B6; Resume' : '&#x23F8; Pause';
+    }
+
+    // ═════════════════════════════════════════════════════════
+
     function shuffle(arr) {
         const a = [...arr];
         for (let i = a.length - 1; i > 0; i--) {
@@ -384,5 +607,5 @@ window.SentenceDrill = (function() {
         return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    return { init };
+    return { init, stopListen };
 })();
