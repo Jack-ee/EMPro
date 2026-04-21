@@ -20,10 +20,10 @@
          In VS Code: Ctrl+H, find "?v=N" with the current N, replace
          with "?v=N+1" across this file. Then bump CACHE_NAME in
          sw.js to match (e.g. 'emp-vN+1').
-         Current version: v=24
+         Current version: v=25
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=24">
-    <link rel="stylesheet" href="expressions-coach.css?v=24">
+    <link rel="stylesheet" href="style.css?v=25">
+    <link rel="stylesheet" href="expressions-coach.css?v=25">
 </head>
 <body>
 
@@ -263,6 +263,14 @@ One word or phrase per line</pre>
                 <button class="wl-btn-primary" id="btn-install-app" onclick="window.promptInstall()" style="display:none;padding:8px 14px">&#x1F4F1; Install on this device</button>
                 <p id="install-hint" style="font-size:10px;color:var(--text-tertiary);margin-top:4px">On Android Chrome: menu &rarr; "Install app" or "Add to Home Screen". On iOS Safari: Share &rarr; "Add to Home Screen".</p>
             </div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" id="developer-section">
+                <h3 style="font-size:13px;margin-bottom:8px">Developer</h3>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+                    <input type="checkbox" id="pref-debug-panel" style="width:16px;height:16px;cursor:pointer">
+                    <span>Show debug panel (<strong>DBG</strong> button, bottom-right)</span>
+                </label>
+                <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">When enabled, a floating diagnostic panel appears with layout measurements, PWA status, icon probes, and a live log. Disable for normal use.</p>
+            </div>
             <div class="settings-btn-row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
                 <button class="wl-btn-secondary" id="btn-export">Export</button>
                 <button class="wl-btn-secondary" id="btn-import">Import</button>
@@ -286,23 +294,24 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=24"></script>
-<script src="db.js?v=24"></script>
-<script src="ai-engine.js?v=24"></script>
-<script src="my-words.js?v=24"></script>
-<script src="writing-lab.js?v=24"></script>
-<script src="vocab-drill.js?v=24"></script>
-<script src="reader.js?v=24"></script>
-<script src="speaking-coach.js?v=24"></script>
-<script src="expressions-data.js?v=24"></script>
-<script src="expressions-coach.js?v=24"></script>
-<script src="sentence.js?v=24"></script>
-<script src="sentence-drill.js?v=24"></script>
-<script src="sync.js?v=24"></script>
-<script src="app.js?v=24"></script>
-<!-- TEMPORARY: debug panel for mobile diagnostics. Remove this line
-     and delete debug-panel.js once the layout + install issues are fixed. -->
-<script src="debug-panel.js?v=24"></script>
+<script src="config.js?v=25"></script>
+<script src="db.js?v=25"></script>
+<script src="ai-engine.js?v=25"></script>
+<script src="my-words.js?v=25"></script>
+<script src="writing-lab.js?v=25"></script>
+<script src="vocab-drill.js?v=25"></script>
+<script src="reader.js?v=25"></script>
+<script src="speaking-coach.js?v=25"></script>
+<script src="expressions-data.js?v=25"></script>
+<script src="expressions-coach.js?v=25"></script>
+<script src="sentence.js?v=25"></script>
+<script src="sentence-drill.js?v=25"></script>
+<script src="sync.js?v=25"></script>
+<script src="app.js?v=25"></script>
+<!-- Debug panel — hidden by default, toggled via Settings → Developer.
+     Script always loads so console-log capture is active even when UI
+     is hidden, enabling post-mortem inspection of recent errors. -->
+<script src="debug-panel.js?v=25"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.
