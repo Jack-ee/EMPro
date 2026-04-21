@@ -3590,9 +3590,15 @@ html {
     /* --- Row 1: search + plus + 3 actions, all 40px tall.
        Clear gap between + and first action icon so they don't touch;
        consistent spacing between action icons for visual separation. */
+    /* Row 2 toolbar: search + + + 3 action icons.
+       Gap must be generous enough that flex-grow on .mw-quick-add
+       can't eat into the space before the action icons. The ground-truth
+       geometry dump (v21) showed a 12px overlap of + over Import when
+       the gap was 4px and actions used margin-left; using only gap (no
+       margin tricks) eliminates the cross-container stacking bug. */
     .mw-toolbar {
         flex-wrap : nowrap;
-        gap       : 4px;
+        gap       : 10px;
     }
     .mw-quick-add {
         min-width : 0;
@@ -3606,12 +3612,7 @@ html {
         font-size  : 22px;
     }
     .mw-toolbar-actions {
-        margin-left : 10px;  /* guaranteed visual gap between + and Import */
-        gap         : 4px;
-    }
-    /* Safety margin on + button's right edge in case flex-gap is overridden */
-    .mw-quick-add .mw-add-btn {
-        margin-right : 0;
+        gap : 4px;
     }
     .mw-toolbar-actions .mw-icon-btn {
         width    : 40px;     /* same as input/+ height for a clean square */
@@ -3665,12 +3666,12 @@ html {
     }
 
     /* Unified 4-button segmented control: Card | List | Quiz | 中
-       32px per segment keeps row 3 within viewport while play/shuffle
-       stay prominent at 44px. Container provides outer border;
-       children share borders via border-left on adjacent siblings.
-       Centering is stamped explicitly here to override earlier touch-device
-       overrides at @media (max-width:768px) and (pointer:coarse) that
-       otherwise reintroduce padding on .mw-mt-btn. */
+       The v21 diagnostic showed mt-btns rendering at 38px (because of
+       a min-height:38px rule under @media (pointer:coarse)) while CN
+       rendered at 30px (not in that rule's selector list). That height
+       mismatch made the control look uneven. Fix: stamp a fixed 38px
+       on both container and all four children, and add a min-height
+       override to beat the touch-device rule for uniform appearance. */
     .mw-mode-toggle {
         display       : inline-flex;
         gap           : 0;
@@ -3678,7 +3679,7 @@ html {
         border-radius : var(--radius-sm);
         overflow      : hidden;
         flex          : 0 0 auto;
-        height        : 32px;
+        height        : 38px;
     }
     .mw-mode-toggle .mw-mt-btn,
     .mw-mode-toggle .mw-toggle-cn-btn {
@@ -3686,7 +3687,8 @@ html {
         align-items     : center;
         justify-content : center;
         width           : 32px;
-        height          : 100%;
+        height          : 38px;
+        min-height      : 38px;   /* beats the (pointer:coarse) 38px rule applied only to mt-btn */
         padding         : 0;
         margin          : 0;
         background      : var(--bg-card);
