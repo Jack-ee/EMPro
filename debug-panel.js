@@ -699,6 +699,7 @@ Also check the app drawer — some launchers install there only.</pre>
             <h4>Quick actions</h4>
             <div id="dbg-actions">
                 <button id="dbg-run-all" style="grid-column:1/-1;background:#2d5a3d;color:#fff;font-weight:600;padding:12px">▶ Run full diagnostic (writes to Log)</button>
+                <button id="dbg-probe-tts" style="grid-column:1/-1">🔊 Probe TTS (writes to Log)</button>
                 <button id="dbg-install">Trigger install</button>
                 <button id="dbg-sw-unreg">Unregister SW</button>
                 <button id="dbg-cache-clear">Clear caches</button>
@@ -710,6 +711,8 @@ Also check the app drawer — some launchers install there only.</pre>
             <pre>• "Run full diagnostic" runs every probe in sequence and writes
   every step to the Log tab. Takes ~5 seconds. Afterwards tap
   the Copy button in the panel header to capture everything.
+• "Probe TTS" runs just the speech-synthesis probe (voices +
+  warm-up + audible test), useful when pronunciation is broken.
 • "Trigger install" only works if Chrome has already offered
   a prompt (see PWA tab).
 • "Unregister SW" + "Clear caches" + hard reload = guaranteed
@@ -718,6 +721,7 @@ Also check the app drawer — some launchers install there only.</pre>
         `;
 
         panelBody.querySelector('#dbg-run-all').addEventListener('click', runFullDiagnostic);
+        panelBody.querySelector('#dbg-probe-tts').addEventListener('click', probeTTS);
 
         panelBody.querySelector('#dbg-install').addEventListener('click', async () => {
             dbg('install button clicked');
@@ -854,7 +858,7 @@ Also check the app drawer — some launchers install there only.</pre>
         } catch (e) { dbg('cache error:', e.message); }
 
         // 5. Icons probe
-        dbg('---- [5/5] MANIFEST + ICONS ----');
+        dbg('---- [5/6] MANIFEST + ICONS ----');
         const manifestLink = document.querySelector('link[rel=manifest]');
         const manifestHref = manifestLink?.href || '';
         dbg('manifest link:', manifestHref || 'MISSING');
@@ -877,9 +881,100 @@ Also check the app drawer — some launchers install there only.</pre>
             } catch (e) { dbg('manifest probe error:', e.message); }
         }
 
+        // 6. TTS probe
+        dbg('---- [6/6] TEXT-TO-SPEECH ----');
+        await probeTTS({ silent: true });
+
         dbg('======== FULL DIAGNOSTIC END ========');
         dbg('Switch to Log tab, then tap Copy in the panel header.');
         alert('Diagnostic complete. Switch to Log tab to view the trace, then tap Copy in the panel header to capture it.');
+    }
+
+    // Probe speechSynthesis state. Writes findings to dbg() (Log tab).
+    // When called standalone, also pops an alert with the verdict so
+    // the user doesn't need to switch tabs. Pass { silent: true } from
+    // runFullDiagnostic to suppress the alert.
+    async function probeTTS(opts) {
+        const silent = Boolean(opts && opts.silent);
+        dbg('--- TTS probe start ---');
+        dbg('speechSynthesis present:', 'speechSynthesis' in window);
+        if (!('speechSynthesis' in window)) {
+            dbg('No Web Speech API in this browser. Nothing else to probe.');
+            if (!silent) alert('TTS probe: Web Speech API not present in this browser.');
+            return;
+        }
+
+        // Step 1: snapshot voices right now
+        const v1 = window.speechSynthesis.getVoices();
+        dbg(`Initial getVoices(): ${v1.length} voice(s)`);
+        v1.slice(0, 10).forEach(v => dbg(`  • ${v.name} [${v.lang}]${v.default ? ' *default' : ''}`));
+        if (v1.length > 10) dbg(`  …and ${v1.length - 10} more`);
+
+        // Step 2: silent warm-up speak (some Android TTS engines only
+        // populate getVoices() after the first speak() call)
+        dbg('Attempting warm-up speak…');
+        let warmSpoke = false, warmErr = null;
+        try {
+            window.speechSynthesis.cancel();
+            const u1 = new SpeechSynthesisUtterance('test');
+            u1.volume = 0;
+            u1.rate   = 1;
+            u1.onstart = () => { warmSpoke = true; };
+            u1.onerror = (e) => { warmErr = e.error || 'unknown'; };
+            window.speechSynthesis.speak(u1);
+            await new Promise(r => setTimeout(r, 1500));
+            window.speechSynthesis.cancel();
+        } catch (e) {
+            warmErr = e.message;
+        }
+        dbg(`  warm-up speak() started: ${warmSpoke}${warmErr ? ' | error: ' + warmErr : ''}`);
+
+        // Step 3: re-check voices after warm-up
+        const v2 = window.speechSynthesis.getVoices();
+        dbg(`Post-warmup getVoices(): ${v2.length} voice(s)${v2.length > v1.length ? '  (INCREASED — lazy-load detected)' : ''}`);
+
+        // Step 4: audible test — user should actually hear this
+        dbg('Playing audible test: "hello"…');
+        let audStarted = false, audEnded = false, audErr = null;
+        try {
+            window.speechSynthesis.cancel();
+            const u2 = new SpeechSynthesisUtterance('hello');
+            u2.volume = 1;
+            u2.rate   = 0.9;
+            u2.onstart = () => { audStarted = true; };
+            u2.onend   = () => { audEnded = true; };
+            u2.onerror = (e) => { audErr = e.error || 'unknown'; };
+            window.speechSynthesis.speak(u2);
+            await new Promise(r => setTimeout(r, 2500));
+        } catch (e) {
+            audErr = e.message;
+        }
+        dbg(`  audible: started=${audStarted} ended=${audEnded}${audErr ? ' error=' + audErr : ''}`);
+
+        // Verdict
+        let verdict;
+        if (!('speechSynthesis' in window)) {
+            verdict = 'NO_API';
+        } else if (audStarted && audEnded) {
+            verdict = v2.length > 0 ? 'WORKING' : 'WORKING_NO_VOICE_LIST';
+        } else if (audStarted) {
+            verdict = 'STARTED_NO_END';
+        } else {
+            verdict = 'BROKEN';
+        }
+        dbg('TTS verdict:', verdict);
+        dbg('--- TTS probe end ---');
+
+        if (!silent) {
+            const msg = {
+                'WORKING':               'TTS working. Voice list populated.',
+                'WORKING_NO_VOICE_LIST': 'TTS working, but getVoices() returns empty. Android quirk — System Default is fine.',
+                'STARTED_NO_END':        'Speech started but never finished cleanly. Usually still audible; check volume.',
+                'BROKEN':                'Audio did NOT play. Likely causes:\n• Android: no TTS engine installed/enabled (Settings → System → Languages → Text-to-speech)\n• Media volume muted\n• Browser policy (user gesture required — tap a pronounce button first)',
+                'NO_API':                'No Web Speech API — this browser cannot do TTS.'
+            }[verdict];
+            alert('TTS probe: ' + verdict + '\n\n' + msg);
+        }
     }
 
     function renderLogTab() {
