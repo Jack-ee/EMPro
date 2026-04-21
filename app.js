@@ -51,6 +51,14 @@ window.App = (function() {
         document.getElementById('btn-factory-reset')?.addEventListener('click', factoryReset);
         document.getElementById('btn-clear-words')?.addEventListener('click', clearAllWords);
 
+        // Debug panel toggle — routes through window.Debug API exposed by
+        // debug-panel.js. Safe to wire even if debug-panel.js isn't loaded;
+        // the handler just no-ops in that case.
+        document.getElementById('pref-debug-panel')?.addEventListener('change', (e) => {
+            window.Debug?.setEnabled?.(e.target.checked);
+            showToast(e.target.checked ? 'Debug panel enabled.' : 'Debug panel hidden.');
+        });
+
         // Notebook
         document.getElementById('btn-notebook')?.addEventListener('click', openNotebook);
         document.getElementById('notebook-close')?.addEventListener('click', closeNotebook);
@@ -112,6 +120,12 @@ window.App = (function() {
         }
         // Re-trigger voice population (user gesture context helps Android Chrome)
         populateVoices.startPolling();
+
+        // Sync the Developer > debug panel checkbox with the current pref.
+        const dbgCheckbox = document.getElementById('pref-debug-panel');
+        if (dbgCheckbox) {
+            dbgCheckbox.checked = window.Debug?.isEnabled?.() || false;
+        }
     }
 
     function closeSettings() {
