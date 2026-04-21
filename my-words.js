@@ -139,6 +139,38 @@ window.MyWords = (function() {
                 render();
             }
         }, 800);
+
+        // Self-healing render: if mw-area ends up empty but the notebook
+        // has words, re-render. Triggers on page-visibility change (user
+        // switches tabs back), window focus, and storage events (sync
+        // pulls in another tab/SW). Catches the observed symptom where
+        // the UI shows 0 words despite localStorage being intact.
+        const maybeHeal = () => {
+            const area = document.getElementById('mw-area');
+            if (!area) return;
+            const isOnMyWordsTab = document.getElementById('view-my-words')?.classList.contains('active');
+            if (!isOnMyWordsTab) return;
+            const hasNoContent = area.children.length === 0;
+            const storedCount  = window.DB.loadNotebook().length;
+            if (hasNoContent && storedCount > 0) {
+                console.warn('[MyWords] self-heal: UI empty but storage has', storedCount, 'words — re-rendering');
+                refreshStudyList();
+                currentGroup = Math.max(0, Math.min(currentGroup, getGroupCount() - 1));
+                currentIdx   = Math.max(0, Math.min(currentIdx,   getGroupWords().length - 1));
+                render();
+            }
+        };
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) maybeHeal();
+        });
+        window.addEventListener('focus', maybeHeal);
+        window.addEventListener('storage', (e) => {
+            if (e.key && e.key.includes('notebook')) maybeHeal();
+        });
+        // Also run one extra time after a slightly longer delay to catch
+        // any post-load render clobbering (e.g., by sync pulls that
+        // apply data without a full reload).
+        setTimeout(maybeHeal, 2000);
     }
 
     function bindEvents() {
@@ -961,11 +993,13 @@ IMPORTANT:
         const area      = document.getElementById('mw-area');
         const counter   = document.getElementById('mw-counter');
         const groupInfo = document.getElementById('mw-group-info');
-        if (!area) return;
+        if (!area) { console.warn('[MyWords] render: mw-area element missing, bailing'); return; }
         refreshStudyList();
+        console.log('[MyWords] render: studyList=' + studyList.length + ' currentGroup=' + currentGroup + ' currentIdx=' + currentIdx + ' mode=' + studyMode + ' view=' + viewMode + ' filter=' + studyFilter);
 
         const words      = getGroupWords();
         const groupCount = getGroupCount();
+        console.log('[MyWords] render: getGroupWords=' + words.length + ' groupCount=' + groupCount);
 
         // Update group info
         if (groupInfo) {
