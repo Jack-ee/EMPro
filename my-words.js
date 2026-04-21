@@ -26,11 +26,17 @@ window.MyWords = (function() {
 
     // --- Progress persistence (per-filter) ---
     function saveProgress() {
-        const data = { idx: currentIdx, group: currentGroup, mode: studyMode, view: viewMode,
+        // Guard against writing bad values. currentGroup or currentIdx can
+        // transiently go to -1 if studyList was empty at a bad moment; we
+        // don't want to persist that to localStorage (it would freeze the
+        // UI on subsequent loads until a manual reset).
+        const safeIdx   = Math.max(0, currentIdx   | 0);
+        const safeGroup = Math.max(0, currentGroup | 0);
+        const data = { idx: safeIdx, group: safeGroup, mode: studyMode, view: viewMode,
                        qScore: quizScore, qTotal: quizTotal, filter: studyFilter };
         window.DB.setPref('mw_progress', JSON.stringify(data));
         // Also save per-filter position
-        window.DB.setPref('mw_pos_' + studyFilter, JSON.stringify({ idx: currentIdx, group: currentGroup, qScore: quizScore, qTotal: quizTotal }));
+        window.DB.setPref('mw_pos_' + studyFilter, JSON.stringify({ idx: safeIdx, group: safeGroup, qScore: quizScore, qTotal: quizTotal }));
     }
 
     function loadProgress() {
@@ -83,14 +89,16 @@ window.MyWords = (function() {
         bindEvents();
         refreshStudyList();
 
-        // Restore progress
+        // Restore progress. Clamp both group and idx to >= 0 — without
+        // Math.max(_, 0) these can go to -1 if studyList was transiently
+        // empty (e.g. during a sync-pull reload), which then freezes the
+        // UI on an empty render even after data becomes available.
         const prog = loadProgress();
         if (prog.mode)  studyMode    = prog.mode;
         if (prog.view)  viewMode     = prog.view;
         if (prog.filter) studyFilter  = prog.filter;
-        if (prog.group != null) currentGroup = Math.min(prog.group, getGroupCount() - 1);
-        if (prog.idx   != null) currentIdx   = Math.min(prog.idx, getGroupWords().length - 1);
-        if (currentIdx < 0) currentIdx = 0;
+        if (prog.group != null) currentGroup = Math.max(0, Math.min(prog.group, getGroupCount() - 1));
+        if (prog.idx   != null) currentIdx   = Math.max(0, Math.min(prog.idx, getGroupWords().length - 1));
         if (prog.qScore != null) quizScore = prog.qScore;
         if (prog.qTotal != null) quizTotal = prog.qTotal;
 
@@ -112,6 +120,25 @@ window.MyWords = (function() {
 
         render();
         console.log('[MyWords] init complete, words:', studyList.length, 'group:', currentGroup, 'idx:', currentIdx);
+
+        // Defensive retry: if init ran before localStorage was fully
+        // populated (e.g., racing with a sync pull that reloaded the
+        // page), the initial render may show 0 words even though the
+        // notebook is there. After a short delay, re-check and re-render
+        // if the stored notebook now has words but studyList is empty.
+        // Only triggers once — doesn't re-run on subsequent renders.
+        setTimeout(() => {
+            const stored = window.DB.loadNotebook();
+            if (stored.length > 0 && studyList.length === 0) {
+                console.warn('[MyWords] recovery: studyList was empty but storage has', stored.length, 'words — re-rendering');
+                refreshStudyList();
+                // Reset currentGroup/currentIdx defensively since previous
+                // clamp produced bad values when list was empty.
+                currentGroup = Math.max(0, Math.min(currentGroup, getGroupCount() - 1));
+                currentIdx   = Math.max(0, Math.min(currentIdx,   getGroupWords().length - 1));
+                render();
+            }
+        }, 800);
     }
 
     function bindEvents() {
