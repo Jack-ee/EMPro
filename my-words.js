@@ -216,7 +216,10 @@ window.MyWords = (function() {
 
         // Batch enrich
         document.getElementById('mw-batch-enrich')?.addEventListener('click', batchEnrichCopy);
-        document.getElementById('mw-batch-paste')?.addEventListener('click', openBatchPasteModal);
+        document.getElementById('mw-batch-paste')?.addEventListener('click', () => {
+            console.log('[PasteBack] Paste-back button clicked, opening modal.');
+            openBatchPasteModal();
+        });
 
         // Navigation
         document.getElementById('mw-prev')?.addEventListener('click', () => { stopAutoplay(); navigate(-1); });
@@ -450,8 +453,11 @@ window.MyWords = (function() {
     }
 
     function importRichFormat(raw) {
+        console.group('[importRichFormat] Starting');
+        console.log('  raw input length:', raw.length);
         // Normalize line endings
         raw = String(raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+        console.log('  normalized length:', raw.length);
 
         // Line-by-line parser: collect fields until we hit the next WORD:
         const lines   = raw.split('\n');
@@ -480,11 +486,16 @@ window.MyWords = (function() {
         // Don't forget the last entry
         if (current && current.WORD) results.push(current);
 
-        console.log('[importRich] parsed entries:', results.length, results.map(r => r.WORD));
+        console.log('  parsed', results.length, 'entries:', results.map(r => r.WORD));
+        results.forEach((r, i) => {
+            const fields = Object.keys(r).filter(k => r[k]);
+            console.log(`    [${i + 1}] WORD="${r.WORD}"  fields=${fields.length} (${fields.join(', ')})`);
+        });
 
         let count = 0;
         for (const f of results) {
-            window.DB.upsertNotebookWord({
+            console.log(`  → upserting "${f.WORD}" (phonetic=${f.PHONETIC ? 'yes' : 'NO'}, meaning=${f.MEANING_CN ? 'yes' : 'NO'})`);
+            const saved = window.DB.upsertNotebookWord({
                 word      : f.WORD              || '',
                 phonetic  : f.PHONETIC          || '',
                 meaning   : f.MEANING_CN        || '',
@@ -498,9 +509,11 @@ window.MyWords = (function() {
                 source    : 'Batch enriched',
                 tags      : ['enriched']
             });
+            console.log(`      saved as "${saved?.word}", phonetic="${saved?.phonetic}"`);
             count++;
         }
-        console.log('[importRich] saved:', count);
+        console.log('[importRichFormat] saved:', count);
+        console.groupEnd();
         return count;
     }
 
@@ -721,9 +734,38 @@ IMPORTANT:
                 </div>`;
             document.body.appendChild(modal);
             document.getElementById('mw-batch-apply').addEventListener('click', () => {
-                const text = (document.getElementById('mw-batch-input')?.value || '').trim();
-                if (!text) { window.App?.showToast?.('Paste the AI response first.'); return; }
+                console.group('[PasteBack] Apply button clicked');
+                const textareaEl = document.getElementById('mw-batch-input');
+                const text       = (textareaEl?.value || '').trim();
+                console.log('  textarea element found:', Boolean(textareaEl));
+                console.log('  text length:', text.length);
+                console.log('  first 200 chars:', text.slice(0, 200));
+                console.log('  starts with "WORD:":', text.startsWith('WORD:'));
+                console.log('  contains "PHONETIC:":', text.includes('PHONETIC:'));
+                if (!text) {
+                    console.warn('[PasteBack] ABORT — empty text.');
+                    console.groupEnd();
+                    window.App?.showToast?.('Paste the AI response first.');
+                    return;
+                }
+
+                // Snapshot notebook before
+                const nbBefore = window.DB.loadNotebook();
+                const incBefore = nbBefore.filter(w => !w.phonetic).map(w => w.word);
+                console.log('  notebook size BEFORE:', nbBefore.length);
+                console.log('  incomplete BEFORE:', incBefore);
+
                 const count = importRichFormat(text);
+                console.log('  importRichFormat returned:', count);
+
+                // Snapshot notebook after
+                const nbAfter = window.DB.loadNotebook();
+                const incAfter = nbAfter.filter(w => !w.phonetic).map(w => w.word);
+                console.log('  notebook size AFTER:', nbAfter.length);
+                console.log('  incomplete AFTER:', incAfter);
+                console.log('  delta size:', nbAfter.length - nbBefore.length);
+                console.groupEnd();
+
                 window.App?.showToast?.(`Updated ${count} words with enriched data.`);
                 window.App?.updateNotebookBadge?.();
                 refreshStudyList();
