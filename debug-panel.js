@@ -768,8 +768,22 @@ Also check the app drawer — some launchers install there only.</pre>
             if (!el) { dbg(id, ': MISSING'); return; }
             const r  = el.getBoundingClientRect();
             const cs = getComputedStyle(el);
-            dbg(`${id}: L=${r.left.toFixed(1)} R=${r.right.toFixed(1)} W=${r.width.toFixed(1)} H=${r.height.toFixed(1)} pad=${cs.padding} mar=${cs.margin}`);
+            // Include Y (T=top, B=bottom) so we can detect flex-wrap
+            dbg(`${id}: L=${r.left.toFixed(1)} R=${r.right.toFixed(1)} T=${r.top.toFixed(1)} B=${r.bottom.toFixed(1)} W=${r.width.toFixed(1)} H=${r.height.toFixed(1)} pad=${cs.padding} mar=${cs.margin}`);
         });
+
+        // Container probe — this is what we actually care about for the
+        // + / Import overlap mystery. If these containers aren't where
+        // we expect, the children's positions make no sense.
+        dbg('---- Container rects ----');
+        ['.mw-toolbar', '.mw-quick-add', '.mw-toolbar-actions', '.mw-nav-row', '.mw-mode-toggle'].forEach(sel => {
+            const el = document.querySelector(sel);
+            if (!el) { dbg(sel, ': MISSING'); return; }
+            const r  = el.getBoundingClientRect();
+            const cs = getComputedStyle(el);
+            dbg(`${sel}: L=${r.left.toFixed(1)} R=${r.right.toFixed(1)} T=${r.top.toFixed(1)} W=${r.width.toFixed(1)} gap=${cs.gap} flex-wrap=${cs.flexWrap} display=${cs.display} position=${cs.position}`);
+        });
+
         const spec = ids.map(id => ({ id, label: id }));
         const overlaps = findOverlaps(spec);
         if (overlaps.length === 0) {
