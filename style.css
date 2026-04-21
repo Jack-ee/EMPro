@@ -3344,6 +3344,14 @@ html {
         padding   : 8px 12px;
         height    : 40px;             /* explicit match with action buttons */
         min-height: 40px;
+        min-width : 0;                /* critical: without this, the input's
+                                         default min-width:auto = placeholder
+                                         text width (~216px), which prevents
+                                         flex from shrinking it and forces
+                                         the sibling + button to overflow
+                                         its .mw-quick-add container. That
+                                         overflow caused the confirmed 12px
+                                         overlap with the Import button. */
     }
     .mw-add-btn {
         min-width  : 40px;            /* match input height */
@@ -3591,14 +3599,14 @@ html {
        Clear gap between + and first action icon so they don't touch;
        consistent spacing between action icons for visual separation. */
     /* Row 2 toolbar: search + + + 3 action icons.
-       Gap must be generous enough that flex-grow on .mw-quick-add
-       can't eat into the space before the action icons. The ground-truth
-       geometry dump (v21) showed a 12px overlap of + over Import when
-       the gap was 4px and actions used margin-left; using only gap (no
-       margin tricks) eliminates the cross-container stacking bug. */
+       6px gap gives clear visual separation without forcing overflow
+       at 400px viewport. The real fix for the + / Import overlap is
+       min-width: 0 on .mw-quick-input (above) — without it, the input
+       refuses to shrink below its placeholder's intrinsic width and
+       forces the + sibling to overflow its container. */
     .mw-toolbar {
         flex-wrap : nowrap;
-        gap       : 10px;
+        gap       : 6px;
     }
     .mw-quick-add {
         min-width : 0;
