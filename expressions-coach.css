@@ -649,3 +649,31 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     .sd-listen-phase    { font-size: 10px; min-width: 90px; }
     .sd-listen-controls { gap: 6px; }
 }
+
+/* CN toggle button in Listen controls */
+.sd-listen-cn-toggle {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+    color: var(--text-tertiary);
+    border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-width: 56px;
+}
+.sd-listen-cn-toggle:hover {
+    background: var(--surface-2, rgba(0, 0, 0, 0.03));
+    color: var(--text-secondary);
+}
+.sd-listen-cn-toggle.sd-listen-cn-on {
+    background: var(--accent-bg, rgba(45, 90, 61, 0.1));
+    color: var(--accent, #2d5a3d);
+    border-color: var(--accent, #2d5a3d);
+}
+
+/* Muted Chinese text when CN playback is off — still visible, just quiet */
+.sd-listen-cn-muted {
+    opacity: 0.5;
+}
