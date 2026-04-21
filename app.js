@@ -57,13 +57,43 @@
         };
     }
 
+    // Preferred voice substrings, in priority order. We check voice.name
+    // for these (case-insensitive). Google and newer Microsoft voices
+    // are dramatically less robotic than the old Microsoft David/Zira
+    // bundled with Windows — those mechanical pauses at every comma are
+    // a known problem with older SAPI5 voices.
+    const PREFERRED_EN_VOICES = [
+        'Google US English',
+        'Google UK English Female',
+        'Google UK English Male',
+        'Microsoft Aria',       // Windows 11 online
+        'Microsoft Jenny',      // Windows 11 online
+        'Microsoft Guy',
+        'Samantha',             // macOS / iOS
+        'Karen',                // macOS en-AU
+        'Daniel',               // macOS en-GB
+        'Microsoft Mark',       // less robotic than David
+        'Microsoft Zira'        // fallback — still better than David for some sentences
+    ];
+
     function resolveVoice() {
         const wanted = window.DB?.getPref?.('tts_voice', '') || '';
-        if (!wanted || wanted === '__default__') return null;
         const voices = cachedVoices.length ? cachedVoices : refreshVoices();
-        return voices.find(v => v.voiceURI === wanted)
-            || voices.find(v => v.name === wanted)
-            || null;
+
+        // User explicitly picked a voice — honor it.
+        if (wanted && wanted !== '__default__') {
+            return voices.find(v => v.voiceURI === wanted)
+                || voices.find(v => v.name === wanted)
+                || null;
+        }
+
+        // System Default: try to find a natural-sounding English voice
+        // before falling back to whatever the OS chose (often robotic).
+        for (const pref of PREFERRED_EN_VOICES) {
+            const match = voices.find(v => (v.name || '').toLowerCase().includes(pref.toLowerCase()));
+            if (match) return match;
+        }
+        return null;  // ultimate fallback — let the browser decide
     }
 
     // speak(text, rate?, onEnd?, opts?)
@@ -96,7 +126,7 @@
             }
 
             u.rate    = Number(rate) || parseFloat(window.DB?.getPref?.('speech_speed', '0.85')) || 0.85;
-            u.pitch   = 1;
+            u.pitch   = 1.05;   // slight lift helps voices like Google US English sound less flat
             u.volume  = 1;
             u.onend   = () => { if (typeof onEnd === 'function') onEnd(); };
             u.onerror = () => { if (typeof onEnd === 'function') onEnd(); };
