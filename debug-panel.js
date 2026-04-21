@@ -1,19 +1,32 @@
 // ============================================================
-// debug-panel.js — Temporary diagnostics overlay
+// debug-panel.js — In-app diagnostics overlay (gated)
 //
 // Purpose: give us a mobile-side window into layout and PWA
 // state without needing a USB cable or remote debugging.
-// Remove this file (and the two lines in index.html that load it)
-// once we've resolved the open issues.
 //
-// Interface:
+// Activation: Settings → Developer → "Show debug panel" checkbox.
+// Default is off, so normal users never see the DBG button.
+// The pref is persisted at DB pref key 'debug_panel_enabled'.
+//
+// Even when hidden, this script still:
+//   • Captures console.log/warn/error into a ring buffer
+//     (accessible via window.Debug.log), so a recent-error
+//     trail is available should you need to re-enable and
+//     inspect after something went wrong.
+//   • Exposes window.Debug.open() / Debug.dump() for emergency
+//     use from the browser console.
+//
+// Interface when enabled:
 //   - A small "DBG" toggle button fixed to the bottom-right corner.
-//   - Tapping it opens a bottom-sheet panel with:
-//       • Environment info (viewport, DPR, matched media queries, UA)
-//       • Buttons that measure specific UI elements and dump metrics
-//       • PWA install / service-worker state
-//       • A live log that captures console.log/warn/error
-//       • Quick actions: install, unregister SW, clear data, copy dump
+//   - Tapping it opens a bottom-sheet panel with tabs:
+//       • Env      — viewport, DPR, media queries, UA
+//       • Layout   — geometry + overlap detection for key elements
+//       • PWA      — SW registrations, manifest, cache storage
+//       • Icons    — per-icon fetch + decode probe with verdict
+//       • Actions  — install, SW unregister, cache clear, exports
+//       • Log      — live console capture
+//   - "Copy" button in the panel header assembles a full dump
+//     for pasting into chat/issues.
 // ============================================================
 
 (function() {
@@ -211,6 +224,39 @@
                 renderActiveTab();
             });
         });
+
+        // Apply the user's debug-panel preference. Default: off, so
+        // normal users never see the DBG button. The console-log hook
+        // (set up outside build()) remains active either way, so recent
+        // errors are still captured and available via window.Debug.log.
+        applyEnabledPref();
+    }
+
+    /** Read pref from DB (if available) or raw localStorage. Returns boolean. */
+    function isDebugEnabled() {
+        if (window.DB && typeof window.DB.getPref === 'function') {
+            return window.DB.getPref('debug_panel_enabled', 'false') === 'true';
+        }
+        // Fallback for ultra-early calls before db.js has initialised.
+        return localStorage.getItem('emp_debug_panel_enabled') === 'true';
+    }
+
+    /** Show or hide the DBG toggle button based on the current pref. */
+    function applyEnabledPref() {
+        const enabled = isDebugEnabled();
+        const toggle  = document.getElementById('dbg-toggle');
+        if (toggle) toggle.style.display = enabled ? '' : 'none';
+        if (!enabled && isOpen) setOpen(false);
+    }
+
+    /** Called by the Settings checkbox. Persists pref and updates UI. */
+    function setDebugEnabled(enabled) {
+        if (window.DB && typeof window.DB.setPref === 'function') {
+            window.DB.setPref('debug_panel_enabled', enabled ? 'true' : 'false');
+        } else {
+            localStorage.setItem('emp_debug_panel_enabled', enabled ? 'true' : 'false');
+        }
+        applyEnabledPref();
     }
 
     function setOpen(v) {
@@ -943,11 +989,14 @@ Also check the app drawer — some launchers install there only.</pre>
         build();
     }
 
-    // Public handle so you can call from console
+    // Public handle so you can call from console — also used by the
+    // Settings-modal "Show debug panel" checkbox via app.js wiring.
     window.Debug = {
-        open:  () => setOpen(true),
-        close: () => setOpen(false),
-        dump:  copyDump,
-        log:   logBuffer
+        open:       () => setOpen(true),
+        close:      () => setOpen(false),
+        dump:       copyDump,
+        log:        logBuffer,
+        isEnabled:  isDebugEnabled,
+        setEnabled: setDebugEnabled
     };
 })();
