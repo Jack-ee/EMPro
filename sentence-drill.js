@@ -82,16 +82,17 @@ window.SentenceDrill = (function() {
 
         container.innerHTML = `
         <div class="ec-wrapper">
-            <div class="ec-toolbar">
-                <span style="font-size:0.82rem;font-weight:600;color:var(--text-primary)">Sentences</span>
+            <div class="ec-toolbar sd-toolbar">
                 <div class="ec-toolbar-stats">
                     <span class="ec-ts"><span class="ec-ts-num">${sentences.length}</span> total</span>
                     <span class="ec-ts"><span class="ec-ts-num ec-practiced" id="sd-practiced">${practiced}</span>&#x2705;</span>
                     <span class="ec-ts"><span class="ec-ts-num ec-mastered" id="sd-mastered">${mastered}</span>&#x2B50;</span>
                     ${total > 0 ? `<span class="ec-ts">${score}/${total}</span>` : ''}
                 </div>
-                <button class="ec-btn-primary" id="sd-start-btn">&#x25B6; Start</button>
-                <button class="ec-btn-ghost" id="sd-listen-btn" title="Listen mode \u2014 auto-pronounce every sentence">&#x1F3A7; Listen</button>
+                <div class="sd-toolbar-actions">
+                    <button class="ec-btn-ghost" id="sd-listen-btn" title="Listen mode \u2014 auto-pronounce every sentence">&#x1F3A7;<span class="sd-btn-label"> Listen</span></button>
+                    <button class="ec-btn-primary" id="sd-start-btn">&#x25B6;<span class="sd-btn-label"> Start</span></button>
+                </div>
             </div>
             <div id="sd-exercise-area">
                 <div class="ec-start-prompt">
@@ -553,29 +554,29 @@ window.SentenceDrill = (function() {
 
         area.innerHTML = `
         <div class="ec-card sd-listen-card">
-            <div class="ec-card-top">
-                <span class="ec-card-cat" style="background:var(--accent-bg);color:var(--accent)">
-                    &#x1F3A7; Listening ${listenIdx + 1}/${sentences.length}
+            <div class="ec-card-top sd-listen-top">
+                <span class="ec-card-cat sd-listen-badge" style="background:var(--accent-bg);color:var(--accent)">
+                    &#x1F3A7; ${listenIdx + 1}/${sentences.length}
                 </span>
-                <span id="sd-listen-phase" class="sd-listen-phase">&#x1F50A; English</span>
+                <span id="sd-listen-phase" class="sd-listen-phase">&#x1F50A; EN</span>
             </div>
 
             <div class="sd-listen-sentence" id="sd-listen-en">${escHtml(s.sentence_en)}</div>
             <div class="sd-listen-cn ${isListenCNEnabled() ? '' : 'sd-listen-cn-muted'}" id="sd-listen-cn">${escHtml(s.sentence_cn)}</div>
 
             <div class="sd-listen-controls">
-                <button class="ec-nav-btn" id="sd-listen-prev" title="Previous sentence">&#x23EE;</button>
-                <button class="ec-btn-primary sd-listen-playpause" id="sd-listen-playpause" title="Pause / Resume">
-                    ${listenPaused ? '&#x25B6; Resume' : '&#x23F8; Pause'}
+                <button class="sd-listen-ctrl" id="sd-listen-prev" title="Previous">&#x23EE;</button>
+                <button class="sd-listen-ctrl sd-listen-playpause" id="sd-listen-playpause" title="Pause / Resume">
+                    ${listenPaused ? '&#x25B6;' : '&#x23F8;'}
                 </button>
-                <button class="ec-nav-btn" id="sd-listen-restart" title="Replay current sentence">&#x21BB;</button>
-                <button class="ec-nav-btn" id="sd-listen-next" title="Next sentence">&#x23ED;</button>
-                <button class="sd-listen-cn-toggle ${isListenCNEnabled() ? 'sd-listen-cn-on' : ''}"
+                <button class="sd-listen-ctrl" id="sd-listen-restart" title="Replay current sentence">&#x21BB;</button>
+                <button class="sd-listen-ctrl" id="sd-listen-next" title="Next">&#x23ED;</button>
+                <button class="sd-listen-ctrl sd-listen-cn-toggle ${isListenCNEnabled() ? 'sd-listen-cn-on' : ''}"
                         id="sd-listen-cn-btn"
                         title="Toggle Chinese pronunciation">
-                    \u4E2D ${isListenCNEnabled() ? 'on' : 'off'}
+                    \u4E2D${isListenCNEnabled() ? '' : '\u00D7'}
                 </button>
-                <button class="ec-btn-ghost" id="sd-listen-exit" title="Exit listen mode">&#x2715; Stop</button>
+                <button class="sd-listen-ctrl sd-listen-exit" id="sd-listen-exit" title="Exit listen mode">&#x2715;</button>
             </div>
         </div>`;
 
@@ -601,7 +602,7 @@ window.SentenceDrill = (function() {
         const btn = container?.querySelector('#sd-listen-cn-btn');
         if (btn) {
             btn.classList.toggle('sd-listen-cn-on', next);
-            btn.innerHTML = `\u4E2D ${next ? 'on' : 'off'}`;
+            btn.innerHTML = `\u4E2D${next ? '' : '\u00D7'}`;
         }
         const cnEl = container?.querySelector('#sd-listen-cn');
         if (cnEl) cnEl.classList.toggle('sd-listen-cn-muted', !next);
@@ -623,9 +624,9 @@ window.SentenceDrill = (function() {
         const el = container?.querySelector('#sd-listen-phase');
         if (!el) return;
         const labels = {
-            'en-normal' : '\u{1F50A} English',
-            'en-slow'   : '\u{1F40C} English (slow)',
-            'zh'        : '\u{1F1E8}\u{1F1F3} Chinese',
+            'en-normal' : '\u{1F50A} EN',
+            'en-slow'   : '\u{1F40C} EN slow',
+            'zh'        : '\u{1F1E8}\u{1F1F3} CN',
             'idle'      : ''
         };
         el.innerHTML = labels[listenPhase] || '';
@@ -639,7 +640,7 @@ window.SentenceDrill = (function() {
 
     function updateListenControls() {
         const btn = container?.querySelector('#sd-listen-playpause');
-        if (btn) btn.innerHTML = listenPaused ? '&#x25B6; Resume' : '&#x23F8; Pause';
+        if (btn) btn.innerHTML = listenPaused ? '&#x25B6;' : '&#x23F8;';
     }
 
     // ═════════════════════════════════════════════════════════
