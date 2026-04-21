@@ -179,6 +179,7 @@ window.SpeakingCoach = (function() {
 
     function init() {
         bindEvents();
+        renderScenarios();
         renderPhrasingReference();
     }
 
@@ -221,6 +222,20 @@ window.SpeakingCoach = (function() {
     // =====================================================
     // SCENARIO PRACTICE
     // =====================================================
+
+    // Populate the grid of scenario cards when the Scenarios panel
+    // first renders. Each card has data-id, matched by the click
+    // handler bound in bindEvents() which calls startScenario().
+    function renderScenarios() {
+        const grid = document.querySelector('#sc-scenarios .sc-scenario-grid');
+        if (!grid) return;
+        grid.innerHTML = SCENARIOS.map(s => `
+            <button class="sc-scenario-card" data-id="${s.id}" type="button">
+                <span class="sc-scenario-icon">${s.icon}</span>
+                <span class="sc-scenario-name">${escHtml(s.title)}</span>
+            </button>
+        `).join('');
+    }
 
     function startScenario(scenarioId) {
         const scenario = SCENARIOS.find(s => s.id === scenarioId);
