@@ -389,17 +389,31 @@ window.SentenceDrill = (function() {
     //  LISTEN MODE — auto-pronounce every sentence in sequence
     // ═════════════════════════════════════════════════════════
     // Playback loop per sentence:
-    //   1. English at user's saved speech_speed  (default 0.85)
+    //   1. English at Listen base rate (0.95)
     //   2. Pause 600ms
-    //   3. English at 0.75x of that speed       (slow immersion)
+    //   3. English at 0.80x of base rate (slow immersion)
     //   4. Pause 600ms
-    //   5. Chinese via zh-CN voice              (comprehension anchor)
+    //   5. Chinese via zh-CN voice  (optional — toggled via pref 'sd_listen_cn')
     //   6. Pause 1000ms, then auto-advance to next sentence
     // Loops back to sentence 1 after the last one.
+    //
+    // Listen mode ignores the global speech_speed pref (which is tuned
+    // for single-word vocab playback where 0.85 is easier to catch)
+    // and uses rates chosen specifically for sentence-level prosody —
+    // slower rates amplify the mechanical inter-comma pauses that the
+    // Web Speech API produces, so we stay closer to natural speed.
 
     const LISTEN_PAUSE_MID  = 600;
     const LISTEN_PAUSE_NEXT = 1000;
-    const LISTEN_SLOW_MULT  = 0.75;
+    const LISTEN_BASE_RATE  = 0.95;
+    const LISTEN_SLOW_MULT  = 0.80;
+
+    function isListenCNEnabled() {
+        return window.DB?.getPref?.('sd_listen_cn', 'false') === 'true';
+    }
+    function setListenCNEnabled(on) {
+        window.DB?.setPref?.('sd_listen_cn', on ? 'true' : 'false');
+    }
 
     function startListen() {
         if (listenActive) return;
@@ -482,8 +496,20 @@ window.SentenceDrill = (function() {
         const s = sentences[listenIdx];
         if (!s) { stopListen(); return; }
 
-        const baseRate = parseFloat(window.DB?.getPref?.('speech_speed', '0.85')) || 0.85;
+        const baseRate = LISTEN_BASE_RATE;
         const slowRate = baseRate * LISTEN_SLOW_MULT;
+        const cnOn     = isListenCNEnabled();
+
+        // Advance helper — runs after the English playback finishes,
+        // and optionally plays Chinese before moving to the next sentence.
+        const advanceToNext = () => {
+            if (myToken !== listenToken || !listenActive || listenPaused) return;
+            listenIdx = (listenIdx + 1) % sentences.length;
+            currentIdx = listenIdx;
+            saveState();
+            renderListenView();
+            playListenLoop(myToken);
+        };
 
         // Phase 1: English at normal speed
         listenPhase = 'en-normal';
@@ -493,7 +519,7 @@ window.SentenceDrill = (function() {
             listenTimer = setTimeout(() => {
                 if (myToken !== listenToken || !listenActive || listenPaused) return;
 
-                // Phase 2: English at 0.75x slow
+                // Phase 2: English at 0.80x slow
                 listenPhase = 'en-slow';
                 updateListenPhaseIndicator();
                 window.App?.speak?.(s.sentence_en, slowRate, () => {
@@ -501,21 +527,16 @@ window.SentenceDrill = (function() {
                     listenTimer = setTimeout(() => {
                         if (myToken !== listenToken || !listenActive || listenPaused) return;
 
-                        // Phase 3: Chinese for comprehension
+                        // Phase 3: Chinese — only if toggle is on
+                        if (!cnOn) {
+                            advanceToNext();
+                            return;
+                        }
                         listenPhase = 'zh';
                         updateListenPhaseIndicator();
                         window.App?.speak?.(s.sentence_cn, baseRate, () => {
                             if (myToken !== listenToken || !listenActive || listenPaused) return;
-                            listenTimer = setTimeout(() => {
-                                if (myToken !== listenToken || !listenActive || listenPaused) return;
-
-                                // Advance to next sentence and recurse
-                                listenIdx = (listenIdx + 1) % sentences.length;
-                                currentIdx = listenIdx;
-                                saveState();
-                                renderListenView();
-                                playListenLoop(myToken);
-                            }, LISTEN_PAUSE_NEXT);
+                            listenTimer = setTimeout(advanceToNext, LISTEN_PAUSE_NEXT);
                         }, { lang: 'zh-CN' });
                     }, LISTEN_PAUSE_MID);
                 });
@@ -540,7 +561,7 @@ window.SentenceDrill = (function() {
             </div>
 
             <div class="sd-listen-sentence" id="sd-listen-en">${escHtml(s.sentence_en)}</div>
-            <div class="sd-listen-cn" id="sd-listen-cn">${escHtml(s.sentence_cn)}</div>
+            <div class="sd-listen-cn ${isListenCNEnabled() ? '' : 'sd-listen-cn-muted'}" id="sd-listen-cn">${escHtml(s.sentence_cn)}</div>
 
             <div class="sd-listen-controls">
                 <button class="ec-nav-btn" id="sd-listen-prev" title="Previous sentence">&#x23EE;</button>
@@ -549,6 +570,11 @@ window.SentenceDrill = (function() {
                 </button>
                 <button class="ec-nav-btn" id="sd-listen-restart" title="Replay current sentence">&#x21BB;</button>
                 <button class="ec-nav-btn" id="sd-listen-next" title="Next sentence">&#x23ED;</button>
+                <button class="sd-listen-cn-toggle ${isListenCNEnabled() ? 'sd-listen-cn-on' : ''}"
+                        id="sd-listen-cn-btn"
+                        title="Toggle Chinese pronunciation">
+                    \u4E2D ${isListenCNEnabled() ? 'on' : 'off'}
+                </button>
                 <button class="ec-btn-ghost" id="sd-listen-exit" title="Exit listen mode">&#x2715; Stop</button>
             </div>
         </div>`;
@@ -559,10 +585,38 @@ window.SentenceDrill = (function() {
         area.querySelector('#sd-listen-prev')?.addEventListener('click', prevListen);
         area.querySelector('#sd-listen-next')?.addEventListener('click', nextListen);
         area.querySelector('#sd-listen-restart')?.addEventListener('click', restartCurrent);
+        area.querySelector('#sd-listen-cn-btn')?.addEventListener('click', toggleListenCN);
         area.querySelector('#sd-listen-exit')?.addEventListener('click', () => {
             stopListen();
             render();  // back to toolbar + start prompt
         });
+    }
+
+    function toggleListenCN() {
+        const next = !isListenCNEnabled();
+        setListenCNEnabled(next);
+        // Re-render the controls so the button label flips immediately.
+        // Does NOT interrupt current playback — the new setting applies
+        // on the NEXT sentence (or immediately if we're past Phase 2).
+        const btn = container?.querySelector('#sd-listen-cn-btn');
+        if (btn) {
+            btn.classList.toggle('sd-listen-cn-on', next);
+            btn.innerHTML = `\u4E2D ${next ? 'on' : 'off'}`;
+        }
+        const cnEl = container?.querySelector('#sd-listen-cn');
+        if (cnEl) cnEl.classList.toggle('sd-listen-cn-muted', !next);
+        // If CN was just turned off and we're currently in the Chinese
+        // phase, cancel the rest of this sentence and advance.
+        if (!next && listenPhase === 'zh' && listenActive && !listenPaused) {
+            listenToken++;
+            if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
+            window.App?.stopSpeak?.();
+            listenIdx = (listenIdx + 1) % sentences.length;
+            currentIdx = listenIdx;
+            saveState();
+            renderListenView();
+            playListenLoop(listenToken);
+        }
     }
 
     function updateListenPhaseIndicator() {
