@@ -125,7 +125,7 @@
                 u.lang = (v && v.lang) || 'en-US';
             }
 
-            u.rate    = Number(rate) || parseFloat(window.DB?.getPref?.('speech_speed', '0.85')) || 0.85;
+            u.rate    = Number(rate) || parseFloat(window.DB?.getPref?.('speech_speed', '0.9')) || 0.9;
             u.pitch   = 1.05;   // slight lift helps voices like Google US English sound less flat
             u.volume  = 1;
             u.onend   = () => { if (typeof onEnd === 'function') onEnd(); };
@@ -181,7 +181,7 @@
         // Speed
         const speedEl   = document.getElementById('settings-speed');
         const speedVal  = document.getElementById('settings-speed-val');
-        const savedSpd  = parseFloat(window.DB.getPref('speech_speed', '0.85')) || 0.85;
+        const savedSpd  = parseFloat(window.DB.getPref('speech_speed', '0.9')) || 0.9;
         if (speedEl)    speedEl.value        = String(savedSpd);
         if (speedVal)   speedVal.textContent = savedSpd.toFixed(2);
 
@@ -279,7 +279,7 @@
         });
         const speedEl = document.getElementById('settings-speed');
         speedEl?.addEventListener('input', (e) => {
-            const v = parseFloat(e.target.value) || 0.85;
+            const v = parseFloat(e.target.value) || 0.9;
             document.getElementById('settings-speed-val').textContent = v.toFixed(2);
             window.DB.setPref('speech_speed', String(v));
         });
