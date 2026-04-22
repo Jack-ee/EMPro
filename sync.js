@@ -58,6 +58,23 @@ window.SyncManager = (function() {
     }
 
     // ─── Init ────────────────────────────────────────────────
+
+    // Listen-mode check: when the user is auto-playing sentences, a
+    // background pull that reloads the page would yank them out of
+    // flow. Manual Push/Pull from Settings bypasses this — that's the
+    // user's explicit request, we honor it immediately.
+    //
+    // We probe SentenceDrill's state via a getter rather than reaching
+    // into module internals. If SentenceDrill isn't loaded yet or
+    // doesn't expose the getter, we treat it as "not active" (safe default).
+    function isListenActive() {
+        try {
+            return Boolean(window.SentenceDrill?.isListenActive?.());
+        } catch {
+            return false;
+        }
+    }
+
     async function init() {
         if (initialized) return;
         initialized = true;
@@ -87,16 +104,19 @@ window.SyncManager = (function() {
     }
 
     function onFocus() {
+        if (isListenActive()) return;
         if (getToken() && getGistId()) pull(false);
     }
 
     function onVisibilityChange() {
+        if (isListenActive()) return;
         if (!document.hidden && getToken() && getGistId()) pull(false);
     }
 
     function startPolling() {
         if (pollTimer) clearInterval(pollTimer);
         pollTimer = setInterval(() => {
+            if (isListenActive()) return;
             if (!document.hidden && getToken() && getGistId() && !isSyncing) {
                 pull(false);
             }
