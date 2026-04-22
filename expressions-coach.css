@@ -1109,20 +1109,25 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
    ═══════════════════════════════════════════════════════════════ */
 
 /* The sub-panel becomes a positioning context + height-bounded so
-   absolute children anchor against it correctly. */
+   absolute children anchor against it correctly. The key here is
+   `height` (not `min-height`): the panel occupies a fixed viewport
+   slice, so the grid inside can't expand to fit all items and must
+   scroll internally. Offsets account for the top nav bars:
+     - app header (~56px) + main tabs (~50px) + sub-tabs (~38px)
+       + padding (~12px) ≈ 156px total chrome on mobile.
+     - Desktop has slightly more breathing room. */
 #sc-panel-curated.active,
 #sc-panel-mine.active {
     position: relative;
     display: flex;
     flex-direction: column;
-    /* 55vh leaves comfortable room for the detail panel below on mobile,
-       and stays well above the footer on desktop. */
-    min-height: 55vh;
+    height: calc(100vh - 170px);
+    min-height: 420px;  /* floor for very short viewports */
 }
 @media (min-width: 900px) {
     #sc-panel-curated.active,
     #sc-panel-mine.active {
-        min-height: 65vh;
+        height: calc(100vh - 180px);
     }
 }
 
