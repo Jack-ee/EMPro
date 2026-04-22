@@ -533,6 +533,12 @@
             panels.forEach(p => p.classList.toggle('active', p.id === panelId));
             stopSpeak();
             window.SentenceDrill?.stopListen?.();
+            // When switching into Mine, re-render so newly-added MyWords
+            // entries show up immediately (initMine only runs at boot).
+            if (panelId === 'sc-panel-mine') {
+                const el = document.getElementById('sc-panel-mine');
+                if (el && window.SentenceDrill?.initMine) window.SentenceDrill.initMine(el);
+            }
         }));
     }
 
@@ -598,9 +604,15 @@
                 const el = document.getElementById('sc-panel-drill');
                 if (el && window.ExpressionCoach?.init) window.ExpressionCoach.init(el);
             });
-            safeCall('SentenceDrill',   () => {
-                const el = document.getElementById('sc-panel-sentences');
-                if (el && window.SentenceDrill?.init) window.SentenceDrill.init(el);
+            safeCall('SentenceDrill', () => {
+                const elCurated = document.getElementById('sc-panel-curated');
+                const elMine    = document.getElementById('sc-panel-mine');
+                if (elCurated && window.SentenceDrill?.initCurated) {
+                    window.SentenceDrill.initCurated(elCurated);
+                }
+                if (elMine && window.SentenceDrill?.initMine) {
+                    window.SentenceDrill.initMine(elMine);
+                }
             });
 
             // Header stats

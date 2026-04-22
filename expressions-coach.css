@@ -1165,3 +1165,163 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     font-size: 0.85rem;
     color: var(--text-tertiary);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPACT SUB-TABS (6 sub-tabs under Expressions)
+   Icons always visible; labels hidden on narrow mobile to save space.
+   ═══════════════════════════════════════════════════════════════ */
+
+.sc-tabs-compact .sc-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 6px;
+    font-size: 12px;
+    min-width: 0;
+}
+.sc-tab-icon {
+    font-size: 15px;
+    line-height: 1;
+}
+.sc-tab-label {
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Mobile: show icons only — keeps all 6 tabs on one row comfortably */
+@media (max-width: 600px) {
+    .sc-tabs-compact .sc-tab {
+        padding: 9px 4px;
+    }
+    .sc-tabs-compact .sc-tab-label { display: none; }
+    .sc-tabs-compact .sc-tab-icon  { font-size: 18px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CURATED grid (replaces two-column list view)
+   Numbered tiles with a short preview of each sentence.
+   ═══════════════════════════════════════════════════════════════ */
+
+.sd-c-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 8px 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+@media (min-width: 720px) {
+    .sd-c-grid {
+        grid-template-columns: repeat(2, 1fr);
+        max-height: 66vh;
+    }
+}
+@media (min-width: 1200px) {
+    .sd-c-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.sd-c-tile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    color: var(--text-primary);
+    text-align: left;
+    transition: all 0.12s ease;
+}
+.sd-c-tile:hover {
+    border-color: var(--accent);
+    background: var(--accent-bg, rgba(45, 90, 61, 0.04));
+}
+.sd-c-tile-active {
+    border-color: var(--accent);
+    background: var(--accent-bg, rgba(45, 90, 61, 0.1));
+    color: var(--accent);
+}
+.sd-c-tile-num {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: var(--bg-surface, rgba(0, 0, 0, 0.04));
+    color: var(--text-secondary);
+    border-radius: 4px;
+}
+.sd-c-tile-active .sd-c-tile-num {
+    background: var(--accent);
+    color: #fff;
+}
+.sd-c-tile-text {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sd-c-tile-badge {
+    flex-shrink: 0;
+    font-size: 0.85rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RANGE FILTER extensions (6 ranges instead of 26 letters)
+   Buttons show "A-D" with a count suffix inside.
+   ═══════════════════════════════════════════════════════════════ */
+
+.sd-az-ranges {
+    gap: 4px;
+}
+.sd-az-ranges .sd-az-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 50px;
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 0.78rem;
+}
+.sd-az-count {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    background: var(--bg-surface, rgba(0, 0, 0, 0.04));
+    border-radius: 8px;
+    font-family: var(--font-mono, monospace);
+}
+.sd-az-active .sd-az-count {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DRILL exit button (back to Curated grid from exercise card)
+   ═══════════════════════════════════════════════════════════════ */
+
+.sd-drill-exit {
+    margin-left: auto;
+    color: var(--text-tertiary);
+}
+.sd-drill-exit:hover {
+    color: var(--danger, #c44);
+}

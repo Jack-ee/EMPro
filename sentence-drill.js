@@ -27,10 +27,12 @@ window.SentenceDrill = (function() {
     let listenIdx      = 0;
     let listenPhase    = '';  // 'en-normal' | 'en-slow' | 'zh' | 'idle'
 
-    // A-Z filter for MyWords grid. null = show all; 'A'..'Z' = only that letter.
+    // A-Z range filter for Mine grid. null = show all, 'A-D' etc for ranges.
     let mwAZFilter     = null;
-    // Currently displayed word in the floating detail panel (null = hidden)
+    // Currently displayed word in the Mine floating detail panel (null = hidden)
     let mwDetailWord   = null;
+    // Currently displayed sentence index in the Curated floating detail panel
+    let cDetailIdx     = null;
 
     // ─── Storage (profile-scoped) ────────────────────────────
     function loadState() {
@@ -68,68 +70,41 @@ window.SentenceDrill = (function() {
     }
 
     // ─── Init ────────────────────────────────────────────────
-    function init(el) {
-        container = el;
-        sentences = window.CUSTOM_SENTENCES || [];
+    // Two mount points now: Curated (40 hand-curated sentences) and
+    // Mine (sentences pulled from enriched My Words entries). They
+    // share listen-mode, drill state, and the floating detail panel.
+    let curatedContainer = null;
+    let mineContainer    = null;
+
+    function initCurated(el) {
+        curatedContainer = el;
+        container        = el;  // default "active" container for drill/listen fallback
+        sentences        = window.CUSTOM_SENTENCES || [];
         const state = loadState();
-        if (state.idx != null) currentIdx = Math.min(state.idx, sentences.length - 1);
+        if (state.idx != null)   currentIdx = Math.min(state.idx, sentences.length - 1);
         if (state.score != null) score = state.score;
         if (state.total != null) total = state.total;
-        render();
+        renderCuratedPanel();
     }
 
-    // ─── Render: toolbar + list ──────────────────────────────
-    function render() {
-        if (!container) return;
-        const progress  = loadProgress();
-        const practiced = Object.keys(progress).length;
-        const mastered  = Object.values(progress).filter(p => p.correct >= 2).length;
-
-        container.innerHTML = `
-        <div class="ec-wrapper">
-            <div class="ec-toolbar sd-toolbar">
-                <div class="ec-toolbar-stats sd-compact-stats">
-                    <span class="ec-ts"><span class="ec-ts-num">${sentences.length}</span></span>
-                    <span class="ec-ts"><span class="ec-ts-num ec-practiced" id="sd-practiced">${practiced}</span>&#x2705;</span>
-                    <span class="ec-ts"><span class="ec-ts-num ec-mastered" id="sd-mastered">${mastered}</span>&#x2B50;</span>
-                    ${total > 0 ? `<span class="ec-ts">${score}/${total}</span>` : ''}
-                </div>
-                <div class="sd-toolbar-actions">
-                    <button class="ec-btn-ghost" id="sd-listen-btn" title="Listen mode \u2014 auto-pronounce every sentence">&#x1F3A7;<span class="sd-btn-label"> Listen</span></button>
-                    <button class="ec-btn-primary" id="sd-start-btn">&#x25B6;<span class="sd-btn-label"> Drill</span></button>
-                </div>
-            </div>
-            <div id="sd-exercise-area">
-                ${renderSentenceList()}
-            </div>
-        </div>`;
-
-        container.querySelector('#sd-start-btn')?.addEventListener('click', () => {
-            stopListen();
-            renderExercise();
-        });
-        container.querySelector('#sd-listen-btn')?.addEventListener('click', () => {
-            startListen();
-        });
-        bindListEvents();
+    function initMine(el) {
+        mineContainer = el;
+        renderMinePanel();
     }
 
-    function countTargets() {
-        return sentences.reduce((sum, s) => sum + (s.targets?.length || 0), 0);
+    // When drill/listen logic needs to target "the active panel," this
+    // returns whichever panel is currently visible (has class .active).
+    // Falls back to curated if neither is clearly active.
+    function activeContainer() {
+        if (curatedContainer?.classList.contains('active')) return curatedContainer;
+        if (mineContainer?.classList.contains('active'))    return mineContainer;
+        return curatedContainer || mineContainer;
     }
 
-    // ─── Sentence list view ──────────────────────────────────
-    // Two groups, each collapsible:
-    //   \u2022 Curated: the 40 hand-written sentences from sentence.js.
-    //     Shown one-line sparse (English only, truncated).
-    //     Tap to expand \u2192 Chinese + targets + Play/Drill buttons.
-    //   \u2022 From My Words: auto-generated from notebook entries that
-    //     have BOTH a phonetic AND a context (full AI enrichment).
-    //     Shown word-first (just the word visible), because the sentence
-    //     there is really "an example of this word" \u2014 the word is the
-    //     pedagogical focus, not the sentence.
-    //     Tap the word \u2192 expand to show the sentence + Chinese + Play.
-
+    // Pull sentences from enriched MyWords entries. A word is eligible only
+    // when it has BOTH a phonetic AND a context — those are the signals that
+    // the AI enrichment completed, so the entry is safe to display as a
+    // full-fledged "sentence with context" without missing pieces.
     function getMyWordsSentences() {
         const nb = window.DB?.loadNotebook?.() || [];
         return nb.filter(w => w.phonetic && w.context)
@@ -144,79 +119,234 @@ window.SentenceDrill = (function() {
                  .sort((a, b) => a.word.localeCompare(b.word));
     }
 
-    function renderSentenceList() {
-        const mwSentences = getMyWordsSentences();
-        const curatedCount = sentences.length;
-        const mwCount      = mwSentences.length;
+    // ─── Render: Curated panel (40 hand-curated sentences) ───
+    function renderCuratedPanel() {
+        if (!curatedContainer) return;
+        const progress  = loadProgress();
+        const practiced = Object.keys(progress).length;
+        const mastered  = Object.values(progress).filter(p => p.correct >= 2).length;
 
-        return `
-        <div class="sd-list-wrap">
-            <div class="sd-list-cols">
-                ${renderCuratedGroup(curatedCount)}
-                ${renderMyWordsGroup(mwSentences, mwCount)}
+        curatedContainer.innerHTML = `
+        <div class="ec-wrapper">
+            <div class="ec-toolbar sd-toolbar">
+                <div class="ec-toolbar-stats sd-compact-stats">
+                    <span class="ec-ts"><span class="ec-ts-num">${sentences.length}</span></span>
+                    <span class="ec-ts"><span class="ec-ts-num ec-practiced">${practiced}</span>&#x2705;</span>
+                    <span class="ec-ts"><span class="ec-ts-num ec-mastered">${mastered}</span>&#x2B50;</span>
+                    ${total > 0 ? `<span class="ec-ts">${score}/${total}</span>` : ''}
+                </div>
+                <div class="sd-toolbar-actions">
+                    <button class="ec-btn-ghost" id="sd-c-listen-btn" title="Listen \u2014 auto-pronounce each sentence">&#x1F3A7;<span class="sd-btn-label"> Listen</span></button>
+                    <button class="ec-btn-primary" id="sd-c-drill-btn">&#x25B6;<span class="sd-btn-label"> Drill</span></button>
+                </div>
             </div>
-            <div class="sd-float-detail" id="sd-float-detail"></div>
+            <div id="sd-c-exercise-area">
+                ${renderCuratedGrid()}
+            </div>
+            <div class="sd-float-detail" id="sd-c-float-detail"></div>
         </div>`;
+
+        curatedContainer.querySelector('#sd-c-drill-btn')?.addEventListener('click', () => {
+            container = curatedContainer;
+            stopListen();
+            renderExercise();
+        });
+        curatedContainer.querySelector('#sd-c-listen-btn')?.addEventListener('click', () => {
+            container = curatedContainer;
+            setListenSource('curated');
+            startListen();
+        });
+        bindCuratedEvents();
     }
 
-    function renderCuratedGroup(count) {
+    // Renders the 40 curated sentences as a grid of short excerpts
+    // (first ~50 chars each). Tap a tile \u2192 bottom floating detail.
+    function renderCuratedGrid() {
+        if (sentences.length === 0) {
+            return '<div class="sd-list-empty">(no curated sentences loaded)</div>';
+        }
         const items = sentences.map((s, idx) => {
-            const sp = getSentenceProgress(s.id);
+            const sp       = getSentenceProgress(s.id);
             const mastered = sp.correct >= 2;
+            const preview  = truncate(s.sentence_en, 60);
+            const active   = cDetailIdx === idx ? 'sd-c-tile-active' : '';
             return `
-            <li class="sd-list-row sd-list-curated" data-kind="curated" data-idx="${idx}">
-                <button class="sd-list-main" type="button" aria-expanded="false">
-                    <span class="sd-list-tri">\u25B8</span>
-                    <span class="sd-list-text">${escHtml(s.sentence_en)}</span>
-                    ${mastered ? '<span class="sd-list-badge">\u2B50</span>' : ''}
-                </button>
-                <div class="sd-list-details"></div>
-            </li>`;
+            <button class="sd-c-tile ${active}" type="button" data-idx="${idx}">
+                <span class="sd-c-tile-num">${idx + 1}</span>
+                <span class="sd-c-tile-text">${escHtml(preview)}</span>
+                ${mastered ? '<span class="sd-c-tile-badge">\u2B50</span>' : ''}
+            </button>`;
         }).join('');
-
-        return `
-        <section class="sd-list-group" data-group="curated">
-            <header class="sd-list-header">
-                <h3 class="sd-list-title">\u{1F4D8} Curated</h3>
-                <span class="sd-list-count">${count}</span>
-            </header>
-            <ul class="sd-list" id="sd-list-curated">${items || '<li class="sd-list-empty">(no curated sentences loaded)</li>'}</ul>
-        </section>`;
+        return `<div class="sd-c-grid">${items}</div>`;
     }
 
-    // Builds a per-letter count map: {'A': 14, 'B': 22, …, '#': 3}
-    // '#' bucket catches words starting with non-alphabetic chars (rare).
-    function buildAZCounts(mwSentences) {
-        const counts = {};
-        for (let c = 65; c <= 90; c++) counts[String.fromCharCode(c)] = 0;
-        counts['#'] = 0;
+    function truncate(s, n) {
+        if (!s) return '';
+        return s.length > n ? s.slice(0, n - 1) + '\u2026' : s;
+    }
+
+    function bindCuratedEvents() {
+        curatedContainer.addEventListener('click', (e) => {
+            const tile = e.target.closest('.sd-c-tile');
+            if (tile) {
+                showCuratedDetail(parseInt(tile.dataset.idx, 10));
+            }
+        });
+    }
+
+    function showCuratedDetail(idx) {
+        const s = sentences[idx];
+        const panel = curatedContainer.querySelector('#sd-c-float-detail');
+        const wasActive = cDetailIdx === idx;
+
+        // Clear active tile states
+        curatedContainer.querySelectorAll('.sd-c-tile.sd-c-tile-active').forEach(t => {
+            t.classList.remove('sd-c-tile-active');
+        });
+
+        if (wasActive) {
+            cDetailIdx = null;
+            if (panel) { panel.innerHTML = ''; panel.classList.remove('sd-float-detail-visible'); }
+            return;
+        }
+        cDetailIdx = idx;
+        const tile = curatedContainer.querySelector(`.sd-c-tile[data-idx="${idx}"]`);
+        tile?.classList.add('sd-c-tile-active');
+        if (!s || !panel) return;
+
+        const targetPills = (s.targets || []).map(t =>
+            `<span class="sd-list-target">${escHtml(t.word)}</span>`
+        ).join('');
+        panel.innerHTML = `
+            <div class="sd-mw-detail-inner">
+                <button class="sd-float-close" type="button" title="Close">&#x2715;</button>
+                <div class="sd-mw-detail-head">
+                    <span class="sd-mw-detail-word">${idx + 1}/${sentences.length}</span>
+                </div>
+                <div class="sd-list-context">${escHtml(s.sentence_en)}</div>
+                ${s.sentence_cn ? `<div class="sd-list-cn">${escHtml(s.sentence_cn)}</div>` : ''}
+                ${targetPills ? `<div class="sd-list-targets">${targetPills}</div>` : ''}
+                <div class="sd-list-actions">
+                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(s.sentence_en)}" type="button">\u{1F50A} Play</button>
+                    <button class="sd-list-drill ec-btn-ghost" data-idx="${idx}" type="button">\u270F\uFE0F Drill this</button>
+                </div>
+            </div>`;
+        panel.classList.add('sd-float-detail-visible');
+
+        panel.querySelector('.sd-list-play')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.App?.speak?.(e.currentTarget.dataset.text);
+        });
+        panel.querySelector('.sd-list-drill')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const i = parseInt(e.currentTarget.dataset.idx, 10);
+            if (isFinite(i)) {
+                currentIdx = i;
+                container = curatedContainer;
+                saveState();
+                stopListen();
+                renderExercise();
+            }
+        });
+        panel.querySelector('.sd-float-close')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cDetailIdx = null;
+            curatedContainer.querySelectorAll('.sd-c-tile.sd-c-tile-active').forEach(t => t.classList.remove('sd-c-tile-active'));
+            panel.innerHTML = '';
+            panel.classList.remove('sd-float-detail-visible');
+        });
+    }
+
+    // ─── Render: Mine panel (MyWords enriched sentences) ──────
+    function renderMinePanel() {
+        if (!mineContainer) return;
+        const mwSentences = getMyWordsSentences();
+        const count       = mwSentences.length;
+
+        if (count === 0) {
+            mineContainer.innerHTML = `
+            <div class="ec-wrapper">
+                <div class="sd-list-empty">Add enriched words (phonetic + example) in My Words to see them here.</div>
+            </div>`;
+            return;
+        }
+
+        const rangeCounts = buildRangeCounts(mwSentences);
+
+        mineContainer.innerHTML = `
+        <div class="ec-wrapper">
+            <div class="ec-toolbar sd-toolbar">
+                <div class="ec-toolbar-stats sd-compact-stats">
+                    <span class="ec-ts"><span class="ec-ts-num" id="sd-m-count">${count}</span></span>
+                </div>
+                <div class="sd-toolbar-actions">
+                    <button class="ec-btn-ghost" id="sd-m-listen-btn" title="Listen \u2014 auto-pronounce each sentence">&#x1F3A7;<span class="sd-btn-label"> Listen</span></button>
+                </div>
+            </div>
+            ${renderRangeFilter(rangeCounts)}
+            <div class="sd-mw-grid" id="sd-m-grid">${renderMineGridItems(mwSentences)}</div>
+            <div class="sd-float-detail" id="sd-m-float-detail"></div>
+        </div>`;
+
+        mineContainer.querySelector('#sd-m-listen-btn')?.addEventListener('click', () => {
+            container = mineContainer;
+            setListenSource('mywords');
+            startListen();
+        });
+        bindMineEvents();
+    }
+
+    function renderMineGridItems(mwSentences) {
+        const filtered = filterMWByRange(mwSentences);
+        if (!filtered.length) {
+            return `<div class="sd-list-empty">No words in range "${mwAZFilter || 'all'}".</div>`;
+        }
+        return filtered.map(w => `
+            <button class="sd-mw-tile ${mwDetailWord === w.word ? 'sd-mw-tile-active' : ''}" type="button" data-word="${escAttr(w.word)}">
+                ${escHtml(w.word)}
+            </button>`).join('');
+    }
+
+    // Range filter (A-D, E-H, I-L, M-P, Q-T, U-Z).
+    // mwAZFilter holds the range KEY (e.g. 'A-D') or null for "all".
+    const LETTER_RANGES = [
+        { key: 'A-D', letters: 'ABCD' },
+        { key: 'E-H', letters: 'EFGH' },
+        { key: 'I-L', letters: 'IJKL' },
+        { key: 'M-P', letters: 'MNOP' },
+        { key: 'Q-T', letters: 'QRST' },
+        { key: 'U-Z', letters: 'UVWXYZ' }
+    ];
+
+    function buildRangeCounts(mwSentences) {
+        const counts = { '#': 0 };
+        LETTER_RANGES.forEach(r => counts[r.key] = 0);
         mwSentences.forEach(w => {
             const first = (w.word || '').charAt(0).toUpperCase();
-            if (first >= 'A' && first <= 'Z') counts[first]++;
-            else                               counts['#']++;
+            const r = LETTER_RANGES.find(r => r.letters.includes(first));
+            if (r) counts[r.key]++;
+            else   counts['#']++;
         });
         return counts;
     }
 
-    function renderAZFilter(counts) {
-        const letters = [];
-        for (let c = 65; c <= 90; c++) letters.push(String.fromCharCode(c));
-        // Only show '#' bucket if there are non-alpha words
-        if (counts['#'] > 0) letters.push('#');
-
+    function renderRangeFilter(counts) {
         const allActive = mwAZFilter == null ? 'sd-az-active' : '';
-        let html = `<button class="sd-az-btn sd-az-all ${allActive}" data-letter="" type="button">All</button>`;
-
-        letters.forEach(L => {
-            const n = counts[L] || 0;
-            const active = mwAZFilter === L ? 'sd-az-active' : '';
-            const disabled = n === 0 ? 'sd-az-empty' : '';
-            html += `<button class="sd-az-btn ${active} ${disabled}" data-letter="${L}" type="button" ${n === 0 ? 'disabled' : ''}>${L}</button>`;
+        let html = `<button class="sd-az-btn sd-az-all ${allActive}" data-range="" type="button">All</button>`;
+        LETTER_RANGES.forEach(r => {
+            const n = counts[r.key] || 0;
+            const active = mwAZFilter === r.key ? 'sd-az-active' : '';
+            const empty  = n === 0 ? 'sd-az-empty' : '';
+            html += `<button class="sd-az-btn ${active} ${empty}" data-range="${r.key}" type="button" ${n === 0 ? 'disabled' : ''}>${r.key}<span class="sd-az-count">${n}</span></button>`;
         });
-        return `<div class="sd-az-filter">${html}</div>`;
+        if ((counts['#'] || 0) > 0) {
+            const active = mwAZFilter === '#' ? 'sd-az-active' : '';
+            html += `<button class="sd-az-btn ${active}" data-range="#" type="button">#<span class="sd-az-count">${counts['#']}</span></button>`;
+        }
+        return `<div class="sd-az-filter sd-az-ranges">${html}</div>`;
     }
 
-    function filterMWByAZ(mwSentences) {
+    function filterMWByRange(mwSentences) {
         if (!mwAZFilter) return mwSentences;
         if (mwAZFilter === '#') {
             return mwSentences.filter(w => {
@@ -224,98 +354,50 @@ window.SentenceDrill = (function() {
                 return !(c >= 'A' && c <= 'Z');
             });
         }
-        return mwSentences.filter(w => (w.word || '').charAt(0).toUpperCase() === mwAZFilter);
+        const r = LETTER_RANGES.find(r => r.key === mwAZFilter);
+        if (!r) return mwSentences;
+        return mwSentences.filter(w => r.letters.includes((w.word || '').charAt(0).toUpperCase()));
     }
 
-    function renderMyWordsGroup(mwSentences, count) {
-        if (count === 0) {
-            return `
-            <section class="sd-list-group" data-group="mywords">
-                <header class="sd-list-header">
-                    <h3 class="sd-list-title">\u{1F4DA} From My Words</h3>
-                    <span class="sd-list-count">0</span>
-                </header>
-                <div class="sd-list-empty">Add enriched words (phonetic + example) in My Words to see them here.</div>
-            </section>`;
-        }
-
-        const azCounts = buildAZCounts(mwSentences);
-        const filtered = filterMWByAZ(mwSentences);
-
-        const items = filtered.map(w => `
-            <button class="sd-mw-tile ${mwDetailWord === w.word ? 'sd-mw-tile-active' : ''}" type="button" data-kind="mw" data-word="${escAttr(w.word)}">
-                ${escHtml(w.word)}
-            </button>`).join('');
-
-        const gridInner = items || `<div class="sd-list-empty">No words starting with "${mwAZFilter}".</div>`;
-        const filterSummary = mwAZFilter
-            ? `<span class="sd-list-count">${filtered.length}/${count}</span>`
-            : `<span class="sd-list-count">${count}</span>`;
-
-        return `
-        <section class="sd-list-group" data-group="mywords">
-            <header class="sd-list-header">
-                <h3 class="sd-list-title">\u{1F4DA} From My Words</h3>
-                ${filterSummary}
-            </header>
-            ${renderAZFilter(azCounts)}
-            <div class="sd-mw-grid" id="sd-list-mw">${gridInner}</div>
-        </section>`;
-    }
-
-    function bindListEvents() {
-        const wrap = container.querySelector('.sd-list-wrap');
-        if (!wrap) return;
-        wrap.addEventListener('click', (e) => {
-            // A-Z filter buttons
-            const azBtn = e.target.closest('.sd-az-btn');
-            if (azBtn && !azBtn.disabled) {
-                const L = azBtn.dataset.letter;
-                mwAZFilter = L || null;
-                // Clear detail when filter changes to avoid showing a word now hidden
+    function bindMineEvents() {
+        mineContainer.addEventListener('click', (e) => {
+            const rangeBtn = e.target.closest('.sd-az-btn');
+            if (rangeBtn && !rangeBtn.disabled) {
+                mwAZFilter = rangeBtn.dataset.range || null;
                 mwDetailWord = null;
-                rerenderMWGroup();
+                rerenderMineGrid();
                 return;
             }
-            // Curated: list-row accordion
-            const row = e.target.closest('.sd-list-row');
-            if (row) {
-                toggleListRow(row);
-                return;
-            }
-            // MyWords: grid tile → floating detail panel
             const tile = e.target.closest('.sd-mw-tile');
             if (tile) {
-                showMWDetail(tile);
-                return;
+                showMineDetail(tile);
             }
         });
     }
 
-    // Re-render just the MyWords group in place, preserving scroll position
-    // on the surrounding page. Used when the A-Z filter changes.
-    function rerenderMWGroup() {
-        const existing = container.querySelector('[data-group="mywords"]');
-        if (!existing) return;
+    function rerenderMineGrid() {
         const mwSentences = getMyWordsSentences();
-        const tmp = document.createElement('div');
-        tmp.innerHTML = renderMyWordsGroup(mwSentences, mwSentences.length);
-        const fresh = tmp.firstElementChild;
-        if (fresh) existing.replaceWith(fresh);
+        // Update the range filter bar (active state)
+        const bar = mineContainer.querySelector('.sd-az-filter');
+        if (bar) bar.outerHTML = renderRangeFilter(buildRangeCounts(mwSentences));
+        // Update the grid
+        const grid = mineContainer.querySelector('#sd-m-grid');
+        if (grid) grid.innerHTML = renderMineGridItems(mwSentences);
+        // Close any open detail since the shown word may no longer be visible
+        const panel = mineContainer.querySelector('#sd-m-float-detail');
+        if (panel) { panel.innerHTML = ''; panel.classList.remove('sd-float-detail-visible'); }
     }
 
-    function showMWDetail(tile) {
-        const word   = tile.dataset.word;
-        const panel  = container.querySelector('#sd-float-detail');
+    function showMineDetail(tile) {
+        const word  = tile.dataset.word;
+        const panel = mineContainer.querySelector('#sd-m-float-detail');
         const wasActive = tile.classList.contains('sd-mw-tile-active');
 
-        // Clear all active states
-        container.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => {
+        mineContainer.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => {
             t.classList.remove('sd-mw-tile-active');
         });
 
         if (wasActive) {
-            // Tapping the same tile again hides the detail
             mwDetailWord = null;
             if (panel) { panel.innerHTML = ''; panel.classList.remove('sd-float-detail-visible'); }
             return;
@@ -324,101 +406,14 @@ window.SentenceDrill = (function() {
         tile.classList.add('sd-mw-tile-active');
         mwDetailWord = word;
         if (!panel) return;
-        panel.innerHTML = renderMWDetails(word);
-        panel.classList.add('sd-float-detail-visible');
 
-        // Wire play buttons + close button
-        panel.querySelectorAll('.sd-list-play').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const text = e.currentTarget.dataset.text;
-                if (text) window.App?.speak?.(text);
-            });
-        });
-        panel.querySelector('.sd-float-close')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            mwDetailWord = null;
-            container.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => t.classList.remove('sd-mw-tile-active'));
-            panel.innerHTML = '';
-            panel.classList.remove('sd-float-detail-visible');
-        });
-    }
-
-    function toggleListRow(row) {
-        if (!row) return;
-        const wasOpen  = row.classList.contains('sd-list-open');
-        // Close any other open row in the same group (accordion behavior
-        // keeps the list tidy on narrow screens where long expansions
-        // would push other items far down).
-        const group = row.closest('.sd-list-group');
-        group?.querySelectorAll('.sd-list-row.sd-list-open').forEach(r => {
-            if (r !== row) {
-                r.classList.remove('sd-list-open');
-                const d = r.querySelector('.sd-list-details');
-                if (d) d.innerHTML = '';
-                const btn = r.querySelector('.sd-list-main');
-                if (btn) btn.setAttribute('aria-expanded', 'false');
-            }
-        });
-
-        if (wasOpen) {
-            row.classList.remove('sd-list-open');
-            const details = row.querySelector('.sd-list-details');
-            if (details) details.innerHTML = '';
-            row.querySelector('.sd-list-main')?.setAttribute('aria-expanded', 'false');
-            return;
-        }
-
-        // Open: populate the details block based on row kind
-        const kind = row.dataset.kind;
-        const details = row.querySelector('.sd-list-details');
-        if (!details) return;
-        details.innerHTML = kind === 'curated'
-            ? renderCuratedDetails(parseInt(row.dataset.idx, 10))
-            : renderMWDetails(row.dataset.word);
-        row.classList.add('sd-list-open');
-        row.querySelector('.sd-list-main')?.setAttribute('aria-expanded', 'true');
-
-        // Wire the expanded action buttons
-        details.querySelector('.sd-list-play')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const text = e.currentTarget.dataset.text;
-            if (text) window.App?.speak?.(text);
-        });
-        details.querySelector('.sd-list-drill')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const idx = parseInt(e.currentTarget.dataset.idx, 10);
-            if (isFinite(idx)) {
-                currentIdx = idx;
-                saveState();
-                stopListen();
-                renderExercise();
-            }
-        });
-    }
-
-    function renderCuratedDetails(idx) {
-        const s = sentences[idx];
-        if (!s) return '';
-        const targetPills = (s.targets || []).map(t =>
-            `<span class="sd-list-target">${escHtml(t.word)}</span>`
-        ).join('');
-        return `
-            <div class="sd-list-cn">${escHtml(s.sentence_cn || '')}</div>
-            ${targetPills ? `<div class="sd-list-targets">${targetPills}</div>` : ''}
-            <div class="sd-list-actions">
-                <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(s.sentence_en)}" type="button">\u{1F50A} Play</button>
-                <button class="sd-list-drill ec-btn-ghost" data-idx="${idx}" type="button">\u270F\uFE0F Drill</button>
-            </div>`;
-    }
-
-    function renderMWDetails(word) {
         const mwSentences = getMyWordsSentences();
         const w = mwSentences.find(x => x.word === word);
-        if (!w) return '';
-        return `
+        if (!w) return;
+
+        panel.innerHTML = `
             <div class="sd-mw-detail-inner">
-                <button class="sd-float-close" type="button" title="Close" aria-label="Close">&#x2715;</button>
+                <button class="sd-float-close" type="button" title="Close">&#x2715;</button>
                 <div class="sd-mw-detail-head">
                     <span class="sd-mw-detail-word">${escHtml(w.word)}</span>
                     <span class="sd-mw-detail-phon">${escHtml(w.phonetic)}</span>
@@ -431,11 +426,28 @@ window.SentenceDrill = (function() {
                     <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.word)}" type="button">\u{1F50A} Word</button>
                 </div>
             </div>`;
+        panel.classList.add('sd-float-detail-visible');
+
+        panel.querySelectorAll('.sd-list-play').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.App?.speak?.(e.currentTarget.dataset.text);
+            });
+        });
+        panel.querySelector('.sd-float-close')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            mwDetailWord = null;
+            mineContainer.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => t.classList.remove('sd-mw-tile-active'));
+            panel.innerHTML = '';
+            panel.classList.remove('sd-float-detail-visible');
+        });
     }
 
     // ─── Render exercise card ────────────────────────────────
     function renderExercise() {
-        const area = container.querySelector('#sd-exercise-area');
+        // Drill lives in the Curated panel, not Mine
+        container = curatedContainer;
+        const area = container?.querySelector('#sd-c-exercise-area');
         if (!area || sentences.length === 0) return;
 
         const s       = sentences[currentIdx];
@@ -482,6 +494,7 @@ window.SentenceDrill = (function() {
                 <span class="ec-card-progress">
                     ${sp.correct >= 2 ? '&#x2B50;' : sp.attempts > 0 ? `${sp.correct}/${sp.attempts}` : ''}
                 </span>
+                <button class="ec-nav-btn sd-drill-exit" id="sd-drill-exit" title="Back to list">&#x2715;</button>
             </div>
 
             <div class="ec-exercise ec-fill">
@@ -518,6 +531,9 @@ window.SentenceDrill = (function() {
         area.querySelector('#sd-reveal')?.addEventListener('click', () => revealAnswer(area));
         area.querySelector('#sd-prev')?.addEventListener('click', () => { currentIdx = Math.max(0, currentIdx - 1); saveState(); renderExercise(); });
         area.querySelector('#sd-next')?.addEventListener('click', () => { currentIdx = Math.min(sentences.length - 1, currentIdx + 1); saveState(); renderExercise(); });
+        area.querySelector('#sd-drill-exit')?.addEventListener('click', () => {
+            renderCuratedPanel();
+        });
     }
 
     // ─── Chip click → fill slot ──────────────────────────────
@@ -928,16 +944,19 @@ window.SentenceDrill = (function() {
     }
 
     // ─── Listen-mode UI ──────────────────────────────────────
+    // Listen mode takes over the entire active panel (either Curated or
+    // Mine, whichever started it). On exit we re-render that same panel
+    // so the user returns to the view they came from.
     function renderListenView() {
-        const area = container?.querySelector('#sd-exercise-area');
-        if (!area) return;
+        if (!container) return;
         const pool = getListenPool();
         const s = pool[listenIdx];
         if (!s) return;
         const src      = getListenSource();
         const srcLabel = {curated: '\u{1F4D8} Curated', mywords: '\u{1F4DA} My Words', both: '\u{1F500} Both'}[src];
 
-        area.innerHTML = `
+        container.innerHTML = `
+        <div class="ec-wrapper">
         <div class="ec-card sd-listen-card">
             <div class="ec-card-top sd-listen-top">
                 <span class="ec-card-cat sd-listen-badge" style="background:var(--accent-bg);color:var(--accent)">
@@ -964,19 +983,22 @@ window.SentenceDrill = (function() {
                 </button>
                 <button class="sd-listen-ctrl sd-listen-exit" id="sd-listen-exit" title="Exit listen mode">&#x2715;</button>
             </div>
+        </div>
         </div>`;
 
-        area.querySelector('#sd-listen-playpause')?.addEventListener('click', () => {
+        container.querySelector('#sd-listen-playpause')?.addEventListener('click', () => {
             if (listenPaused) resumeListen(); else pauseListen();
         });
-        area.querySelector('#sd-listen-prev')?.addEventListener('click', prevListen);
-        area.querySelector('#sd-listen-next')?.addEventListener('click', nextListen);
-        area.querySelector('#sd-listen-restart')?.addEventListener('click', restartCurrent);
-        area.querySelector('#sd-listen-cn-btn')?.addEventListener('click', toggleListenCN);
-        area.querySelector('#sd-listen-source')?.addEventListener('click', cycleListenSource);
-        area.querySelector('#sd-listen-exit')?.addEventListener('click', () => {
+        container.querySelector('#sd-listen-prev')?.addEventListener('click', prevListen);
+        container.querySelector('#sd-listen-next')?.addEventListener('click', nextListen);
+        container.querySelector('#sd-listen-restart')?.addEventListener('click', restartCurrent);
+        container.querySelector('#sd-listen-cn-btn')?.addEventListener('click', toggleListenCN);
+        container.querySelector('#sd-listen-source')?.addEventListener('click', cycleListenSource);
+        container.querySelector('#sd-listen-exit')?.addEventListener('click', () => {
             stopListen();
-            render();  // back to toolbar + list view
+            // Restore the panel we came from
+            if (container === curatedContainer) renderCuratedPanel();
+            else if (container === mineContainer) renderMinePanel();
         });
     }
 
@@ -1049,5 +1071,12 @@ window.SentenceDrill = (function() {
         return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    return { init, stopListen, isListenActive: () => listenActive };
+    return {
+        initCurated,
+        initMine,
+        // Legacy alias so any external code expecting .init() still works
+        init: initCurated,
+        stopListen,
+        isListenActive: () => listenActive
+    };
 })();
