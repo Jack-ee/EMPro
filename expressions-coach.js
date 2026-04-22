@@ -789,3 +789,8 @@ Return a JSON object:
     };
 
 })();
+
+// Expose as global so app.js bootstrap can invoke ExpressionCoach.init().
+// (Top-level `const` declarations don't auto-attach to `window` in modern
+// browsers, unlike top-level `var` — this assignment is required.)
+window.ExpressionCoach = ExpressionCoach;
