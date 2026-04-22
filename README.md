@@ -4,7 +4,6 @@ A personal English-learning workbench built for advanced Chinese speakers — re
 
 This is not a gamified vocabulary app. It's a disciplined tool built around how real learning works: steady exposure to high-quality vocabulary, deliberate practice of native phrasings, honest feedback on your writing, and the ability to study anywhere without a complicated setup.
 
-**Live demo:** https://jack-ee.github.io/EMPro/
 
 <!-- TODO: replace with your own screenshot -->
 ![EM Pro screenshot](./docs/screenshot.png)
