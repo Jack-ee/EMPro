@@ -101,6 +101,24 @@ window.SentenceDrill = (function() {
         return curatedContainer || mineContainer;
     }
 
+    // Show/hide helpers for the fixed bottom detail panel. Toggles both
+    // the panel's own .sd-float-detail-visible class AND a matching class
+    // on the parent sub-panel so CSS can add bottom padding to the grid
+    // area, keeping the last few rows visible above the overlay.
+    function showDetailPanel(panel) {
+        if (!panel) return;
+        panel.classList.add('sd-float-detail-visible');
+        const parent = panel.closest('.sc-panel');
+        if (parent) parent.classList.add('sd-panel-with-detail');
+    }
+    function hideDetailPanel(panel) {
+        if (!panel) return;
+        panel.classList.remove('sd-float-detail-visible');
+        panel.innerHTML = '';
+        const parent = panel.closest('.sc-panel');
+        if (parent) parent.classList.remove('sd-panel-with-detail');
+    }
+
     // Pull sentences from enriched MyWords entries. A word is eligible only
     // when it has BOTH a phonetic AND a context — those are the signals that
     // the AI enrichment completed, so the entry is safe to display as a
@@ -206,7 +224,7 @@ window.SentenceDrill = (function() {
 
         if (wasActive) {
             cDetailIdx = null;
-            if (panel) { panel.innerHTML = ''; panel.classList.remove('sd-float-detail-visible'); }
+            hideDetailPanel(panel);
             return;
         }
         cDetailIdx = idx;
@@ -231,7 +249,7 @@ window.SentenceDrill = (function() {
                     <button class="sd-list-drill ec-btn-ghost" data-idx="${idx}" type="button">\u270F\uFE0F Drill this</button>
                 </div>
             </div>`;
-        panel.classList.add('sd-float-detail-visible');
+        showDetailPanel(panel);
 
         panel.querySelector('.sd-list-play')?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -252,8 +270,7 @@ window.SentenceDrill = (function() {
             e.stopPropagation();
             cDetailIdx = null;
             curatedContainer.querySelectorAll('.sd-c-tile.sd-c-tile-active').forEach(t => t.classList.remove('sd-c-tile-active'));
-            panel.innerHTML = '';
-            panel.classList.remove('sd-float-detail-visible');
+            hideDetailPanel(panel);
         });
     }
 
@@ -385,7 +402,7 @@ window.SentenceDrill = (function() {
         if (grid) grid.innerHTML = renderMineGridItems(mwSentences);
         // Close any open detail since the shown word may no longer be visible
         const panel = mineContainer.querySelector('#sd-m-float-detail');
-        if (panel) { panel.innerHTML = ''; panel.classList.remove('sd-float-detail-visible'); }
+        hideDetailPanel(panel);
     }
 
     function showMineDetail(tile) {
@@ -399,7 +416,7 @@ window.SentenceDrill = (function() {
 
         if (wasActive) {
             mwDetailWord = null;
-            if (panel) { panel.innerHTML = ''; panel.classList.remove('sd-float-detail-visible'); }
+            hideDetailPanel(panel);
             return;
         }
 
@@ -426,7 +443,7 @@ window.SentenceDrill = (function() {
                     <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.word)}" type="button">\u{1F50A} Word</button>
                 </div>
             </div>`;
-        panel.classList.add('sd-float-detail-visible');
+        showDetailPanel(panel);
 
         panel.querySelectorAll('.sd-list-play').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -438,8 +455,7 @@ window.SentenceDrill = (function() {
             e.stopPropagation();
             mwDetailWord = null;
             mineContainer.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => t.classList.remove('sd-mw-tile-active'));
-            panel.innerHTML = '';
-            panel.classList.remove('sd-float-detail-visible');
+            hideDetailPanel(panel);
         });
     }
 

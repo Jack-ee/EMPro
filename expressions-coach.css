@@ -1101,11 +1101,57 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
    closed (× button) or tile re-tapped.
    ═══════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════
+   FIXED detail panel — pinned to the bottom of the sub-panel so
+   the grid above scrolls independently while the detail always
+   remains visible. Uses position:absolute scoped to .sc-panel
+   (not position:fixed, to avoid covering the main nav bar).
+   ═══════════════════════════════════════════════════════════════ */
+
+/* The sub-panel becomes a positioning context + height-bounded so
+   absolute children anchor against it correctly. */
+#sc-panel-curated.active,
+#sc-panel-mine.active {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    /* 55vh leaves comfortable room for the detail panel below on mobile,
+       and stays well above the footer on desktop. */
+    min-height: 55vh;
+}
+@media (min-width: 900px) {
+    #sc-panel-curated.active,
+    #sc-panel-mine.active {
+        min-height: 65vh;
+    }
+}
+
+/* The ec-wrapper inside these panels becomes a flex column so the
+   grid area can grow/scroll while the detail stays anchored. */
+#sc-panel-curated.active > .ec-wrapper,
+#sc-panel-mine.active    > .ec-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;  /* required for flex child scrolling */
+}
+
+/* Grids inside these panels get their scroll bounded by their natural
+   height in the flex layout — they expand to fill available space. */
+#sc-panel-curated.active .sd-c-grid,
+#sc-panel-mine.active    .sd-mw-grid {
+    flex: 1;
+    min-height: 0;
+    max-height: none;  /* override the old 50vh/60vh caps */
+}
+
+/* The detail panel itself: anchored to the bottom of the sub-panel,
+   never scrolls with the content above. */
 .sd-float-detail {
-    position: sticky;
-    bottom: 0;
+    position: absolute;
     left: 0;
     right: 0;
+    bottom: 0;
     background: var(--bg-card, #fff);
     border-top: 2px solid var(--accent, #2d5a3d);
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
@@ -1114,14 +1160,21 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     transition: max-height 0.25s ease;
     z-index: 10;
     border-radius: 8px 8px 0 0;
-    margin-top: 8px;
 }
 .sd-float-detail.sd-float-detail-visible {
-    max-height: 260px;
+    max-height: 240px;
     overflow-y: auto;
 }
 .sd-float-detail:empty {
     display: none;
+}
+
+/* When the detail is visible, pad the bottom of its parent panel so
+   the last grid rows aren't hidden behind the detail overlay.
+   The class is toggled in JS alongside sd-float-detail-visible. */
+#sc-panel-curated.sd-panel-with-detail > .ec-wrapper,
+#sc-panel-mine.sd-panel-with-detail    > .ec-wrapper {
+    padding-bottom: 240px;
 }
 
 .sd-mw-detail-inner {
