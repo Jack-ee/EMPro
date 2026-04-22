@@ -1011,9 +1011,9 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     font-size: 0.85rem;
     font-weight: 500;
     font-family: inherit;
-    color: var(--text-primary);
-    background: var(--bg-surface, rgba(0, 0, 0, 0.02));
-    border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+    color: #1a1916;  /* explicit fallback; var(--text-primary) resolves to this in light mode */
+    background: #fafaf7;
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 6px;
     cursor: pointer;
     text-align: center;
@@ -1022,6 +1022,13 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     overflow: hidden;
     text-overflow: ellipsis;
     transition: all 0.12s ease;
+}
+@media (prefers-color-scheme: dark) {
+    .sd-mw-tile {
+        color: #e8e5df;
+        background: #252422;
+        border-color: rgba(255, 255, 255, 0.08);
+    }
 }
 .sd-mw-tile:hover {
     background: var(--accent-bg, rgba(45, 90, 61, 0.08));

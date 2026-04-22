@@ -1439,5 +1439,6 @@ Return ONLY valid JSON.`;
     function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
     function escAttr(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' '); }
 
-    return { init, render, refreshStudyList, startAutoplay, stopAutoplay, toggleAutoplay };
+    return { init, render, refreshStudyList, startAutoplay, stopAutoplay, toggleAutoplay,
+             isAutoplayActive: () => autoplayOn };
 })();

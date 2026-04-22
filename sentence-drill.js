@@ -26,6 +26,7 @@ window.SentenceDrill = (function() {
     let listenTimer    = null;
     let listenIdx      = 0;
     let listenPhase    = '';  // 'en-normal' | 'en-slow' | 'zh' | 'idle'
+    let wakeLock       = null;  // Screen wake lock during listen mode
 
     // A-Z range filter for Mine grid. null = show all, 'A-D' etc for ranges.
     let mwAZFilter     = null;
@@ -818,6 +819,7 @@ window.SentenceDrill = (function() {
         listenActive = true;
         listenPaused = false;
         listenToken++;
+        acquireWakeLock();   // keep screen on while listen loop runs
         renderListenView();
         playListenLoop(listenToken);
     }
@@ -829,7 +831,49 @@ window.SentenceDrill = (function() {
         listenToken++;  // invalidate any pending callbacks
         if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
         window.App?.stopSpeak?.();
+        releaseWakeLock();   // let the screen sleep again
     }
+
+    // --- Screen Wake Lock --------------------------------------------
+    // Prevents the phone's screen from auto-dimming/locking during
+    // listen sessions. Without this, Chrome/Safari suspend the tab when
+    // the screen goes dark and TTS stops mid-session. Mirrors the
+    // my-words.js autoplay implementation so behavior is consistent.
+    async function acquireWakeLock() {
+        if (!('wakeLock' in navigator)) {
+            console.log('[Listen] Wake Lock API not supported — screen may dim during playback');
+            return;
+        }
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log('[Listen] Screen wake lock acquired');
+            wakeLock.addEventListener('release', () => {
+                console.log('[Listen] Wake lock released by system');
+                wakeLock = null;
+            });
+        } catch (err) {
+            console.warn('[Listen] Wake lock request failed:', err.message);
+            wakeLock = null;
+        }
+    }
+
+    async function releaseWakeLock() {
+        if (!wakeLock) return;
+        try {
+            await wakeLock.release();
+        } catch (err) {
+            console.warn('[Listen] Wake lock release failed:', err.message);
+        }
+        wakeLock = null;
+    }
+
+    // Re-acquire wake lock if the user switches tabs/apps and comes back
+    // while listen mode is still running. The browser auto-releases on hide.
+    document.addEventListener('visibilitychange', () => {
+        if (listenActive && !listenPaused && !document.hidden && !wakeLock) {
+            acquireWakeLock();
+        }
+    });
 
     function pauseListen() {
         listenPaused = true;

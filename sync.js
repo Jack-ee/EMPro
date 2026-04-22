@@ -67,9 +67,15 @@ window.SyncManager = (function() {
     // We probe SentenceDrill's state via a getter rather than reaching
     // into module internals. If SentenceDrill isn't loaded yet or
     // doesn't expose the getter, we treat it as "not active" (safe default).
+    // Returns true if ANY active playback session is running — either
+    // sentence listen mode OR My Words autoplay. Sync pulls/pushes are
+    // suppressed during playback so network traffic and page reloads
+    // from a .setGistId/pull don't interrupt TTS.
     function isListenActive() {
         try {
-            return Boolean(window.SentenceDrill?.isListenActive?.());
+            if (window.SentenceDrill?.isListenActive?.()) return true;
+            if (window.MyWords?.isAutoplayActive?.())     return true;
+            return false;
         } catch {
             return false;
         }
@@ -412,7 +418,19 @@ window.SyncManager = (function() {
     function triggerSave() {
         if (suspendHooks || !getToken()) return;
         if (saveTimer) clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => push(false), DEBOUNCE_MS);
+        // Defer the push while playback is active. Any data changes made
+        // during playback (e.g. tracking progress on played sentences) will
+        // still land in localStorage immediately; the Gist push just waits
+        // until playback ends, at which point the next triggerSave (or the
+        // 30s poll / focus pull) picks them up.
+        saveTimer = setTimeout(() => {
+            if (isListenActive()) {
+                // Retry shortly; keeps debouncer behavior without losing the save.
+                saveTimer = setTimeout(() => { if (!isListenActive()) push(false); }, 5000);
+                return;
+            }
+            push(false);
+        }, DEBOUNCE_MS);
     }
 
     // ─── Hook DB methods so changes auto-push ─────────────────
