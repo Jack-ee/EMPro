@@ -73,7 +73,7 @@ window.SentenceDrill = (function() {
         render();
     }
 
-    // ─── Render: toolbar + exercise ──────────────────────────
+    // ─── Render: toolbar + list ──────────────────────────────
     function render() {
         if (!container) return;
         const progress  = loadProgress();
@@ -91,13 +91,11 @@ window.SentenceDrill = (function() {
                 </div>
                 <div class="sd-toolbar-actions">
                     <button class="ec-btn-ghost" id="sd-listen-btn" title="Listen mode \u2014 auto-pronounce every sentence">&#x1F3A7;<span class="sd-btn-label"> Listen</span></button>
-                    <button class="ec-btn-primary" id="sd-start-btn">&#x25B6;<span class="sd-btn-label"> Start</span></button>
+                    <button class="ec-btn-primary" id="sd-start-btn">&#x25B6;<span class="sd-btn-label"> Drill</span></button>
                 </div>
             </div>
             <div id="sd-exercise-area">
-                <div class="ec-start-prompt">
-                    <p>${sentences.length} sentences with ${countTargets()} vocabulary targets ready to practice.</p>
-                </div>
+                ${renderSentenceList()}
             </div>
         </div>`;
 
@@ -108,10 +106,240 @@ window.SentenceDrill = (function() {
         container.querySelector('#sd-listen-btn')?.addEventListener('click', () => {
             startListen();
         });
+        bindListEvents();
     }
 
     function countTargets() {
         return sentences.reduce((sum, s) => sum + (s.targets?.length || 0), 0);
+    }
+
+    // ─── Sentence list view ──────────────────────────────────
+    // Two groups, each collapsible:
+    //   \u2022 Curated: the 40 hand-written sentences from sentence.js.
+    //     Shown one-line sparse (English only, truncated).
+    //     Tap to expand \u2192 Chinese + targets + Play/Drill buttons.
+    //   \u2022 From My Words: auto-generated from notebook entries that
+    //     have BOTH a phonetic AND a context (full AI enrichment).
+    //     Shown word-first (just the word visible), because the sentence
+    //     there is really "an example of this word" \u2014 the word is the
+    //     pedagogical focus, not the sentence.
+    //     Tap the word \u2192 expand to show the sentence + Chinese + Play.
+
+    function getMyWordsSentences() {
+        const nb = window.DB?.loadNotebook?.() || [];
+        return nb.filter(w => w.phonetic && w.context)
+                 .map(w => ({
+                     id       : `mw_${w.word}`,
+                     word     : w.word,
+                     phonetic : w.phonetic,
+                     meaning  : w.meaning || '',
+                     context  : w.context,
+                     contextCn: w.contextCn || ''
+                 }))
+                 .sort((a, b) => a.word.localeCompare(b.word));
+    }
+
+    function renderSentenceList() {
+        const mwSentences = getMyWordsSentences();
+        const curatedCount = sentences.length;
+        const mwCount      = mwSentences.length;
+
+        return `
+        <div class="sd-list-wrap">
+            <div class="sd-list-cols">
+                ${renderCuratedGroup(curatedCount)}
+                ${renderMyWordsGroup(mwSentences, mwCount)}
+            </div>
+        </div>`;
+    }
+
+    function renderCuratedGroup(count) {
+        const items = sentences.map((s, idx) => {
+            const sp = getSentenceProgress(s.id);
+            const mastered = sp.correct >= 2;
+            return `
+            <li class="sd-list-row sd-list-curated" data-kind="curated" data-idx="${idx}">
+                <button class="sd-list-main" type="button" aria-expanded="false">
+                    <span class="sd-list-tri">\u25B8</span>
+                    <span class="sd-list-text">${escHtml(s.sentence_en)}</span>
+                    ${mastered ? '<span class="sd-list-badge">\u2B50</span>' : ''}
+                </button>
+                <div class="sd-list-details"></div>
+            </li>`;
+        }).join('');
+
+        return `
+        <section class="sd-list-group" data-group="curated">
+            <header class="sd-list-header">
+                <h3 class="sd-list-title">\u{1F4D8} Curated</h3>
+                <span class="sd-list-count">${count}</span>
+            </header>
+            <ul class="sd-list" id="sd-list-curated">${items || '<li class="sd-list-empty">(no curated sentences loaded)</li>'}</ul>
+        </section>`;
+    }
+
+    function renderMyWordsGroup(mwSentences, count) {
+        if (count === 0) {
+            return `
+            <section class="sd-list-group" data-group="mywords">
+                <header class="sd-list-header">
+                    <h3 class="sd-list-title">\u{1F4DA} From My Words</h3>
+                    <span class="sd-list-count">0</span>
+                </header>
+                <div class="sd-list-empty">Add enriched words (phonetic + example) in My Words to see them here.</div>
+            </section>`;
+        }
+        const items = mwSentences.map(w => `
+            <button class="sd-mw-tile" type="button" data-kind="mw" data-word="${escAttr(w.word)}">
+                ${escHtml(w.word)}
+            </button>`).join('');
+
+        return `
+        <section class="sd-list-group" data-group="mywords">
+            <header class="sd-list-header">
+                <h3 class="sd-list-title">\u{1F4DA} From My Words</h3>
+                <span class="sd-list-count">${count}</span>
+            </header>
+            <div class="sd-mw-grid" id="sd-list-mw">${items}</div>
+            <div class="sd-mw-detail" id="sd-mw-detail"></div>
+        </section>`;
+    }
+
+    function bindListEvents() {
+        const wrap = container.querySelector('.sd-list-wrap');
+        if (!wrap) return;
+        wrap.addEventListener('click', (e) => {
+            // Curated: list-row accordion
+            const row = e.target.closest('.sd-list-row');
+            if (row) {
+                toggleListRow(row);
+                return;
+            }
+            // MyWords: grid tile with shared detail panel
+            const tile = e.target.closest('.sd-mw-tile');
+            if (tile) {
+                showMWDetail(tile);
+                return;
+            }
+        });
+    }
+
+    function showMWDetail(tile) {
+        const word   = tile.dataset.word;
+        const panel  = container.querySelector('#sd-mw-detail');
+        const isOpen = tile.classList.contains('sd-mw-tile-active');
+
+        // Clear all tile active states
+        container.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => {
+            t.classList.remove('sd-mw-tile-active');
+        });
+
+        if (isOpen) {
+            // Tapping the same tile again closes the detail
+            if (panel) panel.innerHTML = '';
+            return;
+        }
+
+        tile.classList.add('sd-mw-tile-active');
+        if (!panel) return;
+        panel.innerHTML = renderMWDetails(word);
+
+        // Wire the detail's play buttons
+        panel.querySelectorAll('.sd-list-play').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const text = e.currentTarget.dataset.text;
+                if (text) window.App?.speak?.(text);
+            });
+        });
+    }
+
+    function toggleListRow(row) {
+        if (!row) return;
+        const wasOpen  = row.classList.contains('sd-list-open');
+        // Close any other open row in the same group (accordion behavior
+        // keeps the list tidy on narrow screens where long expansions
+        // would push other items far down).
+        const group = row.closest('.sd-list-group');
+        group?.querySelectorAll('.sd-list-row.sd-list-open').forEach(r => {
+            if (r !== row) {
+                r.classList.remove('sd-list-open');
+                const d = r.querySelector('.sd-list-details');
+                if (d) d.innerHTML = '';
+                const btn = r.querySelector('.sd-list-main');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        if (wasOpen) {
+            row.classList.remove('sd-list-open');
+            const details = row.querySelector('.sd-list-details');
+            if (details) details.innerHTML = '';
+            row.querySelector('.sd-list-main')?.setAttribute('aria-expanded', 'false');
+            return;
+        }
+
+        // Open: populate the details block based on row kind
+        const kind = row.dataset.kind;
+        const details = row.querySelector('.sd-list-details');
+        if (!details) return;
+        details.innerHTML = kind === 'curated'
+            ? renderCuratedDetails(parseInt(row.dataset.idx, 10))
+            : renderMWDetails(row.dataset.word);
+        row.classList.add('sd-list-open');
+        row.querySelector('.sd-list-main')?.setAttribute('aria-expanded', 'true');
+
+        // Wire the expanded action buttons
+        details.querySelector('.sd-list-play')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const text = e.currentTarget.dataset.text;
+            if (text) window.App?.speak?.(text);
+        });
+        details.querySelector('.sd-list-drill')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(e.currentTarget.dataset.idx, 10);
+            if (isFinite(idx)) {
+                currentIdx = idx;
+                saveState();
+                stopListen();
+                renderExercise();
+            }
+        });
+    }
+
+    function renderCuratedDetails(idx) {
+        const s = sentences[idx];
+        if (!s) return '';
+        const targetPills = (s.targets || []).map(t =>
+            `<span class="sd-list-target">${escHtml(t.word)}</span>`
+        ).join('');
+        return `
+            <div class="sd-list-cn">${escHtml(s.sentence_cn || '')}</div>
+            ${targetPills ? `<div class="sd-list-targets">${targetPills}</div>` : ''}
+            <div class="sd-list-actions">
+                <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(s.sentence_en)}" type="button">\u{1F50A} Play</button>
+                <button class="sd-list-drill ec-btn-ghost" data-idx="${idx}" type="button">\u270F\uFE0F Drill</button>
+            </div>`;
+    }
+
+    function renderMWDetails(word) {
+        const mwSentences = getMyWordsSentences();
+        const w = mwSentences.find(x => x.word === word);
+        if (!w) return '';
+        return `
+            <div class="sd-mw-detail-inner">
+                <div class="sd-mw-detail-head">
+                    <span class="sd-mw-detail-word">${escHtml(w.word)}</span>
+                    <span class="sd-mw-detail-phon">${escHtml(w.phonetic)}</span>
+                </div>
+                ${w.meaning ? `<div class="sd-list-meaning">${escHtml(w.meaning)}</div>` : ''}
+                <div class="sd-list-context">${escHtml(w.context)}</div>
+                ${w.contextCn ? `<div class="sd-list-cn">${escHtml(w.contextCn)}</div>` : ''}
+                <div class="sd-list-actions">
+                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.context)}" type="button">\u{1F50A} Play sentence</button>
+                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.word)}" type="button">\u{1F50A} Play word</button>
+                </div>
+            </div>`;
     }
 
     // ─── Render exercise card ────────────────────────────────
@@ -422,15 +650,48 @@ window.SentenceDrill = (function() {
         window.DB?.setPref?.('sd_listen_cn', on ? 'true' : 'false');
     }
 
+    // Listen source: which pool to auto-play through.
+    //   'curated'  — the 40 hand-written sentences (default)
+    //   'mywords'  — sentences pulled from enriched My Words entries
+    //   'both'     — curated first, then MyWords
+    function getListenSource() {
+        const v = window.DB?.getPref?.('sd_listen_source', 'curated');
+        return ['curated', 'mywords', 'both'].includes(v) ? v : 'curated';
+    }
+    function setListenSource(src) {
+        if (['curated', 'mywords', 'both'].includes(src)) {
+            window.DB?.setPref?.('sd_listen_source', src);
+        }
+    }
+
+    // Returns the active pool of sentences for Listen mode, normalized to
+    // {sentence_en, sentence_cn}. Curated already fits this shape; MyWords
+    // entries are adapted from their {context, contextCn} fields.
+    function getListenPool() {
+        const src = getListenSource();
+        const curated = sentences.map(s => ({
+            sentence_en: s.sentence_en,
+            sentence_cn: s.sentence_cn || ''
+        }));
+        const mw = getMyWordsSentences().map(w => ({
+            sentence_en: w.context,
+            sentence_cn: w.contextCn || ''
+        }));
+        if (src === 'mywords') return mw;
+        if (src === 'both')    return [...curated, ...mw];
+        return curated;
+    }
+
     function startListen() {
         if (listenActive) return;
-        if (sentences.length === 0) {
-            window.App?.showToast?.('No sentences loaded.');
+        const pool = getListenPool();
+        if (pool.length === 0) {
+            window.App?.showToast?.('No sentences available for this source.');
             return;
         }
-        // Restore last position from saved state if available
+        // Restore last position from saved state if available (clamped to pool)
         const state = loadState();
-        listenIdx    = Math.min(Math.max(0, state.idx || 0), sentences.length - 1);
+        listenIdx    = Math.min(Math.max(0, state.idx || 0), pool.length - 1);
         listenActive = true;
         listenPaused = false;
         listenToken++;
@@ -465,8 +726,10 @@ window.SentenceDrill = (function() {
 
     function nextListen() {
         if (!listenActive) return;
-        listenIdx = (listenIdx + 1) % sentences.length;
-        currentIdx = listenIdx;
+        const pool = getListenPool();
+        if (pool.length === 0) return;
+        listenIdx = (listenIdx + 1) % pool.length;
+        currentIdx = Math.min(listenIdx, sentences.length - 1);  // keep drill idx in valid range
         saveState();
         listenToken++;
         if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
@@ -477,8 +740,10 @@ window.SentenceDrill = (function() {
 
     function prevListen() {
         if (!listenActive) return;
-        listenIdx = (listenIdx - 1 + sentences.length) % sentences.length;
-        currentIdx = listenIdx;
+        const pool = getListenPool();
+        if (pool.length === 0) return;
+        listenIdx = (listenIdx - 1 + pool.length) % pool.length;
+        currentIdx = Math.min(listenIdx, sentences.length - 1);
         saveState();
         listenToken++;
         if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
@@ -495,12 +760,31 @@ window.SentenceDrill = (function() {
         if (!listenPaused) playListenLoop(listenToken);
     }
 
+    // Cycle through sources on tap. Called from the Listen controls.
+    function cycleListenSource() {
+        const order = ['curated', 'mywords', 'both'];
+        const cur   = getListenSource();
+        const next  = order[(order.indexOf(cur) + 1) % order.length];
+        setListenSource(next);
+        // Reset index when pool changes to avoid out-of-bounds playback
+        const pool = getListenPool();
+        listenIdx  = Math.min(listenIdx, Math.max(0, pool.length - 1));
+        if (listenActive) {
+            listenToken++;
+            if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
+            window.App?.stopSpeak?.();
+            renderListenView();
+            if (!listenPaused) playListenLoop(listenToken);
+        }
+    }
+
     // Core playback loop. Uses a token so that if the user hits
     // Pause/Next/Prev mid-utterance, the stale onEnd callback from the
     // old utterance sees myToken !== listenToken and returns silently.
     function playListenLoop(myToken) {
         if (!listenActive || listenPaused || myToken !== listenToken) return;
-        const s = sentences[listenIdx];
+        const pool = getListenPool();
+        const s = pool[listenIdx];
         if (!s) { stopListen(); return; }
 
         const baseRate = getListenRate();
@@ -511,8 +795,9 @@ window.SentenceDrill = (function() {
         // and optionally plays Chinese before moving to the next sentence.
         const advanceToNext = () => {
             if (myToken !== listenToken || !listenActive || listenPaused) return;
-            listenIdx = (listenIdx + 1) % sentences.length;
-            currentIdx = listenIdx;
+            const poolNow = getListenPool();
+            listenIdx = (listenIdx + 1) % poolNow.length;
+            currentIdx = Math.min(listenIdx, sentences.length - 1);
             saveState();
             renderListenView();
             playListenLoop(myToken);
@@ -555,20 +840,24 @@ window.SentenceDrill = (function() {
     function renderListenView() {
         const area = container?.querySelector('#sd-exercise-area');
         if (!area) return;
-        const s = sentences[listenIdx];
+        const pool = getListenPool();
+        const s = pool[listenIdx];
         if (!s) return;
+        const src      = getListenSource();
+        const srcLabel = {curated: '\u{1F4D8} Curated', mywords: '\u{1F4DA} My Words', both: '\u{1F500} Both'}[src];
 
         area.innerHTML = `
         <div class="ec-card sd-listen-card">
             <div class="ec-card-top sd-listen-top">
                 <span class="ec-card-cat sd-listen-badge" style="background:var(--accent-bg);color:var(--accent)">
-                    &#x1F3A7; ${listenIdx + 1}/${sentences.length}
+                    &#x1F3A7; ${listenIdx + 1}/${pool.length}
                 </span>
+                <button class="sd-listen-source-btn" id="sd-listen-source" title="Switch source (Curated / My Words / Both)">${srcLabel}</button>
                 <span id="sd-listen-phase" class="sd-listen-phase">&#x1F50A; EN</span>
             </div>
 
             <div class="sd-listen-sentence" id="sd-listen-en">${escHtml(s.sentence_en)}</div>
-            <div class="sd-listen-cn ${isListenCNEnabled() ? '' : 'sd-listen-cn-muted'}" id="sd-listen-cn">${escHtml(s.sentence_cn)}</div>
+            <div class="sd-listen-cn ${isListenCNEnabled() ? '' : 'sd-listen-cn-muted'}" id="sd-listen-cn">${escHtml(s.sentence_cn || '')}</div>
 
             <div class="sd-listen-controls">
                 <button class="sd-listen-ctrl" id="sd-listen-prev" title="Previous">&#x23EE;</button>
@@ -593,9 +882,10 @@ window.SentenceDrill = (function() {
         area.querySelector('#sd-listen-next')?.addEventListener('click', nextListen);
         area.querySelector('#sd-listen-restart')?.addEventListener('click', restartCurrent);
         area.querySelector('#sd-listen-cn-btn')?.addEventListener('click', toggleListenCN);
+        area.querySelector('#sd-listen-source')?.addEventListener('click', cycleListenSource);
         area.querySelector('#sd-listen-exit')?.addEventListener('click', () => {
             stopListen();
-            render();  // back to toolbar + start prompt
+            render();  // back to toolbar + list view
         });
     }
 

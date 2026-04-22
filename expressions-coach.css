@@ -749,3 +749,302 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
         font-size: 14px;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   SENTENCE LIST (sentence-drill.js)
+   Two groups: Curated (full sentences) and From My Words (word-first).
+   Mobile: single column stacked. Desktop (≥900px): two columns.
+   ═══════════════════════════════════════════════════════════════ */
+
+.sd-list-wrap {
+    padding: 4px 0 16px;
+}
+.sd-list-cols {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+@media (min-width: 900px) {
+    .sd-list-cols {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+    .sd-list-group {
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+.sd-list-group {
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.sd-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg-surface, rgba(0, 0, 0, 0.02));
+    border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+.sd-list-title {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.sd-list-count {
+    font-size: 0.78rem;
+    font-family: var(--font-mono, monospace);
+    color: var(--text-tertiary);
+    background: var(--bg-card, #fff);
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+
+.sd-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+@media (min-width: 900px) {
+    .sd-list { max-height: 70vh; }
+}
+
+.sd-list-row {
+    border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.05));
+}
+.sd-list-row:last-child { border-bottom: none; }
+
+.sd-list-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    font-family: inherit;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+.sd-list-main:hover {
+    background: var(--surface-2, rgba(45, 90, 61, 0.04));
+}
+
+.sd-list-tri {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    width: 10px;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+}
+.sd-list-row.sd-list-open .sd-list-tri {
+    transform: rotate(90deg);
+    color: var(--accent);
+}
+
+.sd-list-text {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sd-list-row.sd-list-open .sd-list-text {
+    white-space: normal;
+}
+
+.sd-list-word {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.sd-list-phon {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+    color: var(--text-tertiary);
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.sd-list-badge {
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.sd-list-details {
+    padding: 0 14px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease, padding 0.2s ease;
+}
+.sd-list-row.sd-list-open .sd-list-details {
+    padding: 4px 14px 12px;
+    max-height: 400px;
+}
+
+.sd-list-cn {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 6px;
+}
+.sd-list-meaning {
+    font-size: 0.78rem;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+    font-style: italic;
+}
+.sd-list-context {
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin-bottom: 6px;
+}
+.sd-list-targets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 6px 0;
+}
+.sd-list-target {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    background: var(--accent-bg, rgba(45, 90, 61, 0.1));
+    color: var(--accent);
+    border-radius: 10px;
+    font-weight: 500;
+}
+.sd-list-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+.sd-list-actions button {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    white-space: nowrap;
+}
+
+.sd-list-empty {
+    padding: 20px 14px;
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+    font-style: italic;
+    text-align: center;
+}
+
+/* Listen source toggle button (new, in Listen card top row) */
+.sd-listen-source-btn {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    background: var(--bg-card, #fff);
+    color: var(--text-secondary);
+    border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+    border-radius: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+.sd-listen-source-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.sd-listen-source-btn:active {
+    transform: scale(0.95);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MY WORDS grid (replaces list layout for that group only)
+   ═══════════════════════════════════════════════════════════════ */
+
+.sd-mw-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 6px;
+    padding: 12px;
+    max-height: 50vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+@media (min-width: 900px) {
+    .sd-mw-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        max-height: 56vh;
+    }
+}
+
+.sd-mw-tile {
+    padding: 8px 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: var(--bg-surface, rgba(0, 0, 0, 0.02));
+    border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.12s ease;
+}
+.sd-mw-tile:hover {
+    background: var(--accent-bg, rgba(45, 90, 61, 0.08));
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.sd-mw-tile-active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    font-weight: 600;
+}
+.sd-mw-tile-active:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+/* Shared detail panel — sits below the grid when a tile is active */
+.sd-mw-detail {
+    /* Empty by default; sd-mw-detail-inner provides padding when populated */
+}
+.sd-mw-detail:empty {
+    display: none;
+}
+.sd-mw-detail-inner {
+    padding: 14px;
+    border-top: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+    background: var(--bg-surface, rgba(0, 0, 0, 0.015));
+}
+.sd-mw-detail-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.sd-mw-detail-word {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.sd-mw-detail-phon {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+}
