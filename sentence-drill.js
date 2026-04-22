@@ -27,6 +27,11 @@ window.SentenceDrill = (function() {
     let listenIdx      = 0;
     let listenPhase    = '';  // 'en-normal' | 'en-slow' | 'zh' | 'idle'
 
+    // A-Z filter for MyWords grid. null = show all; 'A'..'Z' = only that letter.
+    let mwAZFilter     = null;
+    // Currently displayed word in the floating detail panel (null = hidden)
+    let mwDetailWord   = null;
+
     // ─── Storage (profile-scoped) ────────────────────────────
     function loadState() {
         try {
@@ -83,8 +88,8 @@ window.SentenceDrill = (function() {
         container.innerHTML = `
         <div class="ec-wrapper">
             <div class="ec-toolbar sd-toolbar">
-                <div class="ec-toolbar-stats">
-                    <span class="ec-ts"><span class="ec-ts-num">${sentences.length}</span> total</span>
+                <div class="ec-toolbar-stats sd-compact-stats">
+                    <span class="ec-ts"><span class="ec-ts-num">${sentences.length}</span></span>
                     <span class="ec-ts"><span class="ec-ts-num ec-practiced" id="sd-practiced">${practiced}</span>&#x2705;</span>
                     <span class="ec-ts"><span class="ec-ts-num ec-mastered" id="sd-mastered">${mastered}</span>&#x2B50;</span>
                     ${total > 0 ? `<span class="ec-ts">${score}/${total}</span>` : ''}
@@ -150,6 +155,7 @@ window.SentenceDrill = (function() {
                 ${renderCuratedGroup(curatedCount)}
                 ${renderMyWordsGroup(mwSentences, mwCount)}
             </div>
+            <div class="sd-float-detail" id="sd-float-detail"></div>
         </div>`;
     }
 
@@ -178,6 +184,49 @@ window.SentenceDrill = (function() {
         </section>`;
     }
 
+    // Builds a per-letter count map: {'A': 14, 'B': 22, …, '#': 3}
+    // '#' bucket catches words starting with non-alphabetic chars (rare).
+    function buildAZCounts(mwSentences) {
+        const counts = {};
+        for (let c = 65; c <= 90; c++) counts[String.fromCharCode(c)] = 0;
+        counts['#'] = 0;
+        mwSentences.forEach(w => {
+            const first = (w.word || '').charAt(0).toUpperCase();
+            if (first >= 'A' && first <= 'Z') counts[first]++;
+            else                               counts['#']++;
+        });
+        return counts;
+    }
+
+    function renderAZFilter(counts) {
+        const letters = [];
+        for (let c = 65; c <= 90; c++) letters.push(String.fromCharCode(c));
+        // Only show '#' bucket if there are non-alpha words
+        if (counts['#'] > 0) letters.push('#');
+
+        const allActive = mwAZFilter == null ? 'sd-az-active' : '';
+        let html = `<button class="sd-az-btn sd-az-all ${allActive}" data-letter="" type="button">All</button>`;
+
+        letters.forEach(L => {
+            const n = counts[L] || 0;
+            const active = mwAZFilter === L ? 'sd-az-active' : '';
+            const disabled = n === 0 ? 'sd-az-empty' : '';
+            html += `<button class="sd-az-btn ${active} ${disabled}" data-letter="${L}" type="button" ${n === 0 ? 'disabled' : ''}>${L}</button>`;
+        });
+        return `<div class="sd-az-filter">${html}</div>`;
+    }
+
+    function filterMWByAZ(mwSentences) {
+        if (!mwAZFilter) return mwSentences;
+        if (mwAZFilter === '#') {
+            return mwSentences.filter(w => {
+                const c = (w.word || '').charAt(0).toUpperCase();
+                return !(c >= 'A' && c <= 'Z');
+            });
+        }
+        return mwSentences.filter(w => (w.word || '').charAt(0).toUpperCase() === mwAZFilter);
+    }
+
     function renderMyWordsGroup(mwSentences, count) {
         if (count === 0) {
             return `
@@ -189,19 +238,28 @@ window.SentenceDrill = (function() {
                 <div class="sd-list-empty">Add enriched words (phonetic + example) in My Words to see them here.</div>
             </section>`;
         }
-        const items = mwSentences.map(w => `
-            <button class="sd-mw-tile" type="button" data-kind="mw" data-word="${escAttr(w.word)}">
+
+        const azCounts = buildAZCounts(mwSentences);
+        const filtered = filterMWByAZ(mwSentences);
+
+        const items = filtered.map(w => `
+            <button class="sd-mw-tile ${mwDetailWord === w.word ? 'sd-mw-tile-active' : ''}" type="button" data-kind="mw" data-word="${escAttr(w.word)}">
                 ${escHtml(w.word)}
             </button>`).join('');
+
+        const gridInner = items || `<div class="sd-list-empty">No words starting with "${mwAZFilter}".</div>`;
+        const filterSummary = mwAZFilter
+            ? `<span class="sd-list-count">${filtered.length}/${count}</span>`
+            : `<span class="sd-list-count">${count}</span>`;
 
         return `
         <section class="sd-list-group" data-group="mywords">
             <header class="sd-list-header">
                 <h3 class="sd-list-title">\u{1F4DA} From My Words</h3>
-                <span class="sd-list-count">${count}</span>
+                ${filterSummary}
             </header>
-            <div class="sd-mw-grid" id="sd-list-mw">${items}</div>
-            <div class="sd-mw-detail" id="sd-mw-detail"></div>
+            ${renderAZFilter(azCounts)}
+            <div class="sd-mw-grid" id="sd-list-mw">${gridInner}</div>
         </section>`;
     }
 
@@ -209,13 +267,23 @@ window.SentenceDrill = (function() {
         const wrap = container.querySelector('.sd-list-wrap');
         if (!wrap) return;
         wrap.addEventListener('click', (e) => {
+            // A-Z filter buttons
+            const azBtn = e.target.closest('.sd-az-btn');
+            if (azBtn && !azBtn.disabled) {
+                const L = azBtn.dataset.letter;
+                mwAZFilter = L || null;
+                // Clear detail when filter changes to avoid showing a word now hidden
+                mwDetailWord = null;
+                rerenderMWGroup();
+                return;
+            }
             // Curated: list-row accordion
             const row = e.target.closest('.sd-list-row');
             if (row) {
                 toggleListRow(row);
                 return;
             }
-            // MyWords: grid tile with shared detail panel
+            // MyWords: grid tile → floating detail panel
             const tile = e.target.closest('.sd-mw-tile');
             if (tile) {
                 showMWDetail(tile);
@@ -224,33 +292,55 @@ window.SentenceDrill = (function() {
         });
     }
 
+    // Re-render just the MyWords group in place, preserving scroll position
+    // on the surrounding page. Used when the A-Z filter changes.
+    function rerenderMWGroup() {
+        const existing = container.querySelector('[data-group="mywords"]');
+        if (!existing) return;
+        const mwSentences = getMyWordsSentences();
+        const tmp = document.createElement('div');
+        tmp.innerHTML = renderMyWordsGroup(mwSentences, mwSentences.length);
+        const fresh = tmp.firstElementChild;
+        if (fresh) existing.replaceWith(fresh);
+    }
+
     function showMWDetail(tile) {
         const word   = tile.dataset.word;
-        const panel  = container.querySelector('#sd-mw-detail');
-        const isOpen = tile.classList.contains('sd-mw-tile-active');
+        const panel  = container.querySelector('#sd-float-detail');
+        const wasActive = tile.classList.contains('sd-mw-tile-active');
 
-        // Clear all tile active states
+        // Clear all active states
         container.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => {
             t.classList.remove('sd-mw-tile-active');
         });
 
-        if (isOpen) {
-            // Tapping the same tile again closes the detail
-            if (panel) panel.innerHTML = '';
+        if (wasActive) {
+            // Tapping the same tile again hides the detail
+            mwDetailWord = null;
+            if (panel) { panel.innerHTML = ''; panel.classList.remove('sd-float-detail-visible'); }
             return;
         }
 
         tile.classList.add('sd-mw-tile-active');
+        mwDetailWord = word;
         if (!panel) return;
         panel.innerHTML = renderMWDetails(word);
+        panel.classList.add('sd-float-detail-visible');
 
-        // Wire the detail's play buttons
+        // Wire play buttons + close button
         panel.querySelectorAll('.sd-list-play').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const text = e.currentTarget.dataset.text;
                 if (text) window.App?.speak?.(text);
             });
+        });
+        panel.querySelector('.sd-float-close')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            mwDetailWord = null;
+            container.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => t.classList.remove('sd-mw-tile-active'));
+            panel.innerHTML = '';
+            panel.classList.remove('sd-float-detail-visible');
         });
     }
 
@@ -328,6 +418,7 @@ window.SentenceDrill = (function() {
         if (!w) return '';
         return `
             <div class="sd-mw-detail-inner">
+                <button class="sd-float-close" type="button" title="Close" aria-label="Close">&#x2715;</button>
                 <div class="sd-mw-detail-head">
                     <span class="sd-mw-detail-word">${escHtml(w.word)}</span>
                     <span class="sd-mw-detail-phon">${escHtml(w.phonetic)}</span>
@@ -336,8 +427,8 @@ window.SentenceDrill = (function() {
                 <div class="sd-list-context">${escHtml(w.context)}</div>
                 ${w.contextCn ? `<div class="sd-list-cn">${escHtml(w.contextCn)}</div>` : ''}
                 <div class="sd-list-actions">
-                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.context)}" type="button">\u{1F50A} Play sentence</button>
-                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.word)}" type="button">\u{1F50A} Play word</button>
+                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.context)}" type="button">\u{1F50A} Sentence</button>
+                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.word)}" type="button">\u{1F50A} Word</button>
                 </div>
             </div>`;
     }

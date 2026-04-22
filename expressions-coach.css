@@ -583,17 +583,38 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SENTENCES toolbar — compact layout with both action buttons on one row
+   SENTENCES toolbar — stats chips + action buttons on a single line
    ═══════════════════════════════════════════════════════════════ */
 
 .sd-toolbar {
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: nowrap;   /* override .ec-toolbar's wrap */
+}
+.sd-compact-stats {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0;
+    flex-shrink: 0;
+}
+/* Override stat chip to be compact: no "total" label, tighter spacing */
+.sd-compact-stats .ec-ts {
+    padding: 2px 6px;
+    background: var(--bg-surface, rgba(0, 0, 0, 0.03));
+    border-radius: 10px;
+    font-size: 0.75rem;
+    gap: 3px;
+}
+.sd-compact-stats .ec-ts-num {
+    font-size: 0.82rem;
 }
 .sd-toolbar-actions {
     display: flex;
     gap: 6px;
     margin-left: auto;
+    flex-shrink: 0;
 }
 /* Button labels visible on desktop, hidden on narrow mobile */
 @media (max-width: 600px) {
@@ -1020,17 +1041,113 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     color: #fff;
 }
 
-/* Shared detail panel — sits below the grid when a tile is active */
-.sd-mw-detail {
-    /* Empty by default; sd-mw-detail-inner provides padding when populated */
+/* ═══════════════════════════════════════════════════════════════
+   A-Z filter bar (MyWords grid navigation)
+   ═══════════════════════════════════════════════════════════════ */
+
+.sd-az-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.05));
+    background: var(--bg-surface, rgba(0, 0, 0, 0.015));
 }
-.sd-mw-detail:empty {
+.sd-az-btn {
+    flex: 1 0 auto;
+    min-width: 22px;
+    padding: 4px 2px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: var(--font-mono, inherit);
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    text-align: center;
+}
+.sd-az-btn:hover:not(:disabled) {
+    background: var(--accent-bg, rgba(45, 90, 61, 0.08));
+    color: var(--accent);
+}
+.sd-az-btn.sd-az-active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+.sd-az-btn.sd-az-empty {
+    color: var(--text-tertiary);
+    opacity: 0.35;
+    cursor: default;
+}
+.sd-az-btn.sd-az-all {
+    min-width: 32px;
+    font-family: inherit;
+    font-size: 0.73rem;
+}
+@media (min-width: 900px) {
+    .sd-az-btn {
+        font-size: 0.78rem;
+        min-width: 24px;
+        padding: 4px 4px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FLOATING detail panel — fixed at bottom of viewport/panel while
+   the word grid above scrolls freely. Stays visible until tapped
+   closed (× button) or tile re-tapped.
+   ═══════════════════════════════════════════════════════════════ */
+
+.sd-float-detail {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-card, #fff);
+    border-top: 2px solid var(--accent, #2d5a3d);
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+    z-index: 10;
+    border-radius: 8px 8px 0 0;
+    margin-top: 8px;
+}
+.sd-float-detail.sd-float-detail-visible {
+    max-height: 260px;
+    overflow-y: auto;
+}
+.sd-float-detail:empty {
     display: none;
 }
+
 .sd-mw-detail-inner {
-    padding: 14px;
-    border-top: 1px solid var(--border, rgba(0, 0, 0, 0.08));
-    background: var(--bg-surface, rgba(0, 0, 0, 0.015));
+    position: relative;
+    padding: 14px 40px 14px 14px;
+}
+.sd-float-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--text-tertiary);
+    transition: all 0.12s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.sd-float-close:hover {
+    background: var(--surface-2, rgba(0, 0, 0, 0.06));
+    color: var(--text-primary);
 }
 .sd-mw-detail-head {
     display: flex;
