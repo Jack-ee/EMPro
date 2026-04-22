@@ -406,8 +406,14 @@ window.SentenceDrill = (function() {
 
     const LISTEN_PAUSE_MID  = 600;
     const LISTEN_PAUSE_NEXT = 1000;
-    const LISTEN_BASE_RATE  = 0.95;
-    const LISTEN_SLOW_MULT  = 0.80;
+    const LISTEN_SLOW_MULT  = 0.80;  // "slow" phase is 80% of base rate
+
+    // Unified speed: Listen mode uses the same global 'speech_speed'
+    // pref as MyWords autoplay. One slider in Settings controls both.
+    function getListenRate() {
+        const v = parseFloat(window.DB?.getPref?.('speech_speed', '0.9'));
+        return (isFinite(v) && v >= 0.5 && v <= 1.5) ? v : 0.9;
+    }
 
     function isListenCNEnabled() {
         return window.DB?.getPref?.('sd_listen_cn', 'false') === 'true';
@@ -497,7 +503,7 @@ window.SentenceDrill = (function() {
         const s = sentences[listenIdx];
         if (!s) { stopListen(); return; }
 
-        const baseRate = LISTEN_BASE_RATE;
+        const baseRate = getListenRate();
         const slowRate = baseRate * LISTEN_SLOW_MULT;
         const cnOn     = isListenCNEnabled();
 
@@ -662,5 +668,5 @@ window.SentenceDrill = (function() {
         return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    return { init, stopListen };
+    return { init, stopListen, isListenActive: () => listenActive };
 })();
