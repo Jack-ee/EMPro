@@ -229,17 +229,39 @@
         const voices    = refreshVoices();
         const saved     = window.DB?.getPref?.('tts_voice', '__default__') || '__default__';
 
+        // Filter: only English and Chinese voices — those are the two languages
+        // the app actually uses (EN for learning content, ZH for translations).
+        // Covers en-*, zh-*, and cmn-* (Mandarin BCP-47 tag).
+        const isRelevant = (v) => {
+            const lang = (v.lang || '').toLowerCase();
+            return lang.startsWith('en') || lang.startsWith('zh') || lang.startsWith('cmn');
+        };
+
         // Android fallback: always include a "System Default" option because
         // getVoices() may return [] permanently on some devices.
         let html = `<option value="__default__">System Default${voices.length ? '' : ' (voice list unavailable)'}</option>`;
 
-        // Prefer English voices first, then others
-        const en    = voices.filter(v => (v.lang || '').toLowerCase().startsWith('en'));
-        const rest  = voices.filter(v => !(v.lang || '').toLowerCase().startsWith('en'));
-        [...en, ...rest].forEach(v => {
+        // Build filtered list: English voices first, then Chinese
+        const filtered = voices.filter(isRelevant);
+        const en       = filtered.filter(v => (v.lang || '').toLowerCase().startsWith('en'));
+        const zh       = filtered.filter(v => !((v.lang || '').toLowerCase().startsWith('en')));
+
+        // Escape hatch: if the user has previously saved a voice that's now
+        // being filtered out (e.g. a French voice from before this filter),
+        // still include it so they don't silently lose their setting.
+        const savedVoice = voices.find(v => (v.voiceURI === saved) || (v.name === saved));
+        const savedOutsideFilter = savedVoice && !isRelevant(savedVoice);
+
+        [...en, ...zh].forEach(v => {
             const val = v.voiceURI || v.name;
             html += `<option value="${escapeAttr(val)}">${escapeHtml(v.name)} \u2014 ${escapeHtml(v.lang || '')}</option>`;
         });
+
+        if (savedOutsideFilter) {
+            const val = savedVoice.voiceURI || savedVoice.name;
+            html += `<option value="${escapeAttr(val)}">${escapeHtml(savedVoice.name)} \u2014 ${escapeHtml(savedVoice.lang || '')} (saved)</option>`;
+        }
+
         sel.innerHTML = html;
         sel.value     = saved;
     }
