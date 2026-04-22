@@ -1151,12 +1151,15 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
 }
 
 /* The detail panel itself: anchored to the bottom of the sub-panel,
-   never scrolls with the content above. */
+   never scrolls with the content above. Width and centering match
+   the .ec-wrapper above it so the detail visually belongs to the grid. */
 .sd-float-detail {
     position: absolute;
-    left: 0;
-    right: 0;
+    left: 50%;
+    transform: translateX(-50%);
     bottom: 0;
+    width: 100%;
+    max-width: 960px;
     background: var(--bg-card, #fff);
     border-top: 2px solid var(--accent, #2d5a3d);
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);

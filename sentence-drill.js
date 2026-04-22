@@ -161,8 +161,8 @@ window.SentenceDrill = (function() {
             <div id="sd-c-exercise-area">
                 ${renderCuratedGrid()}
             </div>
-            <div class="sd-float-detail" id="sd-c-float-detail"></div>
-        </div>`;
+        </div>
+        <div class="sd-float-detail" id="sd-c-float-detail"></div>`;
 
         curatedContainer.querySelector('#sd-c-drill-btn')?.addEventListener('click', () => {
             container = curatedContainer;
@@ -302,8 +302,8 @@ window.SentenceDrill = (function() {
             </div>
             ${renderRangeFilter(rangeCounts)}
             <div class="sd-mw-grid" id="sd-m-grid">${renderMineGridItems(mwSentences)}</div>
-            <div class="sd-float-detail" id="sd-m-float-detail"></div>
-        </div>`;
+        </div>
+        <div class="sd-float-detail" id="sd-m-float-detail"></div>`;
 
         mineContainer.querySelector('#sd-m-listen-btn')?.addEventListener('click', () => {
             container = mineContainer;
