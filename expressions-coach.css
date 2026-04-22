@@ -1101,9 +1101,9 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
 
 /* ═══════════════════════════════════════════════════════════════
    SPLIT LAYOUT — grid on top (scrollable), detail pane on bottom.
-   Both are structural flex siblings inside the sub-panel; the detail
-   is NOT floating and NOT overlapping. Width matches .ec-wrapper
-   exactly so the two regions feel like one unified column.
+   Both are wrapped in bordered card-style containers (mirroring the
+   My Words page aesthetic) and constrained to the app's --max-width
+   (840px) so their edges align with the top tab bar.
 
    Chrome offset above panel: app header (~56px) + main tabs (~50px)
    + sub-tabs (~38px) + padding (~12px) ≈ 156px on mobile.
@@ -1114,6 +1114,7 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     flex-direction: column;
     height: calc(100vh - 170px);
     min-height: 420px;  /* floor for very short viewports */
+    gap: 8px;
 }
 @media (min-width: 900px) {
     #sc-panel-curated.active,
@@ -1122,26 +1123,33 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     }
 }
 
-/* The ec-wrapper holds the toolbar + scrollable grid and takes all
-   available vertical space above the detail pane. */
+/* The ec-wrapper is the TOP card: holds the toolbar + scrollable grid.
+   Uses the same bordered-box look as .mw-card on the My Words page,
+   and width matches the app shell (--max-width, ~840px). */
 #sc-panel-curated.active > .ec-wrapper,
 #sc-panel-mine.active    > .ec-wrapper {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
-    min-height: 0;  /* required for flex child scrolling */
+    min-height: 0;
+    width: 100%;
+    max-width: var(--max-width, 840px);
+    margin: 0 auto;
+    padding: 12px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+    border-radius: var(--radius-lg, 12px);
+    box-sizing: border-box;
 }
 
-/* When the detail pane is visible, cap the wrapper so the grid
-   shrinks and the detail gets a guaranteed portion of the screen.
-   Using flex-basis keeps the ratio responsive to viewport height. */
+/* When the detail pane is visible, cap the top card so the grid
+   shrinks and the detail gets a guaranteed portion of the screen. */
 #sc-panel-curated.sd-panel-with-detail > .ec-wrapper,
 #sc-panel-mine.sd-panel-with-detail    > .ec-wrapper {
-    flex: 1 1 60%;
+    flex: 1 1 55%;
 }
 
-/* Grids expand to fill the wrapper and scroll internally. The old
-   50vh/60vh caps are removed — the flex parent bounds height now. */
+/* Grids expand to fill the card and scroll internally. */
 #sc-panel-curated.active .sd-c-grid,
 #sc-panel-mine.active    .sd-mw-grid {
     flex: 1 1 auto;
@@ -1149,21 +1157,19 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     max-height: none;
 }
 
-/* The detail pane: a structural flex sibling pinned below the grid.
-   Width/padding mirror .ec-wrapper so the two regions align
-   edge-to-edge as one column. Hidden when empty (:empty selector),
-   shown via the .sd-float-detail-visible class (kept for back-compat
-   with the JS toggles). */
+/* The detail pane is the BOTTOM card: same boxed look as the top,
+   same width constraint, so both feel like siblings stacked vertically
+   inside the app shell. Hidden when empty. */
 .sd-float-detail {
     flex: 0 0 auto;
     width: 100%;
-    max-width: 960px;
+    max-width: var(--max-width, 840px);
     margin: 0 auto;
-    padding: 0 12px;
+    box-sizing: border-box;
     background: var(--bg-card, #fff);
-    border-top: 2px solid var(--accent, #2d5a3d);
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
-    max-height: 40vh;
+    border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+    border-radius: var(--radius-lg, 12px);
+    max-height: 45vh;
     min-height: 180px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -1177,9 +1183,7 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
 }
 @media (max-width: 600px) {
     .sd-float-detail {
-        padding: 0 10px;
         min-height: 160px;
-        max-height: 45vh;
     }
 }
 
