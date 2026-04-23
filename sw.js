@@ -15,7 +15,15 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+<<<<<<< Updated upstream
 const CACHE_NAME = 'emp-v54';
+=======
+<<<<<<< HEAD
+const CACHE_NAME = 'emp-v54';
+=======
+const CACHE_NAME = 'emp-v53';
+>>>>>>> 01ca16938919f5c2b3e981c4d8e4ec446ff8b1bc
+>>>>>>> Stashed changes
 const ASSETS = [
     './',
     './index.html',
