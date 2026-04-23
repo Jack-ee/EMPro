@@ -1119,18 +1119,24 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
 #sc-panel-mine.active {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 170px);
+    height: calc(100dvh - 170px);  /* dvh = dynamic viewport height, accounts for mobile URL bar */
     min-height: 420px;  /* floor for very short viewports */
     gap: 8px;
+}
+@supports not (height: 100dvh) {
+    #sc-panel-curated.active,
+    #sc-panel-mine.active {
+        height: calc(100vh - 170px);
+    }
 }
 @media (min-width: 900px) {
     #sc-panel-curated.active,
     #sc-panel-mine.active {
-        height: calc(100vh - 180px);
+        height: calc(100dvh - 180px);
     }
 }
 
-/* The ec-wrapper is the TOP card: holds the toolbar + scrollable grid.
+/* The ec-wrapper is the TOP card: holds the compact header + scrollable grid.
    Uses the same bordered-box look as .mw-card on the My Words page,
    and width matches the app shell (--max-width, ~840px). */
 #sc-panel-curated.active > .ec-wrapper,
@@ -1142,11 +1148,12 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     width: 100%;
     max-width: var(--max-width, 840px);
     margin: 0 auto;
-    padding: 12px;
+    padding: 8px;
     background: var(--bg-card, #fff);
     border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
     border-radius: var(--radius-lg, 12px);
     box-sizing: border-box;
+    overflow: hidden;  /* prevent children from breaking out of the card */
 }
 
 /* When the detail pane is visible, cap the top card so the grid
@@ -1156,12 +1163,108 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     flex: 1 1 55%;
 }
 
-/* Grids expand to fill the card and scroll internally. */
+/* ─── Compact header row: count + filter/stats + action buttons ──
+   One row that replaces the old toolbar + separate A-Z filter bar.
+   Saves ~50px of vertical space. */
+.sd-az-header-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 4px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.06));
+    flex-shrink: 0;  /* never let this row compress */
+}
+.sd-az-count-badge {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary, #1a1916);
+    background: var(--bg-surface, #f5f3f0);
+    border-radius: 10px;
+    font-variant-numeric: tabular-nums;
+}
+.sd-az-filter-inline {
+    flex: 1 1 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    min-width: 0;  /* allow flex shrink */
+}
+.sd-az-filter-inline .sd-az-btn {
+    flex: 0 1 auto;
+    min-width: 42px;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+    font-family: inherit;
+    font-weight: 600;
+    background: transparent;
+    color: var(--text-secondary, #5c5952);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+.sd-az-filter-inline .sd-az-btn.sd-az-active {
+    background: var(--accent, #2d5a3d);
+    color: #fff;
+    border-color: var(--accent, #2d5a3d);
+}
+.sd-az-filter-inline .sd-az-btn.sd-az-empty {
+    color: var(--text-tertiary, #8a857d);
+    opacity: 0.35;
+    cursor: default;
+}
+.sd-az-filter-inline .sd-az-btn.sd-az-all {
+    min-width: 34px;
+}
+.sd-az-filter-inline .sd-az-btn .sd-az-count {
+    font-size: 0.6rem;
+    opacity: 0.75;
+}
+.sd-az-filter-inline .sd-az-btn.sd-az-active .sd-az-count {
+    opacity: 1;
+    color: #fff;
+}
+.sd-az-listen-btn,
+.sd-az-drill-btn {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+}
+.sd-az-stats-inline {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* Grids expand to fill the card and scroll internally. The key
+   flex: 1 1 0 + min-height: 0 combo is required for flex children
+   to scroll properly in Safari. */
 #sc-panel-curated.active .sd-c-grid,
 #sc-panel-mine.active    .sd-mw-grid {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     max-height: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Guarantee tiles never compress below readable height, regardless of
+   what iOS does with viewport units. This was the root cause of the
+   "invisible text" bug — tiles were ~18px tall with clipped text. */
+.sd-mw-tile {
+    min-height: 36px;
+    box-sizing: border-box;
 }
 
 /* The detail pane is the BOTTOM card: same boxed look as the top,
@@ -1191,6 +1294,19 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
 @media (max-width: 600px) {
     .sd-float-detail {
         min-height: 160px;
+    }
+    .sd-az-header-row {
+        gap: 4px;
+        padding: 4px 2px;
+    }
+    .sd-az-count-badge {
+        padding: 3px 8px;
+        font-size: 0.75rem;
+    }
+    .sd-az-filter-inline .sd-az-btn {
+        min-width: 38px;
+        padding: 3px 4px;
+        font-size: 0.65rem;
     }
 }
 

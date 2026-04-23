@@ -902,20 +902,27 @@ IMPORTANT:
 
         const rate = parseFloat(window.DB.getPref('speech_speed', '0.85'));
 
-        // Build the speech queue for this card:
-        //   1. the word itself
-        //   2. the English definition (if present)
-        //   3. each collocation (split by middle-dot separator)
-        //   4. the example sentence (if present)
-        const queue = [w.word];
+        // Build the speech queue for this card. Each item is {text, lang}
+        // so the TTS engine can switch between English and Chinese voices
+        // between utterances. Order (per user preference):
+        //   1. the word itself            (EN)
+        //   2. the English definition     (EN)
+        //   3. the Chinese meaning        (CN) ─ brief, just the gloss
+        //   4. each collocation           (EN)
+        //   5. the example sentence       (EN, if enabled)
+        const queue = [{ text: w.word, lang: 'en-US' }];
         if (w.enDef && w.enDef.trim()) {
-            queue.push(w.enDef);
+            queue.push({ text: w.enDef, lang: 'en-US' });
+        }
+        if (w.meaning && w.meaning.trim()) {
+            queue.push({ text: w.meaning, lang: 'zh-CN' });
         }
         if (w.collo) {
-            (w.collo || '').split(/\s*·\s*/).map(s => s.trim()).filter(Boolean).forEach(c => queue.push(c));
+            (w.collo || '').split(/\s*·\s*/).map(s => s.trim()).filter(Boolean)
+                .forEach(c => queue.push({ text: c, lang: 'en-US' }));
         }
         if (autoplayWithEx && w.context && w.context.trim()) {
-            queue.push(w.context);
+            queue.push({ text: w.context, lang: 'en-US' });
         }
 
         playQueue(queue, rate, myToken, () => {
@@ -924,21 +931,28 @@ IMPORTANT:
         });
     }
 
-    // Play a list of strings sequentially with a short pause between each.
-    // Stops cleanly if autoplay is cancelled or the token is invalidated.
+    // Play a list of {text, lang} items sequentially with a short pause
+    // between each. Stops cleanly if autoplay is cancelled or the token
+    // is invalidated. Accepts plain strings too for backward compat —
+    // these default to the system voice (English).
     function playQueue(items, rate, myToken, onDone) {
         let i = 0;
         const next = () => {
             if (!autoplayOn || myToken !== autoplayToken) return;
             if (i >= items.length) { onDone && onDone(); return; }
-            const text = items[i++];
+            const entry = items[i++];
+            const text  = typeof entry === 'string' ? entry : entry.text;
+            const lang  = typeof entry === 'string' ? ''    : (entry.lang || '');
             // Briefly highlight which collocation/example is being spoken
             highlightSpeakable(text);
+            // Chinese voices on most systems are fixed at rate 1.0 by the
+            // engine regardless — but we pass rate anyway for consistency.
+            const opts = lang ? { lang } : undefined;
             window.App?.speak?.(text, rate, () => {
                 if (!autoplayOn || myToken !== autoplayToken) return;
                 // Small pause between items (shorter than between-cards gap)
                 autoplayTimer = setTimeout(next, 350);
-            });
+            }, opts);
         };
         next();
     }

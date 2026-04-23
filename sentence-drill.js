@@ -147,17 +147,15 @@ window.SentenceDrill = (function() {
 
         curatedContainer.innerHTML = `
         <div class="ec-wrapper">
-            <div class="ec-toolbar sd-toolbar">
-                <div class="ec-toolbar-stats sd-compact-stats">
-                    <span class="ec-ts"><span class="ec-ts-num">${sentences.length}</span></span>
+            <div class="sd-az-header-row sd-az-header-curated">
+                <span class="sd-az-count-badge">${sentences.length}</span>
+                <div class="sd-az-stats-inline">
                     <span class="ec-ts"><span class="ec-ts-num ec-practiced">${practiced}</span>&#x2705;</span>
                     <span class="ec-ts"><span class="ec-ts-num ec-mastered">${mastered}</span>&#x2B50;</span>
                     ${total > 0 ? `<span class="ec-ts">${score}/${total}</span>` : ''}
                 </div>
-                <div class="sd-toolbar-actions">
-                    <button class="ec-btn-ghost" id="sd-c-listen-btn" title="Listen \u2014 auto-pronounce each sentence">&#x1F3A7;<span class="sd-btn-label"> Listen</span></button>
-                    <button class="ec-btn-primary" id="sd-c-drill-btn">&#x25B6;<span class="sd-btn-label"> Drill</span></button>
-                </div>
+                <button class="ec-btn-ghost sd-az-listen-btn" id="sd-c-listen-btn" title="Listen \u2014 auto-pronounce each sentence">&#x1F3A7;</button>
+                <button class="ec-btn-primary sd-az-drill-btn" id="sd-c-drill-btn" title="Drill">&#x25B6;<span class="sd-btn-label"> Drill</span></button>
             </div>
             <div id="sd-c-exercise-area">
                 ${renderCuratedGrid()}
@@ -293,15 +291,11 @@ window.SentenceDrill = (function() {
 
         mineContainer.innerHTML = `
         <div class="ec-wrapper">
-            <div class="ec-toolbar sd-toolbar">
-                <div class="ec-toolbar-stats sd-compact-stats">
-                    <span class="ec-ts"><span class="ec-ts-num" id="sd-m-count">${count}</span></span>
-                </div>
-                <div class="sd-toolbar-actions">
-                    <button class="ec-btn-ghost" id="sd-m-listen-btn" title="Listen \u2014 auto-pronounce each sentence">&#x1F3A7;<span class="sd-btn-label"> Listen</span></button>
-                </div>
+            <div class="sd-az-header-row">
+                <span class="sd-az-count-badge" id="sd-m-count">${count}</span>
+                <div class="sd-az-filter-inline">${renderRangeButtons(rangeCounts)}</div>
+                <button class="ec-btn-ghost sd-az-listen-btn" id="sd-m-listen-btn" title="Listen \u2014 auto-pronounce each sentence">&#x1F3A7;</button>
             </div>
-            ${renderRangeFilter(rangeCounts)}
             <div class="sd-mw-grid" id="sd-m-grid">${renderMineGridItems(mwSentences)}</div>
         </div>
         <div class="sd-float-detail" id="sd-m-float-detail"></div>`;
@@ -348,7 +342,7 @@ window.SentenceDrill = (function() {
         return counts;
     }
 
-    function renderRangeFilter(counts) {
+    function renderRangeButtons(counts) {
         const allActive = mwAZFilter == null ? 'sd-az-active' : '';
         let html = `<button class="sd-az-btn sd-az-all ${allActive}" data-range="" type="button">All</button>`;
         LETTER_RANGES.forEach(r => {
@@ -361,7 +355,12 @@ window.SentenceDrill = (function() {
             const active = mwAZFilter === '#' ? 'sd-az-active' : '';
             html += `<button class="sd-az-btn ${active}" data-range="#" type="button">#<span class="sd-az-count">${counts['#']}</span></button>`;
         }
-        return `<div class="sd-az-filter sd-az-ranges">${html}</div>`;
+        return html;
+    }
+
+    // Back-compat wrapper — still used by rerenderMineGrid's outerHTML swap.
+    function renderRangeFilter(counts) {
+        return `<div class="sd-az-filter sd-az-ranges">${renderRangeButtons(counts)}</div>`;
     }
 
     function filterMWByRange(mwSentences) {
@@ -395,9 +394,12 @@ window.SentenceDrill = (function() {
 
     function rerenderMineGrid() {
         const mwSentences = getMyWordsSentences();
-        // Update the range filter bar (active state)
-        const bar = mineContainer.querySelector('.sd-az-filter');
-        if (bar) bar.outerHTML = renderRangeFilter(buildRangeCounts(mwSentences));
+        // Update just the A-Z filter buttons (preserve the inline header row)
+        const bar = mineContainer.querySelector('.sd-az-filter-inline');
+        if (bar) bar.innerHTML = renderRangeButtons(buildRangeCounts(mwSentences));
+        // Update count badge to reflect current filter
+        const countEl = mineContainer.querySelector('#sd-m-count');
+        if (countEl) countEl.textContent = String(mwSentences.length);
         // Update the grid
         const grid = mineContainer.querySelector('#sd-m-grid');
         if (grid) grid.innerHTML = renderMineGridItems(mwSentences);
