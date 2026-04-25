@@ -1130,7 +1130,7 @@ IMPORTANT:
 
         const exHtml = w.context ? `
             <div class="mw-ex2">
-                <div class="mw-ex-en2">"${escHtml(w.context)}" <button class="speak-btn speak-btn-s" data-text="${escAttr(w.context)}">&#x1F50A;</button></div>
+                <div class="mw-ex-en2 mw-speakable" data-speak="${escAttr(w.context)}">"${escHtml(w.context)}" <button class="speak-btn speak-btn-s" data-text="${escAttr(w.context)}">&#x1F50A;</button></div>
                 ${w.contextCn ? `<div class="mw-cn mw-ex-cn2 ${cnVis}">${escHtml(w.contextCn)}</div>` : ''}
             </div>` : '';
 

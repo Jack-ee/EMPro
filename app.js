@@ -578,16 +578,22 @@
             .replace(/'/g, '&#39;');
     }
 
-    // ─── Global click delegation for .speak-btn ─────────────
-    // Every module renders <button class="speak-btn" data-text="..."> for
-    // pronunciation, but historically nobody bound a click handler — every
-    // module assumed someone else did. One delegated handler at the document
-    // root catches all of them, current and future, without per-module wiring.
+    // ─── Global click delegation for speakable surfaces ─────
+    // Two surface conventions are recognized:
+    //   1. .speak-btn[data-text] — explicit speaker buttons rendered next
+    //      to words, options, sentence cards, etc.
+    //   2. [data-speak] — entire speakable rows / boxes (English
+    //      definitions, collocation chips, example sentences). Tapping
+    //      anywhere in the box triggers speech, matching the visual
+    //      affordance (cursor: pointer in CSS).
+    // closest() walks up from the click target, so when a .speak-btn is
+    // nested inside a [data-speak] container, the inner button wins —
+    // which is correct: it preserves any per-button data-text override.
     function bindGlobalSpeakButtons() {
         document.addEventListener('click', (e) => {
-            const btn = e.target.closest('.speak-btn');
-            if (!btn) return;
-            const text = (btn.dataset.text || '').trim();
+            const el = e.target.closest('.speak-btn[data-text], [data-speak]');
+            if (!el) return;
+            const text = (el.dataset.text || el.dataset.speak || '').trim();
             if (!text) return;
             e.preventDefault();
             e.stopPropagation();
