@@ -232,27 +232,45 @@ window.SyncManager = (function() {
     //     arrives, those local-only additions WILL be removed. In
     //     practice this is rare because triggerSave() debounces
     //     pushes within a few seconds of the edit.
+    //
+    // Returns:
+    //   { applied: false }              — profile mismatch / bad payload
+    //   { applied: true, changed: bool } — applied; changed=true means
+    //                                      local state actually differs
+    //                                      from before. The caller uses
+    //                                      this to decide whether a page
+    //                                      reload is needed (changed=false
+    //                                      typically means we just pulled
+    //                                      back our own push).
     function mergeSyncData(payload) {
-        if (!payload || !payload.data) return false;
+        if (!payload || !payload.data) return { applied: false };
         if (payload._profile && payload._profile !== profileId()) {
             console.warn('[Sync] Profile mismatch — remote:', payload._profile, 'local:', profileId());
-            return false;
+            return { applied: false };
         }
         suspendHooks = true;
         try {
             const remote = payload.data;
             const prefix = keyPrefix();
 
-            // Collect current local keys for this profile (and shared API key)
-            const localKeys = new Set();
+            // Snapshot current local state for the same set of keys we'll
+            // touch, so we can detect "nothing actually changed".
+            const localBefore = {};
+            const localKeys   = new Set();
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
-                if (k && (k.startsWith(prefix) || k === 'emp_api_key')) localKeys.add(k);
+                if (k && (k.startsWith(prefix) || k === 'emp_api_key')) {
+                    localKeys.add(k);
+                    localBefore[k] = localStorage.getItem(k);
+                }
             }
 
-            // Write remote keys
+            let changed = false;
+
+            // Write remote keys, tracking real changes
             Object.keys(remote).forEach(k => {
                 if (k.startsWith(prefix) || k === 'emp_api_key') {
+                    if (localBefore[k] !== remote[k]) changed = true;
                     localStorage.setItem(k, remote[k]);
                     localKeys.delete(k);
                 }
@@ -260,10 +278,11 @@ window.SyncManager = (function() {
 
             // Remove local keys that no longer exist in remote
             // (so deletions on another device propagate correctly)
+            if (localKeys.size > 0) changed = true;
             localKeys.forEach(k => localStorage.removeItem(k));
 
             setLastPull(payload._syncTime || Date.now());
-            return true;
+            return { applied: true, changed };
         } finally {
             suspendHooks = false;
         }
@@ -306,10 +325,42 @@ window.SyncManager = (function() {
                 : (remoteTime > lastPull);
 
             if (shouldApply && remoteTime > 0) {
-                mergeSyncData(payload);
+                const result = mergeSyncData(payload) || {};
+
+                // If the merge applied but no actual content changed (e.g. we
+                // just pulled back our own push, or another tab pushed the
+                // identical state), there is nothing to refresh — skip the
+                // reload entirely. This is the main fix for the "PC reloads
+                // every ~30s while I'm typing" complaint.
+                if (!result.changed) {
+                    if (showToast) window.App?.showToast?.('Already up to date.');
+                    else           console.log('[Sync] Pulled — no content change, skipping reload');
+                    updateSyncUI();
+                    return true;
+                }
+
+                // Real change. Defer the reload while the user is mid-session
+                // (typing in writing-lab, drilling, autoplay) — exactly the
+                // same guard the SW reload uses, kept in sync via window.App.
+                const doReload = () => {
+                    const busy = (() => {
+                        try { return Boolean(window.App?.isStudySessionActive?.()); }
+                        catch { return false; }
+                    })();
+                    if (busy && !showToast) {
+                        // Background pull found real updates but the user is
+                        // mid-flow. Retry shortly. Manual pulls (showToast)
+                        // bypass this — the user explicitly asked.
+                        console.log('[Sync] Real change pulled, but study session active — deferring reload');
+                        setTimeout(doReload, 30000);
+                        return;
+                    }
+                    location.reload();
+                };
+
                 if (showToast) window.App?.showToast?.('Synced from cloud. Reloading...');
                 else           console.log('[Sync] Pulled newer data from Gist');
-                setTimeout(() => location.reload(), showToast ? 600 : 300);
+                setTimeout(doReload, showToast ? 600 : 300);
                 return true;
             } else {
                 if (showToast) window.App?.showToast?.('Already up to date.');
@@ -340,7 +391,17 @@ window.SyncManager = (function() {
         updateSyncUI();
         if (showToast) window.App?.showToast?.('Syncing to cloud...');
         try {
-            const ok = await writeGist(collectSyncData());
+            // Capture the payload's _syncTime BEFORE the network call so we
+            // can advance lastPull in lockstep on success. This is the fix
+            // for the "PC reloads ~30s after every edit" loop:
+            //   without this, push set lastPush but left lastPull stale, so
+            //   the next 30s poll always saw remote._syncTime > lastPull
+            //   (because remote == our own push) and reloaded the page.
+            //   With this, the next poll sees remoteTime == lastPull and
+            //   skips. Other devices' pushes still trigger pulls correctly.
+            const data = collectSyncData();
+            const ok   = await writeGist(data);
+            if (ok) setLastPull(data._syncTime);
             if (showToast) window.App?.showToast?.(ok ? 'Synced to cloud.' : 'Sync failed — check token.');
             return ok;
         } finally {

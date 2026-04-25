@@ -601,7 +601,22 @@
     // auto-reload from the service worker. The SW update path consults
     // isStudySessionActive() before reloading so a fresh deploy doesn't
     // yank the user out of a sentence playback or a writing review.
-    const _sessionTokens = new Set();
+    //
+    // Activity is also implicitly tracked: any keystroke or text input
+    // in the document marks the user as "active" for 60s afterward,
+    // so reloads don't fire while they're mid-sentence in writing-lab
+    // or typing into a drill input on PC.
+    const _sessionTokens   = new Set();
+    let   _lastActivityAt  = 0;
+    const ACTIVITY_TIMEOUT = 60000;  // 60s after last keystroke = still "active"
+
+    function _markActivity() { _lastActivityAt = Date.now(); }
+
+    // Capture-phase listeners so we see input even when modules
+    // stopPropagation. Passive so we never block typing.
+    document.addEventListener('input',   _markActivity, { capture: true, passive: true });
+    document.addEventListener('keydown', _markActivity, { capture: true, passive: true });
+
     function beginSession(label) {
         const token = label || `s_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         _sessionTokens.add(token);
@@ -611,14 +626,23 @@
         if (token) _sessionTokens.delete(token);
     }
     function isStudySessionActive() {
-        // Any registered study token, OR a known module-level autoplay,
-        // OR active TTS speech.
+        // Explicit module-declared sessions
         if (_sessionTokens.size > 0)                          return true;
+        // Module-specific activity: autoplay, sentence listen, TTS speaking
         if (window.MyWords?.isAutoplayActive?.())             return true;
         if (window.SentenceDrill?.isListenActive?.())         return true;
         try {
             if (window.speechSynthesis?.speaking)             return true;
         } catch {}
+        // Implicit: the user is currently focused in an editable field
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.isContentEditable)) {
+            return true;
+        }
+        // Implicit: the user typed within the last ACTIVITY_TIMEOUT
+        if (_lastActivityAt && (Date.now() - _lastActivityAt) < ACTIVITY_TIMEOUT) {
+            return true;
+        }
         return false;
     }
 
