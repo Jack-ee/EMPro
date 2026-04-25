@@ -6,8 +6,15 @@
 //     multiple users on the same Gist don't clobber each other.
 //   • Bidirectional: pulls on load, on focus, and every 30s while
 //     visible, so PC ↔ phone stay in sync without manual action.
-//   • Last-write-wins at the *key* level, not the whole document,
-//     so concurrent edits on different modules don't overwrite.
+//   • Whole-document last-write-wins, scoped to the current
+//     profile's keys (plus the shared API key). The conflict
+//     window is shrunk by aggressive pulls before edits — the
+//     focus / visibility / 30s-poll triggers mean a device
+//     usually has the latest remote state before the user starts
+//     typing. There is still a window where two devices can edit
+//     before either pulls; in that case the device that pushes
+//     last wins for the keys it touched. A future revision can
+//     add per-key timestamps for true key-level merging.
 //   • Raw localStorage for sync metadata — bypassing DB.setPref
 //     avoids the profile-prefix double-wrapping bug.
 // ============================================================
@@ -217,9 +224,14 @@ window.SyncManager = (function() {
 
     // Merge remote payload into local storage.
     //   • If remote _syncTime > local last-pull, apply remote wholesale.
-    //   • Preserves keys that exist locally but not in remote (recent local-only
-    //     additions won't get deleted just because remote is older for them).
+    //   • Local keys that are NOT in the remote payload are removed,
+    //     so deletions on another device propagate to this one.
     //   • Skips if remote profile doesn't match (safety net).
+    //   • Caveat: if this device has unsynced local-only additions
+    //     (e.g. words added while offline) and a newer remote pull
+    //     arrives, those local-only additions WILL be removed. In
+    //     practice this is rare because triggerSave() debounces
+    //     pushes within a few seconds of the edit.
     function mergeSyncData(payload) {
         if (!payload || !payload.data) return false;
         if (payload._profile && payload._profile !== profileId()) {

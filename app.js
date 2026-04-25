@@ -385,8 +385,12 @@
         // Debug panel toggle
         document.getElementById('pref-debug-panel')?.addEventListener('change', (e) => {
             window.DB.setPref('debug_panel_enabled', e.target.checked ? 'true' : 'false');
-            if (window.DebugPanel?.setEnabled) {
-                window.DebugPanel.setEnabled(e.target.checked);
+            // The module exposes itself as window.Debug; older builds used
+            // window.DebugPanel. Accept either so settings toggle never
+            // forces a reload when the live API is available.
+            const debugApi = window.Debug || window.DebugPanel;
+            if (debugApi?.setEnabled) {
+                debugApi.setEnabled(e.target.checked);
             } else {
                 // Fall back to reload so debug-panel.js picks up the new pref on next boot
                 showToast('Reloading to apply\u2026');
@@ -397,7 +401,14 @@
         // Export
         document.getElementById('btn-export')?.addEventListener('click', () => {
             try {
-                const json = window.DB.exportAll();
+                // Privacy: ask before bundling the API key into the backup file.
+                // Default no — most users export to move learning data, not keys.
+                const includeKey = confirm(
+                    'Include your API key in the backup file?\n\n' +
+                    'OK = include (convenient, but the key is plaintext in the file).\n' +
+                    'Cancel = exclude (safer; you\'ll re-enter the key after import).'
+                );
+                const json = window.DB.exportAll({ includeApiKey: includeKey });
                 const blob = new Blob([json], { type: 'application/json' });
                 const url  = URL.createObjectURL(blob);
                 const a    = document.createElement('a');
@@ -406,13 +417,15 @@
                 document.body.appendChild(a);
                 a.click();
                 setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
-                showToast('Backup downloaded.');
+                showToast(includeKey ? 'Backup downloaded (with API key).' : 'Backup downloaded (no API key).');
             } catch (err) {
                 showToast('Export failed: ' + (err.message || err));
             }
         });
 
-        // Import
+        // Import — true overwrite: clears profile keys before applying the backup
+        // so stale entries don't survive. The confirm prompt promises this; now
+        // it actually does it.
         document.getElementById('btn-import')?.addEventListener('click', () => {
             const inp      = document.createElement('input');
             inp.type       = 'file';
@@ -423,7 +436,7 @@
                 const rd = new FileReader();
                 rd.onload = () => {
                     if (!confirm('Import will overwrite current data. Continue?')) return;
-                    const ok = window.DB.importAll(rd.result);
+                    const ok = window.DB.importAll(rd.result, { replace: true });
                     if (ok) {
                         showToast('Imported. Reloading\u2026');
                         setTimeout(() => location.reload(), 800);
@@ -446,12 +459,19 @@
             showToast('All words cleared.');
         });
 
-        // Factory reset
+        // Factory reset — two-stage so the user can choose whether to also
+        // wipe API key and sync credentials. The previous version silently
+        // left those behind, which was a privacy footgun on shared devices.
         document.getElementById('btn-factory-reset')?.addEventListener('click', () => {
             if (!confirm('FACTORY RESET: wipe all app data for this profile? This cannot be undone.')) return;
             if (!confirm('Are you absolutely sure? All words, history, and settings will be lost.')) return;
-            window.DB.factoryReset();
-            showToast('Reset complete. Reloading\u2026');
+            const wipeCreds = confirm(
+                'Also clear API key and cloud-sync credentials?\n\n' +
+                'OK = clear everything (full reset, including keys/tokens).\n' +
+                'Cancel = keep API key and sync token (only learning data is wiped).'
+            );
+            window.DB.factoryReset({ clearCredentials: wipeCreds });
+            showToast(wipeCreds ? 'Full reset complete. Reloading\u2026' : 'Learning data wiped. Reloading\u2026');
             setTimeout(() => location.reload(), 800);
         });
     }
@@ -558,6 +578,50 @@
             .replace(/'/g, '&#39;');
     }
 
+    // ─── Global click delegation for .speak-btn ─────────────
+    // Every module renders <button class="speak-btn" data-text="..."> for
+    // pronunciation, but historically nobody bound a click handler — every
+    // module assumed someone else did. One delegated handler at the document
+    // root catches all of them, current and future, without per-module wiring.
+    function bindGlobalSpeakButtons() {
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.speak-btn');
+            if (!btn) return;
+            const text = (btn.dataset.text || '').trim();
+            if (!text) return;
+            e.preventDefault();
+            e.stopPropagation();
+            speak(text);
+        });
+    }
+
+    // ─── Active-session tracker ─────────────────────────────
+    // Modules that run a multi-step interactive flow (autoplay, drilling,
+    // analysis-in-flight) can call beginSession/endSession to suppress
+    // auto-reload from the service worker. The SW update path consults
+    // isStudySessionActive() before reloading so a fresh deploy doesn't
+    // yank the user out of a sentence playback or a writing review.
+    const _sessionTokens = new Set();
+    function beginSession(label) {
+        const token = label || `s_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        _sessionTokens.add(token);
+        return token;
+    }
+    function endSession(token) {
+        if (token) _sessionTokens.delete(token);
+    }
+    function isStudySessionActive() {
+        // Any registered study token, OR a known module-level autoplay,
+        // OR active TTS speech.
+        if (_sessionTokens.size > 0)                          return true;
+        if (window.MyWords?.isAutoplayActive?.())             return true;
+        if (window.SentenceDrill?.isListenActive?.())         return true;
+        try {
+            if (window.speechSynthesis?.speaking)             return true;
+        } catch {}
+        return false;
+    }
+
     // ─── Public API ─────────────────────────────────────────
     window.App = {
         showToast,
@@ -568,7 +632,14 @@
         openNotebook,
         closeNotebook,
         updateNotebookBadge,
-        refreshStats
+        refreshStats,
+        // Helpers other modules can use for safe HTML rendering
+        escHtml: escapeHtml,
+        escAttr: escapeAttr,
+        // Study-session lifecycle (suppresses auto-reload during playback)
+        beginSession,
+        endSession,
+        isStudySessionActive
     };
 
     // ─── Boot ───────────────────────────────────────────────
@@ -591,6 +662,7 @@
             bindExpressionSubTabs();
             bindSettingsHandlers();
             bindNotebookHandlers();
+            bindGlobalSpeakButtons();
             document.getElementById('btn-settings')?.addEventListener('click', openSettings);
 
             // Initialize feature modules. Wrap each in try/catch so one

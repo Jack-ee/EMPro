@@ -152,18 +152,77 @@ window.AIEngine = (function() {
     }
 
     // ─── JSON wrapper ────────────────────────────────────────
+    // Strict providers (Claude) usually return clean JSON. Others (gpt-4o-mini,
+    // DeepSeek, Gemini) sometimes wrap JSON in markdown fences, prefix it with
+    // "Here's the JSON:", or trail it with explanatory prose. This wrapper
+    // tries three strategies in order, from cheapest to most permissive:
+    //   1. Parse the trimmed string as-is.
+    //   2. Strip ``` / ```json / ```JSON fences and parse.
+    //   3. Slice from the first { to the matching } (or first [ to matching ])
+    //      and parse that. This handles preamble + JSON + trailing prose.
     async function callClaudeJSON(systemPrompt, userMessage, options) {
-        const raw = await callClaude(systemPrompt, userMessage, options);
-        let cleaned = raw.trim();
-        if (cleaned.startsWith('```')) {
-            cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+        const raw  = await callClaude(systemPrompt, userMessage, options);
+        const text = String(raw || '').trim();
+
+        // Strategy 1: as-is
+        try { return JSON.parse(text); } catch {}
+
+        // Strategy 2: strip code fences
+        let stripped = text;
+        if (stripped.startsWith('```')) {
+            stripped = stripped.replace(/^```(?:json|JSON)?\s*/i, '').replace(/\s*```\s*$/, '');
+            try { return JSON.parse(stripped); } catch {}
         }
-        try {
-            return JSON.parse(cleaned);
-        } catch (e) {
-            console.warn('[AI Engine] JSON parse failed, raw:', raw.slice(0, 300));
-            throw new Error('JSON_PARSE_FAILED');
+        // Also handle fences that appear mid-text (e.g. "Here's the JSON:\n```json\n{...}\n```")
+        const fenceMatch = text.match(/```(?:json|JSON)?\s*([\s\S]*?)\s*```/);
+        if (fenceMatch && fenceMatch[1]) {
+            try { return JSON.parse(fenceMatch[1].trim()); } catch {}
         }
+
+        // Strategy 3: slice from first { (or [) to matching close, accounting
+        // for nested braces and quoted strings. This recovers JSON embedded
+        // in chatty responses like "Sure! Here it is: { ... }. Let me know..."
+        const sliced = _sliceFirstJsonValue(text);
+        if (sliced) {
+            try { return JSON.parse(sliced); } catch {}
+        }
+
+        console.warn('[AI Engine] JSON parse failed, raw:', text.slice(0, 300));
+        throw new Error('JSON_PARSE_FAILED');
+    }
+
+    // Find the first balanced { ... } or [ ... ] in `s`. Skips over braces
+    // that appear inside string literals. Returns the substring or null.
+    function _sliceFirstJsonValue(s) {
+        const open = (() => {
+            const ob = s.indexOf('{');
+            const oa = s.indexOf('[');
+            if (ob < 0 && oa < 0) return -1;
+            if (ob < 0)           return oa;
+            if (oa < 0)           return ob;
+            return Math.min(ob, oa);
+        })();
+        if (open < 0) return null;
+
+        const startCh = s[open];
+        const endCh   = startCh === '{' ? '}' : ']';
+        let depth     = 0;
+        let inStr     = false;
+        let escape    = false;
+
+        for (let i = open; i < s.length; i++) {
+            const c = s[i];
+            if (escape) { escape = false; continue; }
+            if (c === '\\' && inStr) { escape = true; continue; }
+            if (c === '"') { inStr = !inStr; continue; }
+            if (inStr) continue;
+            if (c === startCh) depth++;
+            else if (c === endCh) {
+                depth--;
+                if (depth === 0) return s.slice(open, i + 1);
+            }
+        }
+        return null;
     }
 
     // ─── Friendly error messages ─────────────────────────────

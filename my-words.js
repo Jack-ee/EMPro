@@ -453,16 +453,20 @@ window.MyWords = (function() {
         // Normalize line endings
         raw = String(raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
 
-        // Line-by-line parser: collect fields until we hit the next WORD:
-        const lines   = raw.split('\n');
-        const results = [];
-        let current   = null;
+        // Line-by-line parser. Lines matching `LABEL: value` start (or
+        // continue) a labelled field. Lines that DON'T match the label
+        // pattern are treated as continuation of the previous field —
+        // appended with a space — so multi-line NOTE / EXAMPLE_CN /
+        // COLLOCATIONS content from the AI doesn't get silently dropped.
+        const lines     = raw.split('\n');
+        const results   = [];
+        let current     = null;
+        let lastLabel   = null;
 
         for (const line of lines) {
             const trimmed = line.trim();
-            if (!trimmed || trimmed === '---') continue;
+            if (!trimmed || trimmed === '---') { lastLabel = null; continue; }
 
-            // Check if this line is a LABEL: value pair
             const m = trimmed.match(/^([A-Z][A-Z_]+):\s*(.*)$/);
             if (m) {
                 const label = m[1];
@@ -471,10 +475,18 @@ window.MyWords = (function() {
                 // If we hit a new WORD:, save previous and start new entry
                 if (label === 'WORD') {
                     if (current && current.WORD) results.push(current);
-                    current = { WORD: value };
+                    current   = { WORD: value };
+                    lastLabel = 'WORD';
                 } else if (current) {
                     current[label] = value;
+                    lastLabel      = label;
                 }
+            } else if (current && lastLabel) {
+                // Continuation line — append to the previous field with a
+                // space separator. Skip if there's no field to append to
+                // (e.g. stray text before the first WORD:).
+                const prev = current[lastLabel] || '';
+                current[lastLabel] = prev ? `${prev} ${trimmed}` : trimmed;
             }
         }
         // Don't forget the last entry

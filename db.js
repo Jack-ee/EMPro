@@ -321,21 +321,52 @@
         },
 
         // --- Export / Import ---
-        exportAll: function() {
-            const pid  = (window.APP_CONFIG && window.APP_CONFIG.PROFILE_ID) || 'default';
-            const data = {};
+        // exportAll(opts) — opts.includeApiKey (default false): when true,
+        // bundles `emp_api_key` into the backup. The API key is plaintext;
+        // omitting it by default protects users who share backup files.
+        // The sync token and gist id are NEVER exported — they're device-
+        // local credentials, not learning data.
+        exportAll: function(opts) {
+            const includeApiKey = Boolean(opts && opts.includeApiKey);
+            const pid           = (window.APP_CONFIG && window.APP_CONFIG.PROFILE_ID) || 'default';
+            const data          = {};
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
                 if (k && k.startsWith(`${PREFIX}${pid}_`)) {
                     data[k] = localStorage.getItem(k);
                 }
             }
-            data[`${PREFIX}api_key`] = localStorage.getItem(`${PREFIX}api_key`) || '';
+            if (includeApiKey) {
+                const apiKey = localStorage.getItem(`${PREFIX}api_key`) || '';
+                if (apiKey) data[`${PREFIX}api_key`] = apiKey;
+            }
             return JSON.stringify(data, null, 2);
         },
-        importAll: function(jsonStr) {
+
+        // importAll(jsonStr, opts) — opts.replace (default false):
+        //   • replace=true: clear all current profile keys before applying the
+        //     backup. This is true overwrite — stale words, history, and
+        //     prefs that aren't in the backup are removed.
+        //   • replace=false: merge — incoming keys are written, but existing
+        //     keys not present in the backup are preserved (legacy behavior).
+        // The shared API key (`emp_api_key`) is touched only if the backup
+        // contains it; otherwise the local key is preserved either way.
+        importAll: function(jsonStr, opts) {
             const data = safeJSON(jsonStr, null);
             if (!data) return false;
+            const replace = Boolean(opts && opts.replace);
+
+            if (replace) {
+                const pid    = (window.APP_CONFIG && window.APP_CONFIG.PROFILE_ID) || 'default';
+                const prefix = `${PREFIX}${pid}_`;
+                const drop   = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && k.startsWith(prefix)) drop.push(k);
+                }
+                drop.forEach(k => localStorage.removeItem(k));
+            }
+
             Object.keys(data).forEach(k => {
                 if (k.startsWith(PREFIX)) {
                     localStorage.setItem(k, data[k]);
@@ -345,9 +376,18 @@
         },
 
         // --- Factory Reset ---
-        factoryReset: function() {
-            const pid = (window.APP_CONFIG && window.APP_CONFIG.PROFILE_ID) || 'default';
-            const toRemove = [];
+        // factoryReset(opts) — opts.clearCredentials (default false):
+        //   • false: only profile-prefixed learning data is wiped; API key,
+        //     GitHub sync token, and Gist id are preserved (matches the
+        //     historical behavior so a "reset" doesn't surprise-revoke
+        //     credentials the user already configured).
+        //   • true: also clears `emp_api_key`, `emp_sync_token`,
+        //     `emp_sync_gist_id`, and the sync timestamp markers, for a
+        //     true full-wipe (e.g. handing the device to someone else).
+        factoryReset: function(opts) {
+            const clearCreds = Boolean(opts && opts.clearCredentials);
+            const pid        = (window.APP_CONFIG && window.APP_CONFIG.PROFILE_ID) || 'default';
+            const toRemove   = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
                 if (k && k.startsWith(`${PREFIX}${pid}_`)) {
@@ -355,6 +395,16 @@
                 }
             }
             toRemove.forEach(k => localStorage.removeItem(k));
+            if (clearCreds) {
+                [
+                    `${PREFIX}api_key`,
+                    'emp_sync_token',
+                    'emp_sync_gist_id',
+                    'emp_sync_last_pull',
+                    'emp_sync_last_push',
+                    'emp_sync_v2_fix_applied'
+                ].forEach(k => localStorage.removeItem(k));
+            }
         },
 
         // --- Lemma utilities (exposed for debugging / sweeps) ---

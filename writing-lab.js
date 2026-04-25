@@ -129,8 +129,12 @@ window.WritingLab = (function() {
                 output : result
             });
 
-            // Update stats
-            const score = result.score || result.versions?.[0] ? null : result.score;
+            // Update stats. Refine mode returns `versions` (multiple variants
+            // with no single score) — pass null so bumpSession skips the avg
+            // update. Otherwise pass the numeric score if the AI gave one.
+            const score = result.versions?.[0]
+                ? null
+                : (typeof result.score === 'number' ? result.score : null);
             window.DB.bumpSession(currentMode, score);
 
             renderResult(result, currentMode);

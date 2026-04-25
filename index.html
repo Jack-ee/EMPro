@@ -20,10 +20,10 @@
          In VS Code: Ctrl+H, find "?v=N" with the current N, replace
          with "?v=N+1" across this file. Then bump CACHE_NAME in
          sw.js to match (e.g. 'emp-vN+1').
-         Current version: v=49
+         Current version: v=55
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=54">
-    <link rel="stylesheet" href="expressions-coach.css?v=54">
+    <link rel="stylesheet" href="style.css?v=55">
+    <link rel="stylesheet" href="expressions-coach.css?v=55">
 </head>
 <body>
 
@@ -296,24 +296,24 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=54"></script>
-<script src="db.js?v=54"></script>
-<script src="ai-engine.js?v=54"></script>
-<script src="my-words.js?v=54"></script>
-<script src="writing-lab.js?v=54"></script>
-<script src="vocab-drill.js?v=54"></script>
-<script src="reader.js?v=54"></script>
-<script src="speaking-coach.js?v=54"></script>
-<script src="expressions-data.js?v=54"></script>
-<script src="expressions-coach.js?v=54"></script>
-<script src="sentence.js?v=54"></script>
-<script src="sentence-drill.js?v=54"></script>
-<script src="sync.js?v=54"></script>
-<script src="app.js?v=54"></script>
+<script src="config.js?v=55"></script>
+<script src="db.js?v=55"></script>
+<script src="ai-engine.js?v=55"></script>
+<script src="my-words.js?v=55"></script>
+<script src="writing-lab.js?v=55"></script>
+<script src="vocab-drill.js?v=55"></script>
+<script src="reader.js?v=55"></script>
+<script src="speaking-coach.js?v=55"></script>
+<script src="expressions-data.js?v=55"></script>
+<script src="expressions-coach.js?v=55"></script>
+<script src="sentence.js?v=55"></script>
+<script src="sentence-drill.js?v=55"></script>
+<script src="sync.js?v=55"></script>
+<script src="app.js?v=55"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=54"></script>
+<script src="debug-panel.js?v=55"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.
@@ -368,13 +368,29 @@ if ('serviceWorker' in navigator) {
         console.warn('[PWA] SW registration failed:', err);
     });
 
-    // Auto-reload once when the new SW takes control
+    // Auto-reload once when the new SW takes control. Defer the reload
+    // while an interactive session is running (autoplay, drilling, TTS in
+    // flight) so a fresh deploy doesn't yank the user out of mid-session.
+    // We re-check every 30s and reload as soon as the session ends.
     let reloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (reloaded) return;
         reloaded = true;
-        console.log('[PWA] Controller changed — reloading for fresh assets');
-        location.reload();
+
+        const tryReload = () => {
+            const busy = (() => {
+                try { return Boolean(window.App?.isStudySessionActive?.()); }
+                catch { return false; }
+            })();
+            if (busy) {
+                console.log('[PWA] Update ready, but a study session is active — deferring reload');
+                setTimeout(tryReload, 30000);
+                return;
+            }
+            console.log('[PWA] Controller changed — reloading for fresh assets');
+            location.reload();
+        };
+        tryReload();
     });
 }
 // Initialize sync after app boots
