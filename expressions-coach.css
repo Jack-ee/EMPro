@@ -1509,3 +1509,47 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
 .sd-drill-exit:hover {
     color: var(--danger, #c44);
 }
+
+/* ============================================================
+   Curated grid: equal-column fix (v=63)
+   ============================================================
+   The two-column grid uses repeat(2, 1fr) which mathematically
+   gives equal widths. However, when the grid has a vertical
+   scrollbar (overflow-y: auto), the scrollbar consumes pixels
+   from the right edge — visually narrowing the right column's
+   text area without affecting the grid's column algorithm.
+   
+   Fix: reserve the scrollbar gutter symmetrically so both
+   columns have identical text-rendering width. Also enforce
+   minmax(0, 1fr) so the columns can't be pushed wider than
+   their share by long unbreakable text.
+*/
+
+.sd-c-grid {
+    /* minmax(0, 1fr) prevents grid items from forcing the column
+       wider than its 1fr share. Without this, an overflowing tile
+       can stretch its column and shrink the other. */
+    grid-template-columns: minmax(0, 1fr);
+    /* Reserve scrollbar gutter on both edges so layout doesn't
+       shift when content grows past one screen, and the right
+       column doesn't lose visible width to the scrollbar. */
+    scrollbar-gutter: stable;
+}
+@media (min-width: 720px) {
+    .sd-c-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (min-width: 1200px) {
+    .sd-c-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* Belt-and-suspenders: make every tile own exactly its column's
+   content-box width, so no tile can push past it. */
+.sd-c-tile {
+    width      : 100%;
+    box-sizing : border-box;
+    min-width  : 0;
+}
