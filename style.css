@@ -4159,3 +4159,71 @@ html {
         margin : 0 4px;
     }
 }
+
+/* ============================================================
+   Toolbar polish round 2 (v=61)
+   ============================================================
+   Three issues from the user-side review:
+     1. Play / Shuffle look detached on desktop — they're the only
+        controls in the third row without a visible frame, so they
+        read as floating text rather than buttons.
+     2. The mode buttons (Card / List / Quiz / CN) compress their
+        icon and label with no breathing room.
+     3. "Group 1/8" runs together — no gap between the word and
+        the number.
+*/
+
+@media (min-width: 769px) {
+
+    /* 1. Persistent frame on Play / Shuffle (and any future labelled
+          arrow-btn). The base rule already adds padding+radius via
+          :has(.mw-btn-label); we just add a visible border so the
+          buttons don't read as floating glyphs. Hover keeps the
+          existing background change for affordance. */
+    .mw-nav-row .mw-arrow-btn:has(.mw-btn-label) {
+        border       : 1px solid var(--border);
+        background   : var(--bg-card);
+        transition   : all 0.12s;
+    }
+    .mw-nav-row .mw-arrow-btn:has(.mw-btn-label):hover {
+        border-color : var(--accent);
+        color        : var(--accent);
+    }
+
+    /* 2. Breathing room between mode-button icon and label. The label
+          spans render with a leading space already, but a real gap
+          via flex+gap is more reliable across emoji widths. */
+    .mw-nav-row .mw-mt-btn,
+    .mw-nav-row .mw-toggle-cn-btn,
+    .mw-nav-row .mw-arrow-btn {
+        gap : 6px;
+    }
+    /* Strip the leading space inside the label spans so the gap
+       above is what controls spacing — not " List" with a leading
+       space that collapses inconsistently. */
+    .mw-nav-row .mw-btn-label {
+        margin-left : 0;
+    }
+
+    /* 3. Group label internal spacing. The structure is now:
+          [Group] [G-short] [1/8]
+          Only one of {Group, G-short} is visible at a time. We
+          add a gap between the visible word/letter and the number. */
+    .mw-grp-label {
+        display     : inline-flex;
+        align-items : center;
+        gap         : 6px;
+    }
+    .mw-grp-num {
+        font-family : var(--font-mono);
+    }
+}
+
+/* On mobile, the short "G" prefix appears (per existing CSS that
+   hides .mw-btn-label and shows .mw-grp-short). Keep a small gap
+   there too so "G1/8" doesn't collapse. */
+.mw-grp-label {
+    display     : inline-flex;
+    align-items : center;
+    gap         : 4px;
+}

@@ -1108,7 +1108,7 @@ IMPORTANT:
                 groupInfo.style.display = 'flex';
                 groupInfo.innerHTML = `
                     <button class="mw-nav-btn mw-grp-btn" id="mw-prev-group">&#x25C0;</button>
-                    <span class="mw-grp-label"><span class="mw-btn-label">Group </span><span class="mw-grp-short">G</span>${currentGroup + 1}/${groupCount}</span>
+                    <span class="mw-grp-label"><span class="mw-btn-label">Group</span><span class="mw-grp-short">G</span><span class="mw-grp-num">${currentGroup + 1}/${groupCount}</span></span>
                     <button class="mw-nav-btn mw-grp-btn" id="mw-next-group">&#x25B6;</button>`;
                 document.getElementById('mw-prev-group')?.addEventListener('click', () => navigateGroup(-1));
                 document.getElementById('mw-next-group')?.addEventListener('click', () => navigateGroup(1));
