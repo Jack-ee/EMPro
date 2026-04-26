@@ -59,6 +59,12 @@ window.MyWords = (function() {
 
     function getFilteredList() {
         if (studyFilter === 'all') return studyList;
+        // Due filter pulls from DB directly so it always reflects current
+        // review state (a word becomes "not due" the moment you review it).
+        if (studyFilter === 'due') {
+            try { return window.DB.getDueWords(); }
+            catch { return studyList; }
+        }
         return studyList.filter(w => {
             const focus = Array.isArray(w.focus) ? w.focus : [];
             return focus.includes(studyFilter);
@@ -753,6 +759,59 @@ IMPORTANT:
     // NAVIGATION
     // =====================================================
 
+    // ----- SRS REVIEW -----
+    // Called when the user taps one of the four SRS feedback buttons in
+    // due-filter card view. Records the review against the current word,
+    // re-pulls the due list (the word is no longer due, so the list shrinks),
+    // and advances to the next word. If no due words remain, shows a
+    // celebratory toast and falls back to the All filter.
+    function handleSrsReview(result) {
+        const words = getGroupWords();
+        const w     = words[currentIdx];
+        if (!w) return;
+
+        const updated = window.DB.recordReview?.(w.word, result);
+        if (!updated) {
+            window.App?.showToast?.('Could not record review.');
+            return;
+        }
+
+        const labels = { wrong: 'tomorrow', hard: '2 days', good: 'a few days', easy: 'longer' };
+        window.App?.showToast?.(`Saw "${w.word}" \u2014 next review in ${labels[result] || 'a few days'}.`);
+
+        // Refresh underlying data and the filtered list
+        refreshStudyList();
+
+        // If we're still in due-filter mode and the list shrank, snap idx
+        // back into range and re-render.
+        const remaining = getGroupWords();
+        if (remaining.length === 0) {
+            // All due words reviewed — celebrate and bounce to All view.
+            const stats = window.DB.getReviewStats?.();
+            window.App?.showToast?.(
+                stats && stats.due === 0
+                    ? '\u{1F389} All caught up! No more words due today.'
+                    : 'No more words in this group.',
+                4000
+            );
+            studyFilter = 'all';
+            currentIdx  = 0;
+            // Sync filter pill UI
+            document.querySelectorAll('.mw-filter-pill').forEach(b => {
+                b.classList.toggle('active', b.dataset.filter === 'all');
+            });
+            saveProgress();
+            render();
+            updateFilterCounts();
+            return;
+        }
+
+        if (currentIdx >= remaining.length) currentIdx = 0;
+        saveProgress();
+        renderBrowseCard();
+        updateFilterCounts();
+    }
+
     function navigate(dir) {
         const words = getGroupWords();
         if (words.length === 0) return;
@@ -1095,18 +1154,25 @@ IMPORTANT:
         const pronCount  = studyList.filter(w => (w.focus || []).includes('pronunciation')).length;
         const spellCount = studyList.filter(w => (w.focus || []).includes('spelling')).length;
         const weakCount  = studyList.filter(w => (w.focus || []).includes('weak')).length;
+        // Due count comes from DB rather than studyList so it reflects fresh
+        // review state, not the (sometimes stale) cached list.
+        let dueCount = 0;
+        try { dueCount = window.DB.getDueCount?.() || 0; } catch {}
 
         const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n > 0 ? `(${n})` : ''; };
+        set('mw-fc-due',           dueCount);
         set('mw-fc-all',           allCount);
         set('mw-fc-core',          coreCount);
         set('mw-fc-pronunciation', pronCount);
         set('mw-fc-spelling',      spellCount);
         set('mw-fc-weak',          weakCount);
 
-        // Show/hide filter row if no words marked yet
+        // Show/hide filter row. Always show if any words are marked OR
+        // any due words exist OR we're not on the All filter.
         const hasAnyMarked = coreCount + pronCount + spellCount + weakCount > 0;
         const filterRow    = document.getElementById('mw-filter-row');
-        if (filterRow) filterRow.style.display = hasAnyMarked || studyFilter !== 'all' ? 'flex' : 'none';
+        if (filterRow) filterRow.style.display =
+            (hasAnyMarked || dueCount > 0 || studyFilter !== 'all') ? 'flex' : 'none';
     }
 
     // ----- BROWSE (toggle CN) -----
@@ -1136,6 +1202,21 @@ IMPORTANT:
 
         const noteHtml = w.note ? `<div class="mw-note2">${escHtml(w.note)}</div>` : '';
 
+        // SRS feedback row — only shown when the user is studying due words.
+        // This keeps the regular browse experience visually unchanged.
+        // The four buttons map directly to the scheduler's result codes
+        // (wrong/hard/good/easy) and are wired via .mw-srs-btn delegation.
+        const srsHtml = studyFilter === 'due' ? `
+            <div class="mw-srs-row">
+                <span class="mw-srs-prompt">How well did you know it?</span>
+                <div class="mw-srs-btns">
+                    <button class="mw-srs-btn mw-srs-wrong" data-srs="wrong" title="Forgot \u2014 review tomorrow">\u274C Forgot</button>
+                    <button class="mw-srs-btn mw-srs-hard"  data-srs="hard"  title="Hard \u2014 review in 2 days">\u{1F914} Hard</button>
+                    <button class="mw-srs-btn mw-srs-good"  data-srs="good"  title="Good \u2014 standard interval">\u{1F44D} Good</button>
+                    <button class="mw-srs-btn mw-srs-easy"  data-srs="easy"  title="Easy \u2014 longer interval">\u{1F60E} Easy</button>
+                </div>
+            </div>` : '';
+
         area.innerHTML = `
             <div class="mw-card mw-card-compact">
                 <div class="mw-row-top">
@@ -1155,6 +1236,7 @@ IMPORTANT:
                 ${colloHtml}
                 ${exHtml}
                 ${noteHtml}
+                ${srsHtml}
                 <div class="mw-card-bottom">
                     <div class="mw-focus-tags">
                         ${focusBtn(w, 'core',          '\u2B50', 'Core')}
@@ -1411,6 +1493,13 @@ Return ONLY valid JSON.`;
     // =====================================================
 
     function handleAreaClick(e) {
+        // SRS feedback (only present in due-filter card view)
+        const srsBtn = e.target.closest('.mw-srs-btn');
+        if (srsBtn) {
+            handleSrsReview(srsBtn.dataset.srs);
+            return;
+        }
+
         const quizOpt = e.target.closest('.mw-quiz-option');
         if (quizOpt) { handleQuizAnswer(quizOpt); return; }
 

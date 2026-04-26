@@ -255,6 +255,124 @@
             return focus.includes(focusType);
         },
 
+        // --- Spaced Repetition (SRS) ---
+        // Each word can carry optional review state. All fields are optional;
+        // a word with none of them is treated as "new, due now". This means
+        // existing words from before this feature shipped automatically appear
+        // in the Due filter without any migration step.
+        //
+        // Word fields used here:
+        //   srsLevel    — integer 0..5 (0 = new / failed, 5 = mastered)
+        //   nextReview  — ms-since-epoch; null/missing = due now
+        //   lastReview  — ms-since-epoch of most recent review
+        //   reviewCount — total reviews ever performed
+        //   mistakeCount — total times marked "wrong"
+        //
+        // Intervals (in days), indexed by level after the review:
+        //   level 0  → 1
+        //   level 1  → 3
+        //   level 2  → 7
+        //   level 3  → 14
+        //   level 4  → 30
+        //   level 5+ → 60
+        // Easy clicks scale these by ~2x (e.g. 60 → 120 days at level 5).
+
+        SRS_INTERVALS: [1, 3, 7, 14, 30, 60],
+
+        // Pure scheduler — given a current level and a result, returns
+        // the new level and how many days until the next review.
+        // Exposed so other modules (e.g. the future Mistake Bank) can
+        // reuse the same logic.
+        scheduleReview: function(currentLevel, result) {
+            const lvl       = Math.max(0, Math.min(5, Number(currentLevel) || 0));
+            const intervals = this.SRS_INTERVALS;
+            let newLevel    = lvl;
+            let daysToAdd   = 1;
+            switch (result) {
+                case 'wrong':
+                    newLevel  = 0;
+                    daysToAdd = 1;
+                    break;
+                case 'hard':
+                    newLevel  = lvl;
+                    daysToAdd = 2;
+                    break;
+                case 'good':
+                    newLevel  = Math.min(5, lvl + 1);
+                    daysToAdd = intervals[newLevel];
+                    break;
+                case 'easy':
+                    newLevel  = Math.min(5, lvl + 2);
+                    daysToAdd = intervals[newLevel] * 2;
+                    break;
+                default:
+                    // Unknown result → safe no-op (treat as good)
+                    newLevel  = Math.min(5, lvl + 1);
+                    daysToAdd = intervals[newLevel];
+            }
+            return { newLevel: newLevel, daysToAdd: daysToAdd };
+        },
+
+        // Record a review on a word. Returns the updated word entry,
+        // or null if the word wasn't found in the notebook.
+        recordReview: function(word, result) {
+            const nb   = this.loadNotebook();
+            const wLow = String(word || '').toLowerCase();
+            const idx  = nb.findIndex(w => String(w.word || '').toLowerCase() === wLow);
+            if (idx < 0) return null;
+
+            const entry = nb[idx];
+            const sched = this.scheduleReview(entry.srsLevel, result);
+            const now   = Date.now();
+
+            entry.srsLevel    = sched.newLevel;
+            entry.lastReview  = now;
+            entry.nextReview  = now + sched.daysToAdd * 86400000;
+            entry.reviewCount = (entry.reviewCount || 0) + 1;
+            if (result === 'wrong') {
+                entry.mistakeCount = (entry.mistakeCount || 0) + 1;
+            }
+
+            nb[idx] = entry;
+            this.saveNotebook(nb);
+            return entry;
+        },
+
+        // Words due today (or earlier). Treats missing nextReview as
+        // "due now" so the entire pre-SRS notebook surfaces on first use.
+        getDueWords: function() {
+            const now = Date.now();
+            return this.loadNotebook().filter(w => {
+                if (w.nextReview == null) return true;
+                return Number(w.nextReview) <= now;
+            });
+        },
+
+        getDueCount: function() {
+            return this.getDueWords().length;
+        },
+
+        // Aggregate review state across the notebook.
+        // Useful for the future learning-record dashboard.
+        getReviewStats: function() {
+            const nb  = this.loadNotebook();
+            const now = Date.now();
+            let due = 0, mastered = 0, learning = 0, neverReviewed = 0;
+            for (const w of nb) {
+                if (w.nextReview == null)                   { due++; neverReviewed++; }
+                else if (Number(w.nextReview) <= now)         due++;
+                if (Number(w.srsLevel) >= 5)                  mastered++;
+                else if (Number(w.srsLevel) > 0)              learning++;
+            }
+            return {
+                total         : nb.length,
+                due           : due,
+                neverReviewed : neverReviewed,
+                learning      : learning,
+                mastered      : mastered
+            };
+        },
+
         // --- Writing History ---
         loadWritingHistory: function() {
             return safeJSON(localStorage.getItem(key('writing_history')), []);
