@@ -415,7 +415,13 @@ window.SentenceDrill = (function() {
         return mwSentences.filter(w => r.letters.includes((w.word || '').charAt(0).toUpperCase()));
     }
 
+    let mineEventsbound = false;
     function bindMineEvents() {
+        // Avoid binding multiple click listeners. renderMinePanel runs every
+        // time the user switches into Mine; without this guard, listeners
+        // accumulate and click handlers fire multiple times.
+        if (mineEventsbound) return;
+        mineEventsbound = true;
         mineContainer.addEventListener('click', (e) => {
             const rangeBtn = e.target.closest('.sd-az-btn');
             if (rangeBtn && !rangeBtn.disabled) {
@@ -426,6 +432,7 @@ window.SentenceDrill = (function() {
             }
             const tile = e.target.closest('.sd-mw-tile');
             if (tile) {
+                console.log('[SentenceDrill] Mine tile clicked:', tile.dataset.word);
                 showMineDetail(tile);
             }
         });
@@ -451,6 +458,7 @@ window.SentenceDrill = (function() {
         const word  = tile.dataset.word;
         const panel = mineContainer.querySelector('#sd-m-float-detail');
         const wasActive = tile.classList.contains('sd-mw-tile-active');
+        console.log('[SentenceDrill] showMineDetail:', word, 'panel found:', !!panel, 'wasActive:', wasActive);
 
         mineContainer.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => {
             t.classList.remove('sd-mw-tile-active');
@@ -464,7 +472,10 @@ window.SentenceDrill = (function() {
 
         tile.classList.add('sd-mw-tile-active');
         mwDetailWord = word;
-        if (!panel) return;
+        if (!panel) {
+            console.warn('[SentenceDrill] #sd-m-float-detail not found in mineContainer!');
+            return;
+        }
 
         const mwSentences = getMyWordsSentences();
         const w   = mwSentences.find(x => x.word === word);

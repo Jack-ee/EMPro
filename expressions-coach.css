@@ -1687,3 +1687,37 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     flex      : 1 1 50%;
     max-height: 50%;
 }
+
+/* ============================================================
+   Detail panel visibility fallback (v=68)
+   ============================================================
+   Bulletproof rules to guarantee the detail panel appears when
+   visible, regardless of flex layout state.
+*/
+
+.sd-float-detail.sd-float-detail-visible {
+    /* Belt-and-suspenders: explicit display + minimum sizing.
+       If something else removes display:block, this re-applies it. */
+    display     : block !important;
+    min-height  : 200px !important;
+    flex-shrink : 0 !important;
+    /* Make the panel visually distinct from the grid above so it
+       can't be confused for empty space at the bottom of the list. */
+    border-top  : 2px solid var(--accent, #2d5a3d);
+    margin-top  : 8px;
+    background  : var(--bg-card, #fff);
+    box-shadow  : 0 -2px 8px rgba(0, 0, 0, 0.06);
+    /* Pop into view */
+    animation   : sdDetailSlideIn 0.22s ease-out;
+    /* Make absolutely sure it's positioned correctly */
+    position    : relative;
+    z-index     : 5;
+}
+
+/* Make the inner content more visually obvious — accent the head row */
+.sd-float-detail.sd-float-detail-visible .sd-mw-detail-head {
+    padding       : 10px 14px;
+    background    : var(--accent-bg, rgba(45, 90, 61, 0.08));
+    border-radius : 8px;
+    margin-bottom : 8px;
+}
