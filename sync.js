@@ -27,10 +27,11 @@ window.SyncManager = (function() {
 
     // Raw localStorage keys (NOT wrapped by DB.setPref — metadata must be
     // exactly-matched across devices, not profile-prefixed).
-    const K_TOKEN      = 'emp_sync_token';
-    const K_GIST_ID    = 'emp_sync_gist_id';
-    const K_LAST_PULL  = 'emp_sync_last_pull';
-    const K_LAST_PUSH  = 'emp_sync_last_push';
+    const K_TOKEN          = 'emp_sync_token';
+    const K_GIST_ID        = 'emp_sync_gist_id';
+    const K_LAST_PULL      = 'emp_sync_last_pull';
+    const K_LAST_PUSH      = 'emp_sync_last_push';
+    const K_SYNC_API_KEY   = 'emp_sync_api_key';   // v72: opt-in flag for API key sync
 
     let saveTimer     = null;
     let pollTimer     = null;
@@ -52,6 +53,17 @@ window.SyncManager = (function() {
     function setLastPull(t)  { localStorage.setItem(K_LAST_PULL, String(t)); }
     function getLastPush()   { return parseInt(localStorage.getItem(K_LAST_PUSH) || '0', 10); }
     function setLastPush(t)  { localStorage.setItem(K_LAST_PUSH, String(t)); }
+
+    // v72: API-key sync is OPT-IN. Default false. The user must explicitly
+    // turn this on (Settings → Sync → "Sync API key across devices") after
+    // being warned that the key, even on a private Gist, is a credential.
+    function isApiKeySyncEnabled() {
+        return localStorage.getItem(K_SYNC_API_KEY) === 'true';
+    }
+    function setApiKeySyncEnabled(on) {
+        if (on) localStorage.setItem(K_SYNC_API_KEY, 'true');
+        else    localStorage.removeItem(K_SYNC_API_KEY);
+    }
 
     // Bridge to the legacy DB.getPref-stored token, in case user had one saved
     // from the previous version. Migrate it once.
@@ -200,7 +212,8 @@ window.SyncManager = (function() {
     }
 
     // ─── Collect / Merge ─────────────────────────────────────
-    // Collects only the current profile's keys, plus the shared API key.
+    // Collects only the current profile's keys, plus the shared API key
+    // (when the user has explicitly opted in to syncing it).
     function collectSyncData() {
         const prefix   = keyPrefix();
         const data     = {};
@@ -209,9 +222,13 @@ window.SyncManager = (function() {
             if (!k) continue;
             if (k.startsWith(prefix)) data[k] = localStorage.getItem(k);
         }
-        // Shared (not profile-scoped): API key
-        const apiKey = localStorage.getItem('emp_api_key');
-        if (apiKey) data['emp_api_key'] = apiKey;
+        // v72: API key is now OPT-IN. Even on a private Gist, an API key
+        // in cleartext is a credential — accidental Gist exposure (token
+        // leak, public-fork) becomes an account takeover. Default off.
+        if (isApiKeySyncEnabled()) {
+            const apiKey = localStorage.getItem('emp_api_key');
+            if (apiKey) data['emp_api_key'] = apiKey;
+        }
 
         return {
             _version   : 2,
@@ -258,14 +275,14 @@ window.SyncManager = (function() {
 
             // Snapshot current local state for the same set of keys we'll
             // touch, so we can detect "nothing actually changed".
-            const localBefore = {};
-            const localKeys   = new Set();
+            const localBefore   = {};
+            const localKeys     = new Set();
+            const apiKeySyncOn  = isApiKeySyncEnabled();   // v72
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
-                if (k && (k.startsWith(prefix) || k === 'emp_api_key')) {
-                    localKeys.add(k);
-                    localBefore[k] = localStorage.getItem(k);
-                }
+                if (!k) continue;
+                if (k.startsWith(prefix))                   { localKeys.add(k); localBefore[k] = localStorage.getItem(k); }
+                else if (k === 'emp_api_key' && apiKeySyncOn) { localKeys.add(k); localBefore[k] = localStorage.getItem(k); }
             }
 
             let changed          = false;
@@ -279,7 +296,11 @@ window.SyncManager = (function() {
 
             // Write remote keys, tracking real changes
             Object.keys(remote).forEach(k => {
-                if (k.startsWith(prefix) || k === 'emp_api_key') {
+                // v72: only accept inbound emp_api_key when the user has
+                // opted in. An opted-out device must never silently inherit
+                // an API key from another device's sync payload.
+                const accept = k.startsWith(prefix) || (k === 'emp_api_key' && apiKeySyncOn);
+                if (accept) {
                     if (localBefore[k] !== remote[k]) {
                         changed = true;
                         if (requiresReload(k)) configChanged = true;
@@ -663,9 +684,11 @@ window.SyncManager = (function() {
         triggerSave,
         pull,
         push,
-        setupSync,      // first-time setup: find existing Gist or create new
+        setupSync,             // first-time setup: find existing Gist or create new
         updateSyncUI,
-        setToken,       // for settings UI
-        getToken        // for settings UI
+        setToken,              // for settings UI
+        getToken,              // for settings UI
+        isApiKeySyncEnabled,   // v72: settings UI reads this for the toggle state
+        setApiKeySyncEnabled   // v72: settings UI flips this when user opts in/out
     };
 })();

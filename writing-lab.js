@@ -8,6 +8,17 @@ window.WritingLab = (function() {
     let lastResult    = null;
     let isProcessing  = false;
 
+    // v72: copy cache for inline copy buttons. Replaces fragile inline
+    // onclick="...copyText(this, '${escAttr(text)}')" handlers that broke
+    // on AI text containing quotes, backticks, or template syntax. Buttons
+    // now carry a data-copy-id and the text lives here in a Map.
+    const copyCache = new Map();
+    function putCopyText(text) {
+        const id = `wlcpy_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        copyCache.set(id, String(text == null ? '' : text));
+        return id;
+    }
+
     /** Initialize the writing lab. */
     function init() {
         renderModeSelector();
@@ -69,6 +80,21 @@ window.WritingLab = (function() {
 
         // Save to notebook buttons (delegated)
         document.getElementById('wl-results')?.addEventListener('click', (e) => {
+            // v72: delegated copy button — replaces fragile inline onclick
+            // that interpolated AI text directly into the HTML attribute.
+            const copyEl = e.target.closest('.wl-copy-target[data-copy-id]');
+            if (copyEl) {
+                const text = copyCache.get(copyEl.dataset.copyId) || '';
+                navigator.clipboard?.writeText(text)
+                    .then(() => {
+                        const orig = copyEl.textContent;
+                        copyEl.textContent = 'Copied!';
+                        setTimeout(() => { copyEl.textContent = orig; }, 1500);
+                    })
+                    .catch(() => window.App?.showToast?.('Copy failed.'));
+                return;
+            }
+
             const saveBtn = e.target.closest('.wl-save-word');
             if (saveBtn) {
                 const word = saveBtn.dataset.word;
@@ -222,9 +248,10 @@ window.WritingLab = (function() {
             subjectHtml = `
                 <div class="wl-subjects">
                     <h3 class="wl-section-title">Subject line suggestions</h3>
-                    ${result.subject_suggestions.map(s =>
-                        `<div class="wl-subject-option" onclick="WritingLab.copyText(this, '${escAttr(s)}')">${escHtml(s)} <span class="wl-copy-hint">click to copy</span></div>`
-                    ).join('')}
+                    ${result.subject_suggestions.map(s => {
+                        const id = putCopyText(s);
+                        return `<div class="wl-subject-option wl-copy-target" data-copy-id="${id}">${escHtml(s)} <span class="wl-copy-hint">click to copy</span></div>`;
+                    }).join('')}
                 </div>`;
         }
 
@@ -272,17 +299,20 @@ window.WritingLab = (function() {
         const versions = result.versions || [];
         const vocabHL  = result.vocabulary_highlight || [];
 
-        let versionsHtml = versions.map((v, i) => `
+        let versionsHtml = versions.map((v, i) => {
+            const id = putCopyText(v.text);
+            return `
             <div class="wl-paraphrase-card" style="animation-delay: ${i * 100}ms">
                 <div class="wl-paraphrase-header">
                     <span class="wl-paraphrase-label">${escHtml(v.label)}</span>
                     <button class="speak-btn" data-text="${escAttr(v.text)}" title="Listen">&#x1F50A;</button>
-                    <button class="wl-btn-small" onclick="WritingLab.copyText(this, \`${escAttr(v.text)}\`)">Copy</button>
+                    <button class="wl-btn-small wl-copy-target" data-copy-id="${id}">Copy</button>
                 </div>
                 <div class="wl-paraphrase-text">${escHtml(v.text)}</div>
                 <div class="wl-paraphrase-diff">${escHtml(v.key_differences)}</div>
             </div>
-        `).join('');
+        `;
+        }).join('');
 
         let vocabHtml = '';
         if (vocabHL.length > 0) {
@@ -318,6 +348,16 @@ window.WritingLab = (function() {
 
         const origWords = original.split(/(\s+)/);
         const corrWords = corrected.split(/(\s+)/);
+
+        // v72: LCS is O(m·n). At ~1k×1k that's 1M ops — fine. At 2k×2k
+        // it's 4M and starts visibly hitching on Android. Past ~200k
+        // product, skip the word-level diff entirely and just render the
+        // corrected text with a notice. The user still sees the result;
+        // they just don't get inline highlighting on this very long input.
+        if (origWords.length * corrWords.length > 200000) {
+            return `<div class="wl-diff-warning">Text is too long for word-by-word highlighting. Showing corrected version only.</div>
+                    <div class="wl-diff-fallback">${escHtml(corrected)}</div>`;
+        }
 
         // Simple word-level diff using LCS approach
         const lcs    = longestCommonSubseq(origWords, corrWords);
@@ -530,7 +570,13 @@ window.WritingLab = (function() {
     }
 
     function escAttr(str) {
-        return (str || '').replace(/[`\\'"]/g, '\\$&').replace(/\n/g, ' ');
+        // v72: HTML attribute escaping (was JS-style — unsafe for AI text
+        // that may contain quotes, backticks, or apostrophes).
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/\n/g, ' ');
     }
 
     function copyCorrected() {

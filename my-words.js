@@ -1603,7 +1603,16 @@ Return ONLY valid JSON.`;
     }
 
     function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-    function escAttr(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' '); }
+    function escAttr(s) {
+        // v72: HTML attribute escaping. Old version used JS-style \\' which
+        // meant words like "don't" became data-word="don\'t" — invalid in
+        // HTML, breaking subsequent matching/saving/deletion lookups.
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/\n/g, ' ');
+    }
 
     return { init, render, refreshStudyList, startAutoplay, stopAutoplay, toggleAutoplay,
              isAutoplayActive: () => autoplayOn };

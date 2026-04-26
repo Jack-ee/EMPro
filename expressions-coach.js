@@ -677,16 +677,27 @@ Return a JSON object:
         if (!expr) { if (fb) fb.textContent = 'Expression is required.'; return; }
 
         const id = cat.slice(0, 3) + '_' + String(Date.now()).slice(-4);
+        // v72: previously created entries had blanks:[], options:[expr],
+        // rephrase:'' — none of which satisfy supportsMode(), so the user
+        // would save an expression and never see it in any drill. Now
+        // generate a fill-blank from the context (if it contains the
+        // expression) and always supply a rephrase prompt so the entry
+        // is at minimum practiceable in rephrase mode.
+        const ctx          = context || '';
+        const exprInCtx    = ctx && ctx.toLowerCase().includes(expr.toLowerCase());
+        const blankSent    = exprInCtx
+            ? ctx.replace(new RegExp(expr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '_____')
+            : '';
         const newItem = {
             id, cat, expr,
             chinese      : chinese || '',
             pattern      : expr,
-            original     : context || '',
-            general      : context || '',
-            blanks       : [],
-            blankAnswers : [],
+            original     : ctx,
+            general      : ctx,
+            blanks       : blankSent ? [blankSent]    : [],
+            blankAnswers : blankSent ? [expr]         : [],
             options      : [expr],
-            rephrase     : ''
+            rephrase     : `Write a natural sentence using "${expr}".`
         };
 
         let custom = loadFromStorage('custom', []);
@@ -742,7 +753,7 @@ Return a JSON object:
                     source  : 'Expression Coach',
                     tags    : [expr.cat]
                 });
-                btn.textContent = '&#x2705; Saved';
+                btn.textContent = '\u2705 Saved';
                 btn.disabled    = true;
                 window.App?.updateNotebookBadge?.();
                 window.App?.showToast?.(`Saved: ${expr.expr}`);

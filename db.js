@@ -408,7 +408,19 @@
         },
         bumpSession: function(mode, score) {
             const stats   = this.loadStats();
-            const today   = new Date().toISOString().slice(0, 10);
+            // v72: use LOCAL date, not UTC. toISOString().slice(0,10) gives
+            // the UTC date which can roll early or late depending on the
+            // user's timezone — e.g. in Utah at 5pm local on Apr 26 it's
+            // already Apr 27 in UTC, so the streak would advance a day
+            // early; in China (UTC+8), it lags a day.
+            const localYMD = (d) => {
+                const dd = d || new Date();
+                const y  = dd.getFullYear();
+                const m  = String(dd.getMonth() + 1).padStart(2, '0');
+                const da = String(dd.getDate()).padStart(2, '0');
+                return `${y}-${m}-${da}`;
+            };
+            const today = localYMD();
 
             stats.totalSessions++;
             if (typeof score === 'number') {
@@ -421,7 +433,9 @@
             if (stats.lastActiveDate === today) {
                 // same day, no change
             } else {
-                const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+                const yd = new Date();
+                yd.setDate(yd.getDate() - 1);
+                const yesterday = localYMD(yd);
                 stats.streakDays = (stats.lastActiveDate === yesterday)
                     ? (stats.streakDays || 0) + 1
                     : 1;

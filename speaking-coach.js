@@ -257,7 +257,7 @@ window.SpeakingCoach = (function() {
                 </div>
                 <div class="wl-input-area">
                     <textarea id="sc-response-input" rows="3"
-                        placeholder="${escHtml(scenario.your_attempt_hint)}"
+                        placeholder="${escAttr(scenario.your_attempt_hint)}"
                         spellcheck="true"></textarea>
                     <div class="wl-input-footer">
                         <span class="wl-char-count" style="font-style:italic;color:var(--text-tertiary)">Write what you would say, then get native-speaker alternatives</span>
@@ -600,7 +600,14 @@ Return ONLY valid JSON, no markdown fences.`;
     }
 
     function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-    function escAttr(s) { return (s || '').replace(/[`\\'"]/g, '\\$&').replace(/\n/g, ' '); }
+    function escAttr(s) {
+        // v72: HTML attribute escaping (was JS-style and unsafe).
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/\n/g, ' ');
+    }
 
     return { init };
 })();

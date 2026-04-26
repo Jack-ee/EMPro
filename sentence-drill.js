@@ -209,7 +209,14 @@ window.SentenceDrill = (function() {
         return s.length > n ? s.slice(0, n - 1) + '\u2026' : s;
     }
 
+    let curatedEventsBound = false;
     function bindCuratedEvents() {
+        // v72: guard against duplicate listener accumulation. Without this,
+        // every renderCuratedPanel() call (which can fire repeatedly when
+        // navigating in/out of Listen/Drill) added a new click listener,
+        // so a single tile tap fired N handlers in parallel.
+        if (curatedEventsBound) return;
+        curatedEventsBound = true;
         curatedContainer.addEventListener('click', (e) => {
             const tile = e.target.closest('.sd-c-tile');
             if (tile) {
@@ -1180,8 +1187,14 @@ window.SentenceDrill = (function() {
             listenToken++;
             if (listenTimer) { clearTimeout(listenTimer); listenTimer = null; }
             window.App?.stopSpeak?.();
-            listenIdx = (listenIdx + 1) % sentences.length;
-            currentIdx = listenIdx;
+            // v72: use the ACTIVE listen pool — could be curated, MyWords,
+            // or both. Modulo by sentences.length is wrong when source is
+            // 'mywords' or 'both' (different pool length), and would either
+            // skip past the end or land on a non-existent index.
+            const pool = getListenPool();
+            if (!pool.length) { stopListen(); return; }
+            listenIdx = (listenIdx + 1) % pool.length;
+            currentIdx = Math.min(listenIdx, sentences.length - 1);
             saveState();
             renderListenView();
             playListenLoop(listenToken);

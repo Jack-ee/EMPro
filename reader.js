@@ -342,7 +342,12 @@ Return ONLY valid JSON, no markdown fences.`;
         const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML;
     }
     function escAttr(str) {
-        return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
+        // v72: HTML attribute escaping (was JS-style and broken for "don't").
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/\n/g, ' ');
     }
 
     return { init, saveAllToNotebook };
