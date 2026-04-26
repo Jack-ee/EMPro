@@ -140,7 +140,11 @@ window.SentenceDrill = (function() {
                      phonetic : w.phonetic,
                      meaning  : w.meaning || '',
                      context  : w.context,
-                     contextCn: w.contextCn || ''
+                     contextCn: w.contextCn || '',
+                     // v73: surface focus tags so the Mine detail panel can
+                     // render the per-word focus toggles in their correct
+                     // active/inactive state without a second DB lookup.
+                     focus    : Array.isArray(w.focus) ? [...w.focus] : []
                  }))
                  .sort((a, b) => a.word.localeCompare(b.word));
     }
@@ -500,21 +504,31 @@ window.SentenceDrill = (function() {
         const total = mwSentences.length;
         const prevDisabled = idx <= 0         ? 'disabled' : '';
         const nextDisabled = idx >= total - 1 ? 'disabled' : '';
+        // v73: focus state for the per-word group toggles in the action row.
+        const wFocus = Array.isArray(w.focus) ? w.focus : [];
+        const focusActive = (t) => wFocus.includes(t) ? 'sd-mw-focus-active' : '';
         panel.innerHTML = `
             <div class="sd-mw-detail-inner">
                 <button class="sd-float-close" type="button" title="Close">&#x2715;</button>
                 <div class="sd-mw-detail-head">
                     <button class="sd-detail-nav sd-detail-prev" type="button" ${prevDisabled} title="Previous word">&#x25C0;</button>
+                    <span class="sd-mw-detail-counter">${idx + 1}/${total}</span>
+                    <button class="sd-detail-nav sd-detail-next" type="button" ${nextDisabled} title="Next word">&#x25B6;</button>
+                </div>
+                <div class="sd-mw-detail-title">
                     <span class="sd-mw-detail-word">${escHtml(w.word)}</span>
                     <span class="sd-mw-detail-phon">${escHtml(w.phonetic)}</span>
-                    <button class="sd-detail-nav sd-detail-next" type="button" ${nextDisabled} title="Next word">&#x25B6;</button>
                 </div>
                 ${w.meaning ? `<div class="sd-list-meaning">${escHtml(w.meaning)}</div>` : ''}
                 <div class="sd-list-context">${escHtml(w.context)}</div>
                 ${w.contextCn ? `<div class="sd-list-cn">${escHtml(w.contextCn)}</div>` : ''}
                 <div class="sd-list-actions">
-                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.context)}" type="button">\u{1F50A} Sentence</button>
-                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.word)}" type="button">\u{1F50A} Word</button>
+                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.context)}" type="button" title="Play sentence">\u{1F50A} Sen</button>
+                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.word)}" type="button" title="Play word">\u{1F50A} Word</button>
+                    <span class="sd-action-sep" aria-hidden="true"></span>
+                    <button class="sd-mw-focus-btn ${focusActive('core')}"          data-focus="core"          data-word="${escAttr(w.word)}" type="button" title="Mark as Core focus">\u2B50 Core</button>
+                    <button class="sd-mw-focus-btn ${focusActive('pronunciation')}" data-focus="pronunciation" data-word="${escAttr(w.word)}" type="button" title="Mark as Pronunciation focus">\u{1F50A} Pron</button>
+                    <button class="sd-mw-focus-btn ${focusActive('spelling')}"      data-focus="spelling"      data-word="${escAttr(w.word)}" type="button" title="Mark as Spelling focus">\u270F\uFE0F Spell</button>
                 </div>
             </div>`;
         showDetailPanel(panel);
@@ -535,6 +549,29 @@ window.SentenceDrill = (function() {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 window.App?.speak?.(e.currentTarget.dataset.text);
+            });
+        });
+
+        // v73: per-word focus toggles. Tap to add/remove the current word
+        // from a study group (Core / Pron / Spell). The filter pill counts
+        // in the My Words tab refresh next time that view renders, so we
+        // only need to flip the local visual state here.
+        panel.querySelectorAll('.sd-mw-focus-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tWord = e.currentTarget.dataset.word;
+                const tType = e.currentTarget.dataset.focus;
+                if (!tWord || !tType) return;
+                const isOn = window.DB?.toggleFocus?.(tWord, tType);
+                e.currentTarget.classList.toggle('sd-mw-focus-active', !!isOn);
+                const labels = { core: '\u2B50 Core', pronunciation: '\u{1F50A} Pron', spelling: '\u270F\uFE0F Spell' };
+                window.App?.showToast?.(isOn
+                    ? `"${tWord}" added to ${labels[tType] || tType}.`
+                    : `"${tWord}" removed from ${labels[tType] || tType}.`);
+                // Push the change through to the My Words view so its filter
+                // pill counts and study list pick up the new state on next
+                // activation. Safe-call because My Words may not be ready.
+                try { window.MyWords?.refreshStudyList?.(); } catch {}
             });
         });
         panel.querySelector('.sd-float-close')?.addEventListener('click', (e) => {

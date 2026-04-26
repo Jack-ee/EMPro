@@ -1749,3 +1749,78 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     border-radius : 8px;
     margin-bottom : 8px;
 }
+
+/* ============================================================
+   v73 — Mine detail panel: nav row + title row + focus toggles
+   ============================================================
+   Previously the head packed [◀ word phonetic ▶] in one wrapping
+   flex row. On narrow viewports (mobile) the long phonetic shoved
+   the next-button onto a new line, so prev and next sat on
+   different rows. Restructured: nav row holds prev/counter/next
+   only (compact, never wraps); a separate title row carries the
+   word + phonetic; the action row picks up three Core/Pron/Spell
+   toggle buttons next to the existing playback buttons. */
+
+.sd-float-detail.sd-float-detail-visible .sd-mw-detail-head {
+    /* Override the wrap-prone default: nav row is always 3 small
+       items — keep them inline and centered, never wrap. */
+    flex-wrap       : nowrap;
+    justify-content : center;
+    gap             : 14px;
+}
+.sd-mw-detail-counter {
+    font-family : var(--font-mono, monospace);
+    font-size   : 0.85rem;
+    color       : var(--text-secondary);
+    min-width   : 56px;
+    text-align  : center;
+}
+
+/* Title row holds the word and phonetic on one line; allowed to
+   wrap on truly narrow viewports (so a very long phonetic doesn't
+   blow out the layout) but free of the prev/next buttons that
+   were causing the original split. */
+.sd-mw-detail-title {
+    display     : flex;
+    align-items : baseline;
+    flex-wrap   : wrap;
+    gap         : 10px;
+    margin-bottom : 6px;
+}
+
+/* Visual divider in the action row between play buttons and
+   focus-group toggles, so the two distinct affordance groups
+   read as separate clusters even when wrapped. */
+.sd-action-sep {
+    width        : 1px;
+    align-self   : stretch;
+    background   : var(--border, rgba(0, 0, 0, 0.15));
+    margin       : 0 2px;
+}
+
+/* Focus toggles in the Mine detail action row. Visually small
+   pill matching the style of the existing .sd-list-play buttons,
+   plus a clear "active" state when the word is in the group. */
+.sd-mw-focus-btn {
+    font-family   : inherit;
+    font-size     : 0.8rem;
+    padding       : 4px 10px;
+    background    : var(--bg-card, #fff);
+    border        : 1px solid var(--border, rgba(0, 0, 0, 0.12));
+    border-radius : 14px;
+    color         : var(--text-secondary);
+    white-space   : nowrap;
+    cursor        : pointer;
+    transition    : all 0.12s ease;
+    flex-shrink   : 0;
+}
+.sd-mw-focus-btn:hover {
+    border-color : var(--accent);
+    color        : var(--accent);
+}
+.sd-mw-focus-btn.sd-mw-focus-active {
+    background   : var(--accent);
+    border-color : var(--accent);
+    color        : #fff;
+    font-weight  : 500;
+}
