@@ -4317,3 +4317,107 @@ html {
     }
     .vd-why-item { font-size : 12px; padding : 7px 9px; }
 }
+
+/* ============================================================
+   Drill compaction (v=64) — desktop-only vertical compression
+   ============================================================
+   Goal: fit a full synonym drill question (4 options + feedback +
+   4 why-items + nav) on one ~720px desktop viewport without
+   scrolling. The single-column layout on mobile is kept intact.
+   
+   Strategy:
+     - Options laid out in a 2-column grid (was vertical column).
+     - Why-list also in a 2-column grid, matching the options grid
+       so each why-item visually pairs with the option above.
+     - Tighter card padding + smaller gaps between sections.
+     - Sentence box uses smaller line-height + less padding.
+     - Nav row pulled tighter against the why-list.
+*/
+
+@media (min-width: 769px) {
+
+    /* Card frame: less wasteful padding & gap. */
+    .vd-question-card {
+        padding : 16px 18px;
+        gap     : 10px;
+    }
+
+    /* Sentence box: less air around the text, but still readable. */
+    .vd-sentence {
+        font-size   : 15px;
+        line-height : 1.5;
+        padding     : 10px 14px;
+    }
+    .vd-collocation-word {
+        font-size : 17px;
+    }
+
+    /* Question prompt: trim the leading paragraph margin */
+    .vd-q-prompt {
+        margin    : 0;
+        font-size : 14px;
+    }
+
+    /* Register hint: keep on one line, compact spacing */
+    .vd-register-hint {
+        margin : 0;
+    }
+
+    /* The main ask: options in a 2-column grid. Each option
+       fills its column. Single-option drills (rare) still work
+       because grid auto-flow handles 1, 2, or 4 items cleanly. */
+    .vd-options {
+        display               : grid;
+        grid-template-columns : repeat(2, minmax(0, 1fr));
+        gap                   : 6px;
+    }
+    .vd-option {
+        padding : 9px 12px;
+        font-size : 14px;
+    }
+
+    /* Why-items also in a 2-column grid so they visually pair
+       with the option grid above. The user can see option A on
+       row 1 col 1 and its explanation on row 1 col 1 of the why-grid. */
+    .vd-why-list {
+        display               : grid;
+        grid-template-columns : repeat(2, minmax(0, 1fr));
+        gap                   : 6px;
+        margin-top            : 8px;
+    }
+    .vd-why-item {
+        padding     : 6px 9px;
+        font-size   : 12px;
+        line-height : 1.4;
+    }
+
+    /* Feedback strip: tighter, inline with content */
+    .vd-feedback-msg {
+        padding   : 8px 12px;
+        font-size : 13px;
+    }
+
+    /* Nav row: less margin/padding so it sits closer to content */
+    .vd-nav-row {
+        margin-top  : 8px;
+        padding-top : 8px;
+    }
+    .vd-nav-btn {
+        padding   : 6px 14px;
+        font-size : 12px;
+        min-width : 80px;
+    }
+}
+
+/* On wider desktops (≥1100px), let options pack into one row when
+   they fit. auto-fit + minmax(180px, 1fr) handles 2, 3, 4, or 6
+   options gracefully — the browser fits as many columns as the
+   container width allows, with a 180px floor. */
+@media (min-width: 1100px) {
+    .vd-options {
+        grid-template-columns : repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .vd-why-list {
+        grid-template-columns : repeat(auto-fit, minmax(280px, 1fr));
+    }
+}
