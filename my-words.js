@@ -1322,6 +1322,13 @@ IMPORTANT:
                     `).join('')}
                 </div>
                 <div class="mw-quiz-feedback" id="mw-quiz-feedback"></div>
+                <div class="mw-card-bottom">
+                    <div class="mw-focus-tags">
+                        ${focusBtn(w, 'core',          '\u2B50',         'Core')}
+                        ${focusBtn(w, 'pronunciation', '\uD83D\uDD0A',   'Pron.')}
+                        ${focusBtn(w, 'spelling',      '\u270F\uFE0F',   'Spell')}
+                    </div>
+                </div>
             </div>`;
     }
 

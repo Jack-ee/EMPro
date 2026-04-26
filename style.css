@@ -3333,10 +3333,18 @@ body {
     color        : var(--text-primary);
 }
 .mw-filter-pill.active {
-    background   : var(--accent-bg);
+    /* v70: solid accent bg + white text so the currently-selected
+       group is unmistakable on mobile. Matches .mw-filter-pill-due.active
+       so the Due pill and the regular pills look consistent when active. */
+    background   : var(--accent);
     border-color : var(--accent);
-    color        : var(--accent-text);
+    color        : #fff;
     font-weight  : 500;
+}
+.mw-filter-pill.active .mw-fpill-count {
+    /* Count badge must read clearly on the dark active background. */
+    opacity : 0.9;
+    color   : inherit;
 }
 .mw-fpill-count {
     font-family : var(--font-mono);
