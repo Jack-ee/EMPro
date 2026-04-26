@@ -1571,34 +1571,33 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
         detail panel header, flanking the position indicator.
 */
 
-/* 1. Visible scrollbar for the sentence grid on every platform */
+/* 1. Visible scrollbar for the sentence grid on every platform.
+   Thicker thumb (10px wide, no inset border) so it's obvious there
+   is content below the fold even when only a few rows of overflow. */
 .sd-c-grid,
 .sd-mw-grid {
-    /* Chromium/Safari mobile: webkit scrollbar always visible, thin */
-    scrollbar-width : thin;             /* Firefox + standard */
-    scrollbar-color : var(--accent, #2d5a3d) transparent;
+    /* Firefox + standard */
+    scrollbar-width : thin;
+    scrollbar-color : rgba(45, 90, 61, 0.6) rgba(0, 0, 0, 0.04);
 }
 .sd-c-grid::-webkit-scrollbar,
 .sd-mw-grid::-webkit-scrollbar {
-    width  : 8px;
-    height : 8px;
+    width  : 10px;
+    height : 10px;
 }
 .sd-c-grid::-webkit-scrollbar-track,
 .sd-mw-grid::-webkit-scrollbar-track {
-    background    : transparent;
-    border-radius : 4px;
+    background    : rgba(0, 0, 0, 0.04);
+    border-radius : 5px;
 }
 .sd-c-grid::-webkit-scrollbar-thumb,
 .sd-mw-grid::-webkit-scrollbar-thumb {
-    background    : var(--accent, #2d5a3d);
-    opacity       : 0.5;
-    border-radius : 4px;
-    border        : 2px solid transparent;
-    background-clip: content-box;
+    background    : rgba(45, 90, 61, 0.6);
+    border-radius : 5px;
 }
 .sd-c-grid::-webkit-scrollbar-thumb:hover,
 .sd-mw-grid::-webkit-scrollbar-thumb:hover {
-    background-clip : padding-box;
+    background : rgba(45, 90, 61, 0.85);
 }
 
 /* 2. Detail panel header layout and nav arrows */
@@ -1645,4 +1644,46 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
         height : 36px;
         font-size : 13px;
     }
+}
+
+/* ============================================================
+   Detail panel reliability fix (v=66)
+   ============================================================
+   The bottom detail panel sometimes failed to appear visibly on
+   Mine after clicking a word, even though the panel innerHTML
+   was set and the visible class was applied. Two contributing
+   factors and fixes:
+   
+   1. The panel's bottom edge could fall below the active sub-panel's
+      fixed height when wrappers didn't shrink in time. Add explicit
+      flex-shrink: 0 on the detail itself + bumped min-height.
+   2. Without a visual cue, a user who didn't notice the panel below
+      the grid might think the click did nothing. Add a brief slide-up
+      animation when the panel first becomes visible.
+*/
+
+.sd-float-detail.sd-float-detail-visible {
+    flex-shrink : 0;
+    min-height  : 200px;
+    /* Slide-up + fade-in to draw attention to the new panel */
+    animation   : sdDetailSlideIn 0.22s ease-out;
+}
+@keyframes sdDetailSlideIn {
+    from {
+        transform : translateY(10px);
+        opacity   : 0.4;
+    }
+    to {
+        transform : translateY(0);
+        opacity   : 1;
+    }
+}
+
+/* When a detail is open, make sure the wrapper actually leaves room.
+   Reduce the wrapper to 50% (was 55%) so the detail gets at least
+   half the available vertical space — guarantees it's visible. */
+#sc-panel-curated.sd-panel-with-detail > .ec-wrapper,
+#sc-panel-mine.sd-panel-with-detail    > .ec-wrapper {
+    flex      : 1 1 50%;
+    max-height: 50%;
 }

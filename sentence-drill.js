@@ -111,6 +111,13 @@ window.SentenceDrill = (function() {
         panel.classList.add('sd-float-detail-visible');
         const parent = panel.closest('.sc-panel');
         if (parent) parent.classList.add('sd-panel-with-detail');
+        // Scroll the panel into view in case the user's viewport is short
+        // and the panel would otherwise be below the fold. Small delay so
+        // the layout has applied the new flex sizing first.
+        setTimeout(() => {
+            try { panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+            catch {}
+        }, 50);
     }
     function hideDetailPanel(panel) {
         if (!panel) return;
