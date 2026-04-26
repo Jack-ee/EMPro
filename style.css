@@ -2969,10 +2969,57 @@ body {
     color       : var(--text-tertiary);
 }
 
+/* ============================================================
+   v69 Ref tab: fixed-window phrase card with prev/next nav
+   ============================================================
+   Replaces the long scrolling list of TYPICAL/NATIVE pairs with
+   a single bordered card that shows ONE pair at a time. Matches
+   the Curated tab's detail-pane pattern (filled-triangle nav
+   buttons flanking a "N/Total" counter). The card has a min-height
+   so navigating between pairs of different content lengths does
+   not jolt the layout. */
+.sc-phr-card {
+    background     : var(--bg-card);
+    border         : 1px solid var(--border);
+    border-radius  : var(--radius-lg);
+    padding        : 16px;
+    min-height     : 240px;
+    display        : flex;
+    flex-direction : column;
+    gap            : 14px;
+    animation      : fadeSlideIn 0.2s ease;
+    box-sizing     : border-box;
+}
+.sc-phr-card-head {
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    gap             : 16px;
+    padding-bottom  : 10px;
+    border-bottom   : 1px solid var(--border);
+}
+.sc-phr-card-body {
+    display        : flex;
+    flex-direction : column;
+    gap            : 10px;
+    flex           : 1;
+}
+.sc-phr-empty {
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    flex            : 1;
+    color           : var(--text-tertiary);
+    font-size       : 13px;
+    font-style      : italic;
+}
+
 @media (max-width: 640px) {
     .sc-cat-tabs { grid-template-columns: repeat(3, 1fr); }
     .sc-cat-name { font-size: 10px; }
     .sc-phrasing-cn { padding-left: 0; }
+    .sc-phr-card    { padding: 12px; min-height: 220px; }
+    .sc-phrasing-label { width: 48px; }
 }
 
 /* --- Compact card v2 --- */

@@ -175,7 +175,8 @@ window.SpeakingCoach = (function() {
         }
     ];
 
-    let currentPhrasingPage = 0;
+    let currentPhrasingPage    = 0;  // category index
+    let currentPhrasingPairIdx = 0;  // pair index within current category
 
     function init() {
         bindEvents();
@@ -505,8 +506,15 @@ Return ONLY valid JSON, no markdown fences.`;
         const container = document.getElementById('sc-phrasing-ref');
         if (!container) return;
 
-        const cat   = PHRASING_BANK[currentPhrasingPage];
-        const total = PHRASING_BANK.length;
+        const cat = PHRASING_BANK[currentPhrasingPage];
+        if (!cat) return;
+
+        // Clamp pair index so changing categories or live-edits never
+        // leave us pointing past the end of the new pair list.
+        const pairs    = cat.pairs || [];
+        const totalPairs = pairs.length;
+        if (currentPhrasingPairIdx >= totalPairs) currentPhrasingPairIdx = 0;
+        if (currentPhrasingPairIdx < 0)           currentPhrasingPairIdx = 0;
 
         // Shortened labels for tabs
         const shortLabels = [
@@ -522,34 +530,65 @@ Return ONLY valid JSON, no markdown fences.`;
             </button>
         `).join('');
 
-        // Pairs for current category
-        const pairsHtml = cat.pairs.map(p => `
-            <div class="sc-phrasing-pair">
-                <div class="sc-phrasing-chinglish">
-                    <span class="sc-phrasing-label">Typical</span>
-                    <span>${escHtml(p.chinglish)}</span>
-                </div>
-                <div class="sc-phrasing-native">
-                    <span class="sc-phrasing-label">Native</span>
-                    <span>${escHtml(p.native)}</span>
-                    <button class="speak-btn" data-text="${escAttr(p.native)}" title="Listen">&#x1F50A;</button>
-                </div>
-                ${p.cn ? `<div class="sc-phrasing-cn">${escHtml(p.cn)}</div>` : ''}
-                <div class="sc-phrasing-note">${escHtml(p.note)}</div>
-            </div>
-        `).join('');
+        // Single-pair fixed card with prev/next navigation. Replaces the
+        // old "dump every pair into the page" layout so the user no longer
+        // has to scroll the page to see all examples in a category.
+        let cardHtml;
+        if (totalPairs === 0) {
+            cardHtml = `<div class="sc-phr-card"><div class="sc-phr-empty">(no phrases in this category)</div></div>`;
+        } else {
+            const p          = pairs[currentPhrasingPairIdx];
+            const prevDis    = currentPhrasingPairIdx <= 0              ? 'disabled' : '';
+            const nextDis    = currentPhrasingPairIdx >= totalPairs - 1 ? 'disabled' : '';
+            cardHtml = `
+                <div class="sc-phr-card">
+                    <div class="sc-phr-card-head">
+                        <button class="sd-detail-nav sc-phr-prev" type="button" ${prevDis} title="Previous">&#x25C0;</button>
+                        <span class="sc-phrasing-page">${currentPhrasingPairIdx + 1}/${totalPairs}</span>
+                        <button class="sd-detail-nav sc-phr-next" type="button" ${nextDis} title="Next">&#x25B6;</button>
+                    </div>
+                    <div class="sc-phr-card-body">
+                        <div class="sc-phrasing-chinglish">
+                            <span class="sc-phrasing-label">Typical</span>
+                            <span>${escHtml(p.chinglish)}</span>
+                        </div>
+                        <div class="sc-phrasing-native">
+                            <span class="sc-phrasing-label">Native</span>
+                            <span>${escHtml(p.native)}</span>
+                            <button class="speak-btn" data-text="${escAttr(p.native)}" title="Listen">&#x1F50A;</button>
+                        </div>
+                        ${p.cn   ? `<div class="sc-phrasing-cn">${escHtml(p.cn)}</div>` : ''}
+                        ${p.note ? `<div class="sc-phrasing-note">${escHtml(p.note)}</div>` : ''}
+                    </div>
+                </div>`;
+        }
 
         container.innerHTML = `
             <div class="sc-cat-tabs">${tabsHtml}</div>
             <h3 class="sc-phrasing-cat-title">${cat.icon} ${escHtml(cat.category)}</h3>
-            <div class="sc-phrasing-content">${pairsHtml}</div>`;
+            ${cardHtml}`;
 
-        // Bind category tab clicks
+        // Bind category tab clicks — switching category resets pair to 0
         container.querySelectorAll('.sc-cat-tab').forEach(btn => {
             btn.addEventListener('click', () => {
-                currentPhrasingPage = parseInt(btn.dataset.catIdx, 10);
+                currentPhrasingPage    = parseInt(btn.dataset.catIdx, 10);
+                currentPhrasingPairIdx = 0;
                 renderPhrasingReference();
             });
+        });
+
+        // Bind prev/next within current category
+        container.querySelector('.sc-phr-prev')?.addEventListener('click', () => {
+            if (currentPhrasingPairIdx > 0) {
+                currentPhrasingPairIdx--;
+                renderPhrasingReference();
+            }
+        });
+        container.querySelector('.sc-phr-next')?.addEventListener('click', () => {
+            if (currentPhrasingPairIdx < totalPairs - 1) {
+                currentPhrasingPairIdx++;
+                renderPhrasingReference();
+            }
         });
     }
 

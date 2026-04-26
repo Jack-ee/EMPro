@@ -1249,7 +1249,20 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
 
 /* Grids expand to fill the card and scroll internally. The key
    flex: 1 1 0 + min-height: 0 combo is required for flex children
-   to scroll properly in Safari. */
+   to scroll properly in Safari.
+
+   v69 fix: The Curated grid lives inside #sd-c-exercise-area (a
+   wrapper that drill mode also renders into). That wrapper was a
+   plain block, so .sd-c-grid's flex/min-height settings were not
+   honored — the grid expanded to natural height and never overflowed,
+   so the always-visible scrollbar never appeared. Make the wrapper
+   itself the flex-fill column so the chain reaches the grid. */
+#sc-panel-curated.active #sd-c-exercise-area {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
 #sc-panel-curated.active .sd-c-grid,
 #sc-panel-mine.active    .sd-mw-grid {
     flex: 1 1 0;
