@@ -4080,3 +4080,82 @@ html {
     .mw-list-delete { opacity : 0.6; }  /* always visible-ish on touch */
     .mw-quiz-remove { width: 28px; height: 28px; font-size: 12px; }
 }
+
+/* ============================================================
+   Desktop toolbar polish (v=60)
+   ============================================================
+   Goals (desktop only — min-width: 769px):
+     1. Bolder top tab labels for clearer hierarchy.
+     2. Group label / arrows match Card/List/Quiz size (14px).
+     3. New | separator between group and position counter.
+     4. Uniform 30px row height for every third-row control,
+        all vertically centered, all line-height: 1.
+   Everything is wrapped in a min-width media query so the mobile
+   layout we previously stabilized is untouched.
+*/
+
+@media (min-width: 769px) {
+
+    /* 1. Top icon row — bolder labels */
+    .nav-tab          { font-weight : 700; }
+    .nav-label        { font-weight : 700; }
+
+    /* 2. Group label and group arrows — match third-row size */
+    .mw-grp-label {
+        font-size   : 14px;
+        line-height : 1;
+        padding     : 0 4px;
+    }
+    .mw-grp-btn {
+        font-size   : 14px;
+        padding     : 4px 6px;
+        line-height : 1;
+    }
+
+    /* 4. Uniform third-row height. All controls = 30px tall, all
+          centered. Specific selectors (no !important needed) so
+          they only win against the base rules, not against the
+          existing mobile media block. */
+    .mw-nav-row {
+        gap        : 6px;
+        min-height : 32px;
+    }
+    .mw-nav-row .mw-mt-btn,
+    .mw-nav-row .mw-toggle-cn-btn,
+    .mw-nav-row .mw-arrow-btn,
+    .mw-nav-row .mw-nav-btn,
+    .mw-nav-row .mw-grp-btn {
+        height          : 30px;
+        line-height     : 1;
+        display         : inline-flex;
+        align-items     : center;
+        justify-content : center;
+    }
+    .mw-nav-row .mw-counter,
+    .mw-nav-row .mw-grp-label {
+        height          : 30px;
+        line-height     : 30px;   /* vertical center for plain text */
+        display         : inline-flex;
+        align-items     : center;
+    }
+
+    /* 3. New separator between group and position counter — same
+          look as the existing one between counter and Play/Shuffle.
+          Hidden automatically when there's only one group (the group
+          div has display:none, and we hide our adjacent separator). */
+    .mw-sep-grp {
+        height : 18px;
+        margin : 0 4px;
+    }
+    .mw-group-info[style*="display: none"] + .mw-sep-grp,
+    .mw-group-info[style*="display:none"]  + .mw-sep-grp {
+        display : none;
+    }
+
+    /* The existing inline-only separator is fine, but with the new
+       larger group label it benefits from a touch more breathing
+       room on desktop. */
+    .mw-nav-row .mw-filter-sep {
+        margin : 0 4px;
+    }
+}
