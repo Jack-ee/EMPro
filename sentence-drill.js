@@ -520,12 +520,11 @@ window.SentenceDrill = (function() {
                     <span class="sd-mw-detail-phon">${escHtml(w.phonetic)}</span>
                 </div>
                 ${w.meaning ? `<div class="sd-list-meaning">${escHtml(w.meaning)}</div>` : ''}
-                <div class="sd-list-context">${escHtml(w.context)}</div>
+                <div class="sd-list-context">
+                    <button class="speak-btn sd-context-speak" data-text="${escAttr(w.context)}" type="button" title="Play sentence">&#x1F50A;</button><span class="sd-context-text">${escHtml(w.context)}</span>
+                </div>
                 ${w.contextCn ? `<div class="sd-list-cn">${escHtml(w.contextCn)}</div>` : ''}
                 <div class="sd-list-actions">
-                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.context)}" type="button" title="Play sentence">\u{1F50A} Sen</button>
-                    <button class="sd-list-play ec-btn-ghost" data-text="${escAttr(w.word)}" type="button" title="Play word">\u{1F50A} Word</button>
-                    <span class="sd-action-sep" aria-hidden="true"></span>
                     <button class="sd-mw-focus-btn ${focusActive('core')}"          data-focus="core"          data-word="${escAttr(w.word)}" type="button" title="Mark as Core focus">\u2B50 Core</button>
                     <button class="sd-mw-focus-btn ${focusActive('pronunciation')}" data-focus="pronunciation" data-word="${escAttr(w.word)}" type="button" title="Mark as Pronunciation focus">\u{1F50A} Pron</button>
                     <button class="sd-mw-focus-btn ${focusActive('spelling')}"      data-focus="spelling"      data-word="${escAttr(w.word)}" type="button" title="Mark as Spelling focus">\u270F\uFE0F Spell</button>
@@ -545,12 +544,10 @@ window.SentenceDrill = (function() {
             if (idx < total - 1) navigateMineDetail(mwSentences[idx + 1].word);
         });
 
-        panel.querySelectorAll('.sd-list-play').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                window.App?.speak?.(e.currentTarget.dataset.text);
-            });
-        });
+        // v74: the inline .speak-btn before the sentence is handled by the
+        // global delegated handler in app.js (.speak-btn[data-text]), so we
+        // no longer need a per-panel binding for the playback buttons. The
+        // word itself auto-pronounces when the tile is tapped (see v70).
 
         // v73: per-word focus toggles. Tap to add/remove the current word
         // from a study group (Core / Pron / Spell). The filter pill counts
