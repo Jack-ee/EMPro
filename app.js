@@ -532,10 +532,30 @@
     function bindTabs() {
         const tabs   = document.querySelectorAll('.nav-tab[data-nav]');
         const views  = document.querySelectorAll('.app-view');
+
+        // Restore the last-active tab from localStorage. Falls back to
+        // whichever tab is marked .active in the HTML (My Words by default).
+        // This is what fixes the "page jumps to My Words after a sync
+        // reload" complaint — we now remember where the user was.
+        try {
+            const saved = window.DB?.getPref?.('active_tab', null);
+            if (saved) {
+                const tab = document.querySelector(`.nav-tab[data-nav="${saved}"]`);
+                if (tab) {
+                    tabs.forEach(x  => x.classList.toggle('active', x === tab));
+                    views.forEach(v => v.classList.toggle('active', v.id === `view-${saved}`));
+                }
+            }
+        } catch {}
+
         tabs.forEach(t => t.addEventListener('click', () => {
             const target = t.dataset.nav;
             tabs.forEach(x  => x.classList.toggle('active', x === t));
             views.forEach(v => v.classList.toggle('active', v.id === `view-${target}`));
+            // Persist for next reload — a config-change reload, a
+            // service-worker update, or a manual refresh will all
+            // restore this tab.
+            try { window.DB?.setPref?.('active_tab', target); } catch {}
             // Stop any ongoing playback when switching tabs
             stopSpeak();
             window.MyWords?.stopAutoplay?.();
@@ -547,10 +567,30 @@
     function bindExpressionSubTabs() {
         const tabs   = document.querySelectorAll('.sc-tabs .sc-tab[data-panel]');
         const panels = document.querySelectorAll('.sc-panel');
+
+        // Restore the last-active sub-tab (Core / Mine / Phrases / …)
+        try {
+            const saved = window.DB?.getPref?.('active_subtab', null);
+            if (saved) {
+                const tab = document.querySelector(`.sc-tabs .sc-tab[data-panel="${saved}"]`);
+                if (tab) {
+                    tabs.forEach(x   => x.classList.toggle('active', x === tab));
+                    panels.forEach(p => p.classList.toggle('active', p.id === saved));
+                    // If we restored Mine, ensure its content is rendered
+                    if (saved === 'sc-panel-mine') {
+                        const el = document.getElementById('sc-panel-mine');
+                        if (el && window.SentenceDrill?.initMine) window.SentenceDrill.initMine(el);
+                    }
+                }
+            }
+        } catch {}
+
         tabs.forEach(t => t.addEventListener('click', () => {
             const panelId = t.dataset.panel;
             tabs.forEach(x   => x.classList.toggle('active', x === t));
             panels.forEach(p => p.classList.toggle('active', p.id === panelId));
+            // Persist for next reload
+            try { window.DB?.setPref?.('active_subtab', panelId); } catch {}
             stopSpeak();
             window.SentenceDrill?.stopListen?.();
             // When switching into Mine, re-render so newly-added MyWords

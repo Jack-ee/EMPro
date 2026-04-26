@@ -173,6 +173,24 @@ window.MyWords = (function() {
         window.addEventListener('storage', (e) => {
             if (e.key && e.key.includes('notebook')) maybeHeal();
         });
+
+        // Sync pulls now apply data silently (without a page reload) and
+        // dispatch this event so live modules can refresh their views.
+        // Re-pull notebook from storage and re-render if MyWords is the
+        // active tab. If the user is on a different tab, the next time
+        // they open MyWords they'll see fresh data via the normal init.
+        window.addEventListener('emp:datachanged', () => {
+            const isOnMyWordsTab = document.getElementById('view-my-words')?.classList.contains('active');
+            refreshStudyList();
+            window.App?.updateNotebookBadge?.();
+            if (isOnMyWordsTab) {
+                currentGroup = Math.max(0, Math.min(currentGroup, getGroupCount() - 1));
+                currentIdx   = Math.max(0, Math.min(currentIdx, getGroupWords().length - 1));
+                render();
+                updateFilterCounts();
+            }
+        });
+
         // Also run one extra time after a slightly longer delay to catch
         // any post-load render clobbering (e.g., by sync pulls that
         // apply data without a full reload).

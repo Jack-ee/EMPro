@@ -234,14 +234,17 @@ window.SyncManager = (function() {
     //     pushes within a few seconds of the edit.
     //
     // Returns:
-    //   { applied: false }              — profile mismatch / bad payload
-    //   { applied: true, changed: bool } — applied; changed=true means
-    //                                      local state actually differs
-    //                                      from before. The caller uses
-    //                                      this to decide whether a page
-    //                                      reload is needed (changed=false
-    //                                      typically means we just pulled
-    //                                      back our own push).
+    //   { applied: false }                                — profile mismatch / bad payload
+    //   { applied: true, changed, configChanged, dataChangeCount } — applied
+    //
+    //   • changed:           any tracked key differs from local (data or config).
+    //   • configChanged:     a key that needs a page reload to take effect
+    //                        was modified. Currently this is only `emp_api_key`
+    //                        because the AI engine reads it once at boot.
+    //                        All other keys (notebook, prefs, history) take
+    //                        effect on the next render and don't need a reload.
+    //   • dataChangeCount:   how many data keys (notebook, history, etc.)
+    //                        differ from local; used for the toast message.
     function mergeSyncData(payload) {
         if (!payload || !payload.data) return { applied: false };
         if (payload._profile && payload._profile !== profileId()) {
@@ -265,12 +268,23 @@ window.SyncManager = (function() {
                 }
             }
 
-            let changed = false;
+            let changed          = false;
+            let configChanged    = false;
+            let dataChangeCount  = 0;
+
+            // Keys that REQUIRE a page reload to take effect. Anything not
+            // in this set takes effect on the next render of the relevant
+            // module — no reload needed, no UX disruption.
+            const requiresReload = (k) => k === 'emp_api_key';
 
             // Write remote keys, tracking real changes
             Object.keys(remote).forEach(k => {
                 if (k.startsWith(prefix) || k === 'emp_api_key') {
-                    if (localBefore[k] !== remote[k]) changed = true;
+                    if (localBefore[k] !== remote[k]) {
+                        changed = true;
+                        if (requiresReload(k)) configChanged = true;
+                        else                   dataChangeCount++;
+                    }
                     localStorage.setItem(k, remote[k]);
                     localKeys.delete(k);
                 }
@@ -278,11 +292,17 @@ window.SyncManager = (function() {
 
             // Remove local keys that no longer exist in remote
             // (so deletions on another device propagate correctly)
-            if (localKeys.size > 0) changed = true;
-            localKeys.forEach(k => localStorage.removeItem(k));
+            if (localKeys.size > 0) {
+                changed = true;
+                localKeys.forEach(k => {
+                    if (requiresReload(k)) configChanged = true;
+                    else                   dataChangeCount++;
+                    localStorage.removeItem(k);
+                });
+            }
 
             setLastPull(payload._syncTime || Date.now());
-            return { applied: true, changed };
+            return { applied: true, changed, configChanged, dataChangeCount };
         } finally {
             suspendHooks = false;
         }
@@ -339,27 +359,62 @@ window.SyncManager = (function() {
                     return true;
                 }
 
-                // Real change. Defer the reload while the user is mid-session
-                // (typing in writing-lab, drilling, autoplay) — exactly the
-                // same guard the SW reload uses, kept in sync via window.App.
+                // Real change. New policy (v=67):
+                //   • Only reload if a CONFIG key changed (currently just
+                //     emp_api_key — the AI engine reads it once at boot).
+                //   • Data changes (notebook, history, progress) apply
+                //     silently. Modules that need to re-render to show
+                //     fresh data listen for the 'emp:datachanged' event
+                //     dispatched below.
+                //   • A small toast tells the user something arrived.
+                // This means: editing on phone → opening laptop won't
+                // jerk the user out of whatever tab they're on. The data
+                // is updated under the hood; next time the user navigates
+                // to that module (or it re-renders), they see fresh data.
+                if (!result.configChanged) {
+                    const n = result.dataChangeCount || 0;
+                    if (showToast) {
+                        window.App?.showToast?.(n > 0
+                            ? `Synced ${n} change${n === 1 ? '' : 's'} from cloud.`
+                            : 'Synced from cloud.');
+                    } else {
+                        console.log(`[Sync] Pulled ${n} data change(s) — applied silently, no reload`);
+                    }
+
+                    // Notify live modules so they can refresh their views
+                    // without a page reload. Each module decides whether
+                    // to act on this (e.g. MyWords re-renders, Drill ignores).
+                    try {
+                        window.dispatchEvent(new CustomEvent('emp:datachanged', {
+                            detail: { source: 'sync-pull', count: n }
+                        }));
+                    } catch {}
+
+                    updateSyncUI();
+                    return true;
+                }
+
+                // Config change → reload required (e.g. API key was rotated).
+                // Defer the reload while the user is mid-session (typing in
+                // writing-lab, drilling, autoplay) to avoid disruption.
                 const doReload = () => {
                     const busy = (() => {
                         try { return Boolean(window.App?.isStudySessionActive?.()); }
                         catch { return false; }
                     })();
                     if (busy && !showToast) {
-                        // Background pull found real updates but the user is
-                        // mid-flow. Retry shortly. Manual pulls (showToast)
+                        // Background pull found a config change but the user
+                        // is mid-flow. Retry shortly. Manual pulls (showToast)
                         // bypass this — the user explicitly asked.
-                        console.log('[Sync] Real change pulled, but study session active — deferring reload');
+                        console.log('[Sync] Config change pulled, but study session active — deferring reload');
                         setTimeout(doReload, 30000);
                         return;
                     }
                     location.reload();
                 };
 
-                if (showToast) window.App?.showToast?.('Synced from cloud. Reloading...');
-                else           console.log('[Sync] Pulled newer data from Gist');
+                if (showToast) window.App?.showToast?.('Configuration changed. Reloading...');
+                else           console.log('[Sync] Pulled config change from Gist');
                 setTimeout(doReload, showToast ? 600 : 300);
                 return true;
             } else {
