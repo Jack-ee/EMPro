@@ -234,11 +234,16 @@ window.SentenceDrill = (function() {
         const targetPills = (s.targets || []).map(t =>
             `<span class="sd-list-target">${escHtml(t.word)}</span>`
         ).join('');
+        const total       = sentences.length;
+        const prevDisabled = idx <= 0          ? 'disabled' : '';
+        const nextDisabled = idx >= total - 1  ? 'disabled' : '';
         panel.innerHTML = `
             <div class="sd-mw-detail-inner">
                 <button class="sd-float-close" type="button" title="Close">&#x2715;</button>
                 <div class="sd-mw-detail-head">
-                    <span class="sd-mw-detail-word">${idx + 1}/${sentences.length}</span>
+                    <button class="sd-detail-nav sd-detail-prev" type="button" ${prevDisabled} title="Previous sentence">&#x25C0;</button>
+                    <span class="sd-mw-detail-word">${idx + 1}/${total}</span>
+                    <button class="sd-detail-nav sd-detail-next" type="button" ${nextDisabled} title="Next sentence">&#x25B6;</button>
                 </div>
                 <div class="sd-list-context">${escHtml(s.sentence_en)}</div>
                 ${s.sentence_cn ? `<div class="sd-list-cn">${escHtml(s.sentence_cn)}</div>` : ''}
@@ -249,6 +254,18 @@ window.SentenceDrill = (function() {
                 </div>
             </div>`;
         showDetailPanel(panel);
+
+        // Detail-pane navigation: jump to prev/next sentence without
+        // returning to the list. The grid above also re-highlights so
+        // the user can see where they are.
+        panel.querySelector('.sd-detail-prev')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (idx > 0) navigateCuratedDetail(idx - 1);
+        });
+        panel.querySelector('.sd-detail-next')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (idx < total - 1) navigateCuratedDetail(idx + 1);
+        });
 
         panel.querySelector('.sd-list-play')?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -271,6 +288,21 @@ window.SentenceDrill = (function() {
             curatedContainer.querySelectorAll('.sd-c-tile.sd-c-tile-active').forEach(t => t.classList.remove('sd-c-tile-active'));
             hideDetailPanel(panel);
         });
+    }
+
+    // Helper: jump to a different sentence's detail without toggling off
+    // first. Used by the detail-panel nav arrows. Updates active tile
+    // highlight and re-renders the panel.
+    function navigateCuratedDetail(newIdx) {
+        if (newIdx < 0 || newIdx >= sentences.length) return;
+        // Force re-render: reset cDetailIdx so showCuratedDetail's
+        // "wasActive" guard treats this as a new selection.
+        cDetailIdx = null;
+        showCuratedDetail(newIdx);
+        // Scroll the new active tile into view in the grid above so
+        // the user can see where they are in the list.
+        const newTile = curatedContainer.querySelector(`.sd-c-tile[data-idx="${newIdx}"]`);
+        newTile?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     // ─── Render: Mine panel (MyWords enriched sentences) ──────
@@ -428,15 +460,21 @@ window.SentenceDrill = (function() {
         if (!panel) return;
 
         const mwSentences = getMyWordsSentences();
-        const w = mwSentences.find(x => x.word === word);
+        const w   = mwSentences.find(x => x.word === word);
+        const idx = mwSentences.findIndex(x => x.word === word);
         if (!w) return;
 
+        const total = mwSentences.length;
+        const prevDisabled = idx <= 0         ? 'disabled' : '';
+        const nextDisabled = idx >= total - 1 ? 'disabled' : '';
         panel.innerHTML = `
             <div class="sd-mw-detail-inner">
                 <button class="sd-float-close" type="button" title="Close">&#x2715;</button>
                 <div class="sd-mw-detail-head">
+                    <button class="sd-detail-nav sd-detail-prev" type="button" ${prevDisabled} title="Previous word">&#x25C0;</button>
                     <span class="sd-mw-detail-word">${escHtml(w.word)}</span>
                     <span class="sd-mw-detail-phon">${escHtml(w.phonetic)}</span>
+                    <button class="sd-detail-nav sd-detail-next" type="button" ${nextDisabled} title="Next word">&#x25B6;</button>
                 </div>
                 ${w.meaning ? `<div class="sd-list-meaning">${escHtml(w.meaning)}</div>` : ''}
                 <div class="sd-list-context">${escHtml(w.context)}</div>
@@ -447,6 +485,18 @@ window.SentenceDrill = (function() {
                 </div>
             </div>`;
         showDetailPanel(panel);
+
+        // Detail nav: jump to next/prev word's detail without returning
+        // to the grid. Uses the mwSentences array index, which is a
+        // flat list of MyWords words that have phonetic+context.
+        panel.querySelector('.sd-detail-prev')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (idx > 0) navigateMineDetail(mwSentences[idx - 1].word);
+        });
+        panel.querySelector('.sd-detail-next')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (idx < total - 1) navigateMineDetail(mwSentences[idx + 1].word);
+        });
 
         panel.querySelectorAll('.sd-list-play').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -460,6 +510,27 @@ window.SentenceDrill = (function() {
             mineContainer.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => t.classList.remove('sd-mw-tile-active'));
             hideDetailPanel(panel);
         });
+    }
+
+    // Helper for Mine detail nav. Find the tile for the new word and
+    // call showMineDetail on it. Resets active class so the toggle
+    // logic doesn't treat the new word as a re-tap on the same tile.
+    function navigateMineDetail(newWord) {
+        if (!mineContainer || !newWord) return;
+        const newTile = mineContainer.querySelector(`.sd-mw-tile[data-word="${cssEscape(newWord)}"]`);
+        if (!newTile) return;
+        // Clear active state so showMineDetail's "wasActive" guard
+        // treats this as a fresh selection.
+        mineContainer.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => t.classList.remove('sd-mw-tile-active'));
+        mwDetailWord = null;
+        showMineDetail(newTile);
+        newTile.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // CSS.escape with a simple fallback for older WebViews.
+    function cssEscape(s) {
+        if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(s);
+        return String(s).replace(/[^a-zA-Z0-9_-]/g, c => '\\' + c);
     }
 
     // ─── Render exercise card ────────────────────────────────

@@ -1553,3 +1553,96 @@ details[open] > .ec-add-toggle::before { content: '\25BE '; }
     box-sizing : border-box;
     min-width  : 0;
 }
+
+/* ============================================================
+   Sentence list scrollbar + detail panel navigation (v=65)
+   ============================================================
+   Two issues from mobile testing:
+     1. The sentence grid scrolls but its scrollbar auto-hides
+        on mobile WebKit/Chromium, making the list look complete
+        when there's more below the fold.
+     2. The detail panel (bottom card) has no quick way to advance
+        to the next sentence — the user has to scroll back up to
+        the grid and tap a different tile.
+
+   Fix:
+     1. Force a thin always-visible scrollbar on the grid.
+     2. Add prev/next nav arrows (◀ ▶ filled triangles) in the
+        detail panel header, flanking the position indicator.
+*/
+
+/* 1. Visible scrollbar for the sentence grid on every platform */
+.sd-c-grid,
+.sd-mw-grid {
+    /* Chromium/Safari mobile: webkit scrollbar always visible, thin */
+    scrollbar-width : thin;             /* Firefox + standard */
+    scrollbar-color : var(--accent, #2d5a3d) transparent;
+}
+.sd-c-grid::-webkit-scrollbar,
+.sd-mw-grid::-webkit-scrollbar {
+    width  : 8px;
+    height : 8px;
+}
+.sd-c-grid::-webkit-scrollbar-track,
+.sd-mw-grid::-webkit-scrollbar-track {
+    background    : transparent;
+    border-radius : 4px;
+}
+.sd-c-grid::-webkit-scrollbar-thumb,
+.sd-mw-grid::-webkit-scrollbar-thumb {
+    background    : var(--accent, #2d5a3d);
+    opacity       : 0.5;
+    border-radius : 4px;
+    border        : 2px solid transparent;
+    background-clip: content-box;
+}
+.sd-c-grid::-webkit-scrollbar-thumb:hover,
+.sd-mw-grid::-webkit-scrollbar-thumb:hover {
+    background-clip : padding-box;
+}
+
+/* 2. Detail panel header layout and nav arrows */
+.sd-mw-detail-head {
+    display     : flex;
+    align-items : center;
+    gap         : 10px;
+    flex-wrap   : wrap;
+}
+.sd-detail-nav {
+    display         : inline-flex;
+    align-items     : center;
+    justify-content : center;
+    width           : 32px;
+    height          : 32px;
+    padding         : 0;
+    border          : 1px solid var(--border, rgba(0, 0, 0, 0.1));
+    border-radius   : 50%;
+    background      : var(--bg-card, #fff);
+    color           : var(--accent, #2d5a3d);
+    font-size       : 12px;
+    line-height     : 1;
+    cursor          : pointer;
+    transition      : all 0.12s ease;
+    flex-shrink     : 0;
+}
+.sd-detail-nav:hover:not(:disabled) {
+    background   : var(--accent, #2d5a3d);
+    color        : #fff;
+    border-color : var(--accent, #2d5a3d);
+}
+.sd-detail-nav:active:not(:disabled) {
+    transform : scale(0.92);
+}
+.sd-detail-nav:disabled {
+    opacity : 0.3;
+    cursor  : not-allowed;
+}
+
+/* On mobile, slightly larger touch targets */
+@media (max-width: 600px) {
+    .sd-detail-nav {
+        width  : 36px;
+        height : 36px;
+        font-size : 13px;
+    }
+}
