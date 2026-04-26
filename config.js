@@ -208,10 +208,18 @@ Return a JSON object:
       "sentence": "a sentence with a blank (use ________ for the blank)",
       "options": ["option1", "option2", "option3", "option4"],
       "answer": "the correct option (must exactly match one of the options)",
-      "explanation": "why this answer is best, with register/nuance notes"
+      "explanation": "why this answer is best, with register/nuance notes",
+      "option_explanations": {
+        "option1": "1-2 sentences on why this option does or doesn't fit (register, collocation, nuance)",
+        "option2": "...",
+        "option3": "...",
+        "option4": "..."
+      }
     }
   ]
 }
+
+For option_explanations, write a short note for EACH option (correct and incorrect) so the learner can review why each choice is or isn't the best fit. Keep each note under 25 words. Focus on register, collocation patterns, or common Chinese-speaker pitfalls.
 
 Mix question types:
 - Near-synonym discrimination (which word fits this register?)

@@ -301,9 +301,106 @@ window.VocabDrill = (function() {
             return;
         }
 
-        const q       = drillQueue[drillIndex];
-        drillTotal    = drillQueue.length;
+        const q        = drillQueue[drillIndex];
+        drillTotal     = drillQueue.length;
         const progress = `${drillIndex + 1} / ${drillTotal}`;
+
+        // "Answered" means the user has committed a choice for this question.
+        // In that state we show review styling on options + the why-not
+        // explanations + the feedback message. We always show Prev/Next.
+        const answered = q.userChoice != null;
+
+        // Build option markup with review-mode styling when answered
+        const renderOption = (opt) => {
+            const word    = opt.word ?? opt.text ?? opt;
+            const correct = opt.correct === true || word === q.answer || word === q.correct_answer;
+            const picked  = answered && q.userChoice === word;
+            let cls = 'vd-option';
+            if (answered) {
+                cls += ' vd-answered';
+                if (correct) cls += ' vd-correct';
+                if (picked && !correct) cls += ' vd-wrong';
+                if (picked) cls += ' vd-picked';
+            }
+            const registerTag = opt.register
+                ? `<span class="vd-opt-register wl-register-tag wl-register-${opt.register}">${opt.register}</span>`
+                : '';
+            const labelText = q.type === 'collocation'
+                ? `${escHtml(q.word)} ${escHtml(word)}`
+                : escHtml(word);
+            const disabledAttr = answered ? 'disabled' : '';
+            return `
+                <button class="${cls}" ${disabledAttr} data-word="${escAttr(word)}" data-correct="${correct}" data-register="${opt.register || ''}">
+                    ${labelText}
+                    ${registerTag}
+                </button>`;
+        };
+
+        // Build the per-option "why" lines, only when answered. For synonym
+        // drills, reuse the bank's per-word register and example. For
+        // collocation, distinguish correct vs wrong with a short note. For
+        // AI drills, lean on q.option_explanations if Claude provided them.
+        let whyHtml = '';
+        if (answered) {
+            const explanations = (q.options || []).map(opt => {
+                const word    = opt.word ?? opt.text ?? opt;
+                const correct = opt.correct === true || word === q.answer || word === q.correct_answer;
+                const picked  = q.userChoice === word;
+                let line      = '';
+                if (q.type === 'synonym') {
+                    const data = (q.allWords || {})[word] || {};
+                    const reg  = data.register || opt.register || 'neutral';
+                    line = correct
+                        ? `<b>${escHtml(word)}</b> is the best fit for the <i>${escHtml(q.register)}</i> register here.`
+                        : `<b>${escHtml(word)}</b> is <i>${escHtml(reg)}</i> \u2014 doesn't match the target ${escHtml(q.register)} register${data.ex ? ', e.g. \u201C' + escHtml(data.ex) + '\u201D' : ''}.`;
+                } else if (q.type === 'collocation') {
+                    line = correct
+                        ? `\u201C${escHtml(q.word)} ${escHtml(word)}\u201D is the natural collocation.`
+                        : `\u201C${escHtml(q.word)} ${escHtml(word)}\u201D doesn't sound natural in standard English.`;
+                } else if (q.type === 'ai') {
+                    const fromMap = (q.option_explanations || {})[word];
+                    if (fromMap) line = escHtml(fromMap);
+                    else if (correct && q.explanation) line = escHtml(q.explanation);
+                    else line = correct ? 'This is the best answer.' : 'Not the best fit here.';
+                }
+                const tag = picked ? '\u{1F449} ' : (correct ? '\u2705 ' : '');
+                return `<li class="vd-why-item ${correct ? 'vd-why-correct' : 'vd-why-wrong'} ${picked ? 'vd-why-picked' : ''}">${tag}${line}</li>`;
+            }).join('');
+            whyHtml = `<ul class="vd-why-list">${explanations}</ul>`;
+        }
+
+        // Save-to-notebook offer when wrong (preserved from old behavior)
+        let saveOfferHtml = '';
+        if (answered && !q.wasCorrect) {
+            if (q.type === 'synonym') {
+                saveOfferHtml = `<button class="wl-btn-tiny vd-save-btn" data-save-word="${escAttr(q.answer)}" data-save-meaning="${escAttr(q.meaning)}" data-save-register="${escAttr(q.register)}">+ Save \u201C${escHtml(q.answer)}\u201D to notebook</button>`;
+            } else if (q.type === 'collocation') {
+                saveOfferHtml = `<button class="wl-btn-tiny vd-save-btn" data-save-word="${escAttr(q.word + ' ' + q.answer)}" data-save-meaning="collocation" data-save-register="neutral">+ Save \u201C${escHtml(q.word + ' ' + q.answer)}\u201D to notebook</button>`;
+            }
+        }
+
+        // Top feedback strip
+        let feedbackHtml = '';
+        if (answered) {
+            const correctAns = q.answer || q.correct_answer || '';
+            const msg = q.wasCorrect
+                ? `\u2705 Correct \u2014 "${escHtml(correctAns)}" was the best choice.`
+                : `\u274C Not quite \u2014 the best choice was "${escHtml(correctAns)}".`;
+            feedbackHtml = `<div class="vd-feedback-msg ${q.wasCorrect ? 'vd-fb-correct' : 'vd-fb-wrong'}">${msg}</div>`;
+        }
+
+        // Navigation row. Prev is enabled if there's an earlier question;
+        // Next is enabled once the user has answered (or is reviewing an
+        // already-answered question). The last question's Next reads "Finish".
+        const isLast       = drillIndex === drillQueue.length - 1;
+        const prevDisabled = drillIndex === 0          ? 'disabled' : '';
+        const nextDisabled = !answered                  ? 'disabled' : '';
+        const navHtml = `
+            <div class="vd-nav-row">
+                <button class="vd-nav-btn vd-nav-prev" ${prevDisabled}>\u2190 Previous</button>
+                <span class="vd-nav-progress">${progress}</span>
+                <button class="vd-nav-btn vd-nav-next" ${nextDisabled}>${isLast ? 'Finish \u2192' : 'Next \u2192'}</button>
+            </div>`;
 
         let questionHtml = '';
 
@@ -322,14 +419,12 @@ window.VocabDrill = (function() {
                     <div class="vd-sentence">${escHtml(q.sentence)}</div>
                     <div class="vd-register-hint">Target register: <span class="wl-register-tag wl-register-${q.register}">${q.register}</span> <button class="speak-btn" data-text="${escAttr(q.sentence.replace('________', q.answer))}" title="Listen to full sentence">&#x1F50A;</button></div>
                     <div class="vd-options">
-                        ${q.options.map(o => `
-                            <button class="vd-option" data-word="${escAttr(o.word)}" data-correct="${o.correct}" data-register="${o.register}">
-                                ${escHtml(o.word)}
-                                <span class="vd-opt-register wl-register-tag wl-register-${o.register}">${o.register}</span>
-                            </button>
-                        `).join('')}
+                        ${q.options.map(renderOption).join('')}
                     </div>
-                    <div class="vd-feedback" id="vd-feedback"></div>
+                    ${feedbackHtml}
+                    ${whyHtml}
+                    ${saveOfferHtml}
+                    ${navHtml}
                 </div>`;
         } else if (q.type === 'collocation') {
             questionHtml = `
@@ -344,19 +439,16 @@ window.VocabDrill = (function() {
                     <p class="vd-q-prompt">Which phrase naturally follows this word?</p>
                     <div class="vd-sentence vd-collocation-word">${escHtml(q.word)} + ... <button class="speak-btn" data-text="${escAttr(q.word + ' ' + q.answer)}" title="Listen">&#x1F50A;</button></div>
                     <div class="vd-options">
-                        ${q.options.map(o => `
-                            <button class="vd-option" data-word="${escAttr(o.text)}" data-correct="${o.correct}">
-                                ${escHtml(q.word)} ${escHtml(o.text)}
-                            </button>
-                        `).join('')}
+                        ${q.options.map(renderOption).join('')}
                     </div>
-                    <div class="vd-feedback" id="vd-feedback"></div>
+                    ${feedbackHtml}
+                    ${whyHtml}
+                    ${saveOfferHtml}
+                    ${navHtml}
                 </div>`;
         } else if (q.type === 'ai') {
-            const opts = (q.options || []).map(o => {
-                const isCorrect = o === q.answer || o === q.correct_answer;
-                return `<button class="vd-option" data-word="${escAttr(o)}" data-correct="${isCorrect}">${escHtml(o)}</button>`;
-            });
+            // AI drill options come as plain strings; normalize to objects
+            const optsNormalized = (q.options || []).map(o => (typeof o === 'string' ? { word: o } : o));
             questionHtml = `
                 <div class="vd-question-card">
                     <div class="vd-progress-bar">
@@ -368,8 +460,11 @@ window.VocabDrill = (function() {
                     </div>
                     <p class="vd-q-prompt">${escHtml(q.question || q.prompt || 'Choose the best answer:')}</p>
                     ${q.sentence ? `<div class="vd-sentence">${escHtml(q.sentence)}</div>` : ''}
-                    <div class="vd-options">${opts.join('')}</div>
-                    <div class="vd-feedback" id="vd-feedback"></div>
+                    <div class="vd-options">${optsNormalized.map(renderOption).join('')}</div>
+                    ${feedbackHtml}
+                    ${whyHtml}
+                    ${saveOfferHtml}
+                    ${navHtml}
                 </div>`;
         }
 
@@ -378,63 +473,60 @@ window.VocabDrill = (function() {
     }
 
     function handleResultClick(e) {
+        // Save-to-notebook button (rendered after wrong answers).
+        // Replaces the previous inline onclick="..." which was harder to
+        // sanitize and conflicted with the new review-mode re-renders.
+        const saveBtn = e.target.closest('.vd-save-btn');
+        if (saveBtn) {
+            saveToNotebook(
+                saveBtn.dataset.saveWord || '',
+                saveBtn.dataset.saveMeaning || '',
+                saveBtn.dataset.saveRegister || 'neutral'
+            );
+            saveBtn.disabled    = true;
+            saveBtn.textContent = '\u2713 Saved';
+            return;
+        }
+
+        // Navigation buttons (rendered after a question is answered, or
+        // any time when revisiting an already-answered question).
+        const prevBtn = e.target.closest('.vd-nav-prev');
+        if (prevBtn && !prevBtn.disabled) {
+            if (drillIndex > 0) {
+                drillIndex--;
+                renderDrillQuestion();
+            }
+            return;
+        }
+        const nextBtn = e.target.closest('.vd-nav-next');
+        if (nextBtn && !nextBtn.disabled) {
+            drillIndex++;
+            renderDrillQuestion();
+            return;
+        }
+
         const btn = e.target.closest('.vd-option');
         if (!btn || btn.disabled) return;
 
-        const q         = drillQueue[drillIndex];
+        const q = drillQueue[drillIndex];
+
+        // Block re-answering: if the question was already answered (e.g. the
+        // user navigated back to it), ignore option clicks. The review-mode
+        // render below already disables the buttons, but this is belt-and-
+        // suspenders against any race during re-render.
+        if (q.userChoice != null) return;
+
         const isCorrect = btn.dataset.correct === 'true';
-        const feedbackEl = document.getElementById('vd-feedback');
 
-        // Disable all buttons
-        document.querySelectorAll('.vd-option').forEach(b => {
-            b.disabled = true;
-            if (b.dataset.correct === 'true') b.classList.add('vd-correct');
-        });
+        // Persist the choice on the question itself so navigating back will
+        // restore the same review state. Don't double-count score.
+        q.userChoice  = btn.dataset.word;
+        q.wasCorrect  = isCorrect;
+        if (isCorrect) drillScore++;
 
-        if (isCorrect) {
-            btn.classList.add('vd-correct');
-            drillScore++;
-        } else {
-            btn.classList.add('vd-wrong');
-        }
-
-        // Show feedback
-        let feedback = '';
-        if (q.type === 'synonym') {
-            const answerData = q.allWords[q.answer];
-            feedback = isCorrect
-                ? `Correct! "${q.answer}" fits this ${q.register} context perfectly.`
-                : `The best choice was "${q.answer}" (${q.register}). ${answerData?.ex || ''}`;
-
-            // Offer to save wrong answers to notebook
-            if (!isCorrect) {
-                feedback += `<button class="wl-btn-tiny vd-save-btn" onclick="VocabDrill.saveToNotebook('${escAttr(q.answer)}', '${escAttr(q.meaning)}', '${escAttr(q.register)}')">+ Save to notebook</button>`;
-            }
-        } else if (q.type === 'collocation') {
-            feedback = isCorrect
-                ? `Correct! "${q.word} ${q.answer}" is a natural English collocation.`
-                : `The natural collocation is "${q.word} ${q.answer}".`;
-
-            if (!isCorrect) {
-                feedback += `<button class="wl-btn-tiny vd-save-btn" onclick="VocabDrill.saveToNotebook('${escAttr(q.word + ' ' + q.answer)}', 'collocation', 'neutral')">+ Save to notebook</button>`;
-            }
-        } else if (q.type === 'ai') {
-            const correctAns = q.answer || q.correct_answer || '';
-            feedback = isCorrect
-                ? `Correct! ${q.explanation || ''}`
-                : `The answer was "${correctAns}". ${q.explanation || ''}`;
-        }
-
-        if (feedbackEl) {
-            feedbackEl.innerHTML = `<div class="vd-feedback-msg ${isCorrect ? 'vd-fb-correct' : 'vd-fb-wrong'}">${feedback}</div>`;
-            feedbackEl.classList.add('visible');
-        }
-
-        // Auto-advance after delay
-        setTimeout(() => {
-            drillIndex++;
-            renderDrillQuestion();
-        }, isCorrect ? 1500 : 3000);
+        // Re-render in review mode (shows correct/wrong styling, why-not
+        // explanations, and Prev/Next buttons).
+        renderDrillQuestion();
     }
 
     function renderDrillComplete() {
