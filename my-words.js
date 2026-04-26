@@ -274,6 +274,24 @@ window.MyWords = (function() {
             if (e.key === 'ArrowRight') { e.preventDefault(); stopAutoplay(); navigate(1); }
             if (e.key === ' ')          { e.preventDefault(); toggleChinese(); }
             if (e.key === 'p' || e.key === 'P') { e.preventDefault(); toggleAutoplay(); }
+            // R = remove current word (with confirmation). Only fires in
+            // card or quiz view — list view already has per-row buttons,
+            // and a global R could remove the wrong word there.
+            if ((e.key === 'r' || e.key === 'R') && viewMode === 'cards') {
+                e.preventDefault();
+                stopAutoplay();
+                const words = getGroupWords();
+                const w     = words[currentIdx];
+                if (!w) return;
+                if (!confirm(`Remove "${w.word}" from your notebook?\n\nThis can't be undone, but you can re-add the word later.`)) return;
+                window.DB.removeNotebookWord(w.word);
+                refreshStudyList();
+                if (currentIdx >= studyList.length) currentIdx = Math.max(0, studyList.length - 1);
+                render();
+                updateFilterCounts();
+                window.App?.updateNotebookBadge?.();
+                window.App?.showToast?.(`"${w.word}" removed.`);
+            }
         });
     }
 
@@ -1269,6 +1287,7 @@ IMPORTANT:
 
         area.innerHTML = `
             <div class="mw-card mw-quiz-card">
+                <button class="mw-quiz-remove mw-delete-btn" data-word="${escAttr(w.word)}" title="Remove this word from notebook">&#x1F5D1;</button>
                 <div class="mw-card-top">
                     <div class="mw-card-word-row" style="justify-content:center">
                         <span class="mw-card-word">${escHtml(w.word)}</span>
@@ -1391,6 +1410,7 @@ IMPORTANT:
                 ${w.phonetic ? `<span class="mw-list-phonetic">${escHtml(w.phonetic)}</span>` : ''}
                 <span class="mw-list-meaning">${escHtml(w.meaning || w.enDef || '')}</span>
                 ${!complete ? '<span class="mw-incomplete-tag">!</span>' : ''}
+                <button class="mw-list-delete mw-delete-btn" data-word="${escAttr(w.word)}" title="Remove">&#x1F5D1;</button>
             </div>`;
         }).join('')}</div>`;
     }
@@ -1528,11 +1548,17 @@ Return ONLY valid JSON.`;
 
         const deleteBtn = e.target.closest('.mw-delete-btn');
         if (deleteBtn) {
+            // Always stop propagation so a delete inside a clickable list
+            // row doesn't also navigate the user to the deleted word.
+            e.stopPropagation();
             const word = deleteBtn.dataset.word;
+            if (!word) return;
+            if (!confirm(`Remove "${word}" from your notebook?\n\nThis can't be undone, but you can re-add the word later.`)) return;
             window.DB.removeNotebookWord(word);
             refreshStudyList();
             if (currentIdx >= studyList.length) currentIdx = Math.max(0, studyList.length - 1);
             render();
+            updateFilterCounts();
             window.App?.updateNotebookBadge?.();
             window.App?.showToast?.(`"${word}" removed.`);
             return;

@@ -4004,3 +4004,79 @@ html {
     }
     .mw-srs-prompt { font-size : 11px; }
 }
+
+/* ============================================================
+   Remove buttons — quiz card corner button + list-row button
+   ============================================================
+   Both surfaces re-use .mw-delete-btn class so the existing
+   click delegation handles them with no extra wiring.
+*/
+
+/* Quiz card needs to be a positioning context so the corner
+   button sits inside it. */
+.mw-quiz-card {
+    position : relative;
+}
+.mw-quiz-remove {
+    position      : absolute;
+    top           : 8px;
+    right         : 8px;
+    width         : 32px;
+    height        : 32px;
+    padding       : 0;
+    border        : 1px solid var(--border);
+    border-radius : 50%;
+    background    : var(--bg-card);
+    cursor        : pointer;
+    font-size     : 14px;
+    line-height   : 1;
+    color         : var(--text-tertiary);
+    transition    : all 0.12s;
+    z-index       : 2;
+    display       : flex;
+    align-items   : center;
+    justify-content : center;
+}
+.mw-quiz-remove:hover {
+    border-color : #c0504d;
+    color        : #c0504d;
+    background   : #c0504d10;
+}
+
+/* List-row remove sits at the right edge, marginal-left:auto
+   pushes it past the meaning text. */
+.mw-list-item {
+    /* The existing rule sets display: flex; we just need the gap and
+       a way for delete to push to the right. Not redefining base. */
+}
+.mw-list-delete {
+    margin-left   : auto;
+    width         : 28px;
+    height        : 28px;
+    padding       : 0;
+    border        : 1px solid transparent;
+    border-radius : var(--radius-sm);
+    background    : transparent;
+    cursor        : pointer;
+    font-size     : 13px;
+    line-height   : 1;
+    color         : var(--text-tertiary);
+    opacity       : 0.4;
+    flex-shrink   : 0;
+    transition    : all 0.12s;
+    display       : flex;
+    align-items   : center;
+    justify-content : center;
+}
+.mw-list-item:hover .mw-list-delete { opacity : 0.7; }
+.mw-list-delete:hover {
+    opacity      : 1 !important;
+    border-color : #c0504d;
+    color        : #c0504d;
+    background   : #c0504d10;
+}
+
+@media (max-width: 480px) {
+    .mw-list-delete { opacity : 0.6; }  /* always visible-ish on touch */
+    .mw-quiz-remove { width: 28px; height: 28px; font-size: 12px; }
+}
