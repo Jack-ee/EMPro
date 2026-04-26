@@ -472,6 +472,14 @@ window.SentenceDrill = (function() {
 
         tile.classList.add('sd-mw-tile-active');
         mwDetailWord = word;
+
+        // v70: auto-pronounce the word on click. Fires only on OPEN
+        // (the wasActive early-return above already covered toggling
+        // off, and navigateMineDetail clears the active class before
+        // re-entering this function so prev/next nav also lands here
+        // and pronounces the new word).
+        try { window.App?.speak?.(word); } catch {}
+
         if (!panel) {
             console.warn('[SentenceDrill] #sd-m-float-detail not found in mineContainer!');
             return;
