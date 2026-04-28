@@ -692,6 +692,67 @@
         return false;
     }
 
+    // ─── Swipe gesture helper (v75) ─────────────────────────
+    // Touch-only horizontal swipe detector for navigating between cards
+    // (curated detail, mine detail, ref tab phrasing card, etc.). Designed
+    // to coexist with vertical scrolling: only fires when horizontal travel
+    // dominates and exceeds a clear threshold, so a casual vertical scroll
+    // never misfires. Returns a teardown function the caller can use if
+    // the element is later replaced.
+    function bindSwipe(el, opts) {
+        if (!el) return () => {};
+        const onPrev    = opts?.onPrev || (() => {});
+        const onNext    = opts?.onNext || (() => {});
+        const minDist   = opts?.minDist   || 50;   // px of horizontal travel
+        const maxOffAx  = opts?.maxOffAx  || 60;   // px of vertical travel — past this, treat as scroll
+        const maxTime   = opts?.maxTime   || 600;  // ms — past this, treat as drag/long-press
+
+        let sx = 0, sy = 0, sT = 0, tracking = false;
+
+        function onStart(e) {
+            // Ignore swipes that begin on an interactive control — the
+            // existing button presses (prev/next, focus toggles, speak)
+            // must keep working without being eaten by the swipe handler.
+            const t = e.target;
+            if (t && t.closest && t.closest('button, a, input, textarea, select')) {
+                tracking = false;
+                return;
+            }
+            const touch = e.touches && e.touches[0];
+            if (!touch) return;
+            sx = touch.clientX;
+            sy = touch.clientY;
+            sT = Date.now();
+            tracking = true;
+        }
+        function onEnd(e) {
+            if (!tracking) return;
+            tracking = false;
+            const touch = (e.changedTouches && e.changedTouches[0]);
+            if (!touch) return;
+            const dx = touch.clientX - sx;
+            const dy = touch.clientY - sy;
+            const dt = Date.now() - sT;
+            if (dt > maxTime)                  return;
+            if (Math.abs(dy) > maxOffAx)       return;
+            if (Math.abs(dx) < minDist)        return;
+            if (Math.abs(dx) < Math.abs(dy))   return;   // vertical-dominant — let it scroll
+            if (dx > 0) onPrev();   // swipe right → previous (matches phone reading direction)
+            else        onNext();
+        }
+        function onCancel() { tracking = false; }
+
+        el.addEventListener('touchstart',  onStart,  { passive: true });
+        el.addEventListener('touchend',    onEnd,    { passive: true });
+        el.addEventListener('touchcancel', onCancel, { passive: true });
+
+        return function teardown() {
+            el.removeEventListener('touchstart',  onStart);
+            el.removeEventListener('touchend',    onEnd);
+            el.removeEventListener('touchcancel', onCancel);
+        };
+    }
+
     // ─── Public API ─────────────────────────────────────────
     window.App = {
         showToast,
@@ -709,7 +770,9 @@
         // Study-session lifecycle (suppresses auto-reload during playback)
         beginSession,
         endSession,
-        isStudySessionActive
+        isStudySessionActive,
+        // v75: shared swipe-to-navigate helper for card-based UIs
+        bindSwipe
     };
 
     // ─── Boot ───────────────────────────────────────────────

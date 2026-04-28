@@ -590,6 +590,27 @@ Return ONLY valid JSON, no markdown fences.`;
                 renderPhrasingReference();
             }
         });
+
+        // v75: swipe left/right anywhere on the card to navigate. The
+        // helper ignores swipes that begin on a button so the explicit
+        // prev/next/speak controls remain tappable as before.
+        const card = container.querySelector('.sc-phr-card');
+        if (card && window.App?.bindSwipe) {
+            window.App.bindSwipe(card, {
+                onPrev: () => {
+                    if (currentPhrasingPairIdx > 0) {
+                        currentPhrasingPairIdx--;
+                        renderPhrasingReference();
+                    }
+                },
+                onNext: () => {
+                    if (currentPhrasingPairIdx < totalPairs - 1) {
+                        currentPhrasingPairIdx++;
+                        renderPhrasingReference();
+                    }
+                }
+            });
+        }
     }
 
     function registerClass(reg) {

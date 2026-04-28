@@ -247,6 +247,26 @@ window.MyWords = (function() {
         document.getElementById('mw-next')?.addEventListener('click', () => { stopAutoplay(); navigate(1); });
         document.getElementById('mw-shuffle')?.addEventListener('click', () => { stopAutoplay(); shuffleList(); });
 
+        // v75: swipe left/right anywhere on the card area to walk through
+        // study words. Stops autoplay if running, mirroring the prev/next
+        // button behavior. Skipped in list mode since list scrolls
+        // vertically and a horizontal gesture there shouldn't navigate.
+        const mwArea = document.getElementById('mw-area');
+        if (mwArea && window.App?.bindSwipe) {
+            window.App.bindSwipe(mwArea, {
+                onPrev: () => {
+                    if (viewMode === 'list') return;
+                    stopAutoplay();
+                    navigate(-1);
+                },
+                onNext: () => {
+                    if (viewMode === 'list') return;
+                    stopAutoplay();
+                    navigate(1);
+                }
+            });
+        }
+
         // Autoplay toggle
         document.getElementById('mw-autoplay')?.addEventListener('click', toggleAutoplay);
 

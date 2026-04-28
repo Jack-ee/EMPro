@@ -306,6 +306,16 @@ window.SentenceDrill = (function() {
             curatedContainer.querySelectorAll('.sd-c-tile.sd-c-tile-active').forEach(t => t.classList.remove('sd-c-tile-active'));
             hideDetailPanel(panel);
         });
+
+        // v75: swipe left/right on the detail card to navigate sentences.
+        // bindSwipe ignores swipes that originate on buttons, so existing
+        // prev/next/play/drill/close taps continue to work normally.
+        if (window.App?.bindSwipe) {
+            window.App.bindSwipe(panel, {
+                onPrev: () => { if (idx > 0)             navigateCuratedDetail(idx - 1); },
+                onNext: () => { if (idx < total - 1)     navigateCuratedDetail(idx + 1); }
+            });
+        }
     }
 
     // Helper: jump to a different sentence's detail without toggling off
@@ -577,6 +587,17 @@ window.SentenceDrill = (function() {
             mineContainer.querySelectorAll('.sd-mw-tile.sd-mw-tile-active').forEach(t => t.classList.remove('sd-mw-tile-active'));
             hideDetailPanel(panel);
         });
+
+        // v75: swipe left/right on the Mine detail card to walk through
+        // notebook words. bindSwipe ignores swipes that begin on buttons,
+        // so taps on the focus toggles, prev/next, speak, and close keep
+        // working as direct presses.
+        if (window.App?.bindSwipe) {
+            window.App.bindSwipe(panel, {
+                onPrev: () => { if (idx > 0)         navigateMineDetail(mwSentences[idx - 1].word); },
+                onNext: () => { if (idx < total - 1) navigateMineDetail(mwSentences[idx + 1].word); }
+            });
+        }
     }
 
     // Helper for Mine detail nav. Find the tile for the new word and
