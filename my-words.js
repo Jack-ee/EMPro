@@ -103,6 +103,9 @@ window.MyWords = (function() {
         if (prog.mode)  studyMode    = prog.mode;
         if (prog.view)  viewMode     = prog.view;
         if (prog.filter) studyFilter  = prog.filter;
+        // 'due' filter pill was removed (it duplicated All for this user's
+        // usage pattern). Migrate any lingering saved value back to 'all'.
+        if (studyFilter === 'due') studyFilter = 'all';
         if (prog.group != null) currentGroup = Math.max(0, Math.min(prog.group, getGroupCount() - 1));
         if (prog.idx   != null) currentIdx   = Math.max(0, Math.min(prog.idx, getGroupWords().length - 1));
         if (prog.qScore != null) quizScore = prog.qScore;
