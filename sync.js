@@ -591,7 +591,10 @@ window.SyncManager = (function() {
         'wl_draft',         // writing lab draft (fires on every keystroke)
         'speech_speed',     // slider
         'voice_id',         // voice selector
-        'auto_speak',       // checkbox
+        'autoplay_endef',   // checkbox (auto-pronounce English definition)
+        'autoplay_cn',      // checkbox (auto-pronounce Chinese meaning)
+        'autoplay_collo',   // checkbox (auto-pronounce collocations)
+        'autoplay_sent',    // checkbox (auto-pronounce example sentence)
         'show_cn_default',  // checkbox
         'group_size',       // number input
         'ai_provider',      // provider selector (rarely changed)

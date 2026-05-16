@@ -18,10 +18,13 @@ window.MyWords = (function() {
     let studyFilter  = 'all'; // 'all' | 'core' | 'pronunciation' | 'spelling'
 
     // --- Autoplay state ---
+    // Per-component on/off lives in localStorage prefs (autoplay_endef,
+    // autoplay_cn, autoplay_collo, autoplay_sent) and is read fresh inside
+    // speakCurrentAndQueueNext so toggling Settings mid-session takes effect
+    // on the next card. The word itself is always pronounced.
     let autoplayOn      = false;
     let autoplayTimer   = null;  // timeout id for next-word scheduling
     let autoplayToken   = 0;     // increments on every stop; callbacks check this to abort
-    let autoplayWithEx  = true;  // speak example sentence after the word
     let wakeLock        = null;  // Screen Wake Lock sentinel while autoplay runs
 
     // --- Progress persistence (per-filter) ---
@@ -1032,26 +1035,33 @@ IMPORTANT:
 
         const rate = parseFloat(window.DB.getPref('speech_speed', '0.85'));
 
+        // Per-component toggles (word itself is always on). Read fresh each
+        // card so the user can flip these in Settings without restarting.
+        const playEnDef = window.DB.getPref('autoplay_endef', 'true') === 'true';
+        const playCn    = window.DB.getPref('autoplay_cn',    'true') === 'true';
+        const playColo  = window.DB.getPref('autoplay_collo', 'true') === 'true';
+        const playSent  = window.DB.getPref('autoplay_sent',  'true') === 'true';
+
         // Build the speech queue for this card. Each item is {text, lang}
         // so the TTS engine can switch between English and Chinese voices
         // between utterances. Order (per user preference):
-        //   1. the word itself            (EN)
-        //   2. the English definition     (EN)
-        //   3. the Chinese meaning        (CN) ─ brief, just the gloss
-        //   4. each collocation           (EN)
-        //   5. the example sentence       (EN, if enabled)
+        //   1. the word itself            (EN) — always on
+        //   2. the English definition     (EN) — pref: autoplay_endef
+        //   3. the Chinese meaning        (CN) — pref: autoplay_cn
+        //   4. each collocation           (EN) — pref: autoplay_collo
+        //   5. the example sentence       (EN) — pref: autoplay_sent
         const queue = [{ text: w.word, lang: 'en-US' }];
-        if (w.enDef && w.enDef.trim()) {
+        if (playEnDef && w.enDef && w.enDef.trim()) {
             queue.push({ text: w.enDef, lang: 'en-US' });
         }
-        if (w.meaning && w.meaning.trim()) {
+        if (playCn && w.meaning && w.meaning.trim()) {
             queue.push({ text: w.meaning, lang: 'zh-CN' });
         }
-        if (w.collo) {
+        if (playColo && w.collo) {
             (w.collo || '').split(/\s*·\s*/).map(s => s.trim()).filter(Boolean)
                 .forEach(c => queue.push({ text: c, lang: 'en-US' }));
         }
-        if (autoplayWithEx && w.context && w.context.trim()) {
+        if (playSent && w.context && w.context.trim()) {
             queue.push({ text: w.context, lang: 'en-US' });
         }
 

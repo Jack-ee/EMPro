@@ -185,9 +185,15 @@
         if (speedEl)    speedEl.value        = String(savedSpd);
         if (speedVal)   speedVal.textContent = savedSpd.toFixed(2);
 
-        // Auto-speak
-        const autoEl    = document.getElementById('settings-auto-speak');
-        if (autoEl) autoEl.checked = window.DB.getPref('auto_speak', 'true') === 'true';
+        // Auto-pronounce components (word is always on; these 4 are user-configurable)
+        const apEndef = document.getElementById('settings-autoplay-endef');
+        const apCn    = document.getElementById('settings-autoplay-cn');
+        const apColo  = document.getElementById('settings-autoplay-collo');
+        const apSent  = document.getElementById('settings-autoplay-sent');
+        if (apEndef) apEndef.checked = window.DB.getPref('autoplay_endef', 'true') === 'true';
+        if (apCn)    apCn.checked    = window.DB.getPref('autoplay_cn',    'true') === 'true';
+        if (apColo)  apColo.checked  = window.DB.getPref('autoplay_collo', 'true') === 'true';
+        if (apSent)  apSent.checked  = window.DB.getPref('autoplay_sent',  'true') === 'true';
 
         // Group size
         const gsEl      = document.getElementById('settings-group-size');
@@ -305,8 +311,17 @@
             document.getElementById('settings-speed-val').textContent = v.toFixed(2);
             window.DB.setPref('speech_speed', String(v));
         });
-        document.getElementById('settings-auto-speak')?.addEventListener('change', (e) => {
-            window.DB.setPref('auto_speak', e.target.checked ? 'true' : 'false');
+        document.getElementById('settings-autoplay-endef')?.addEventListener('change', (e) => {
+            window.DB.setPref('autoplay_endef', e.target.checked ? 'true' : 'false');
+        });
+        document.getElementById('settings-autoplay-cn')?.addEventListener('change', (e) => {
+            window.DB.setPref('autoplay_cn', e.target.checked ? 'true' : 'false');
+        });
+        document.getElementById('settings-autoplay-collo')?.addEventListener('change', (e) => {
+            window.DB.setPref('autoplay_collo', e.target.checked ? 'true' : 'false');
+        });
+        document.getElementById('settings-autoplay-sent')?.addEventListener('change', (e) => {
+            window.DB.setPref('autoplay_sent', e.target.checked ? 'true' : 'false');
         });
 
         // Study
