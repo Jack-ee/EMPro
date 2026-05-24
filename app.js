@@ -96,13 +96,13 @@
         return null;  // ultimate fallback — let the browser decide
     }
 
-    // speak(text, rate?, onEnd?, opts?)
+    // speakNative(text, rate?, onEnd?, opts?) — Web Speech API path.
     //   opts.lang — 'en-US' (default) | 'zh-CN' | BCP-47 tag.
     //   When lang is non-default English, we pick a matching voice from
     //   the available voices list; on Android where getVoices()==[], we
     //   still set utterance.lang so the system default TTS picks the
     //   right engine.
-    function speak(text, rate, onEnd, opts) {
+    function speakNative(text, rate, onEnd, opts) {
         if (!text || !('speechSynthesis' in window)) {
             if (typeof onEnd === 'function') onEnd();
             return;
@@ -137,8 +137,123 @@
         }
     }
 
+    // ─── OpenAI neural TTS (optional, online) ────────────────
+    // Device voices read full sentences with flat, robotic prosody.
+    // When the user opts in (Settings → Voice engine → Neural), English
+    // speech is routed through OpenAI's gpt-4o-mini-tts, which sounds
+    // dramatically more natural. Synthesised clips are cached per session
+    // so re-plays and autoplay chains are instant. ANY failure (offline,
+    // bad key, quota, CORS) silently falls back to the device voice, so
+    // playback never dies.
+    const OPENAI_TTS_URL = 'https://api.openai.com/v1/audio/speech';
+    const NEURAL_VOICES  = ['alloy', 'ash', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer'];
+    const _ttsCache      = new Map();   // `${voice}|${text}` → object URL
+    let   _neuralAudio   = null;        // currently-playing HTMLAudioElement
+    let   _neuralAbort   = null;        // AbortController for an in-flight fetch
+
+    function ttsEngine()   { return window.DB?.getPref?.('tts_engine', 'native') || 'native'; }
+    function neuralVoice() {
+        const v = window.DB?.getPref?.('tts_neural_voice', 'alloy') || 'alloy';
+        return NEURAL_VOICES.includes(v) ? v : 'alloy';
+    }
+    function neuralKey() {
+        // A dedicated TTS key wins; otherwise reuse the chat key when the
+        // selected AI provider is OpenAI, so the key isn't entered twice.
+        const dedicated = window.DB?.getPref?.('tts_openai_key', '') || '';
+        if (dedicated) return dedicated;
+        try {
+            if (window.AIEngine?.getProvider?.() === 'openai') return window.DB?.getAPIKey?.() || '';
+        } catch {}
+        return '';
+    }
+    function neuralAvailable() {
+        return ttsEngine() === 'neural' && !!neuralKey() && navigator.onLine !== false;
+    }
+
+    async function speakNeural(text, rate, onEnd) {
+        // One-shot onEnd guard — fired by exactly one of: audio end, error.
+        let done = false;
+        const finish = () => { if (!done) { done = true; if (typeof onEnd === 'function') onEnd(); } };
+
+        const voice  = neuralVoice();
+        const key    = neuralKey();
+        const cacheK = `${voice}|${text}`;
+        try {
+            stopSpeak();
+            let url = _ttsCache.get(cacheK);
+            if (!url) {
+                _neuralAbort = new AbortController();
+                const resp = await fetch(OPENAI_TTS_URL, {
+                    method : 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body   : JSON.stringify({
+                        model           : 'gpt-4o-mini-tts',
+                        voice           : voice,
+                        input           : String(text),
+                        response_format : 'mp3',
+                        speed           : Math.max(0.5, Math.min(1.5, Number(rate) || 1))
+                    }),
+                    signal : _neuralAbort.signal
+                });
+                _neuralAbort = null;
+                if (!resp.ok) throw new Error('TTS_HTTP_' + resp.status);
+                const blob = await resp.blob();
+                url = URL.createObjectURL(blob);
+                // Bound the cache so a long session doesn't leak memory.
+                if (_ttsCache.size > 80) {
+                    const oldest = _ttsCache.keys().next().value;
+                    try { URL.revokeObjectURL(_ttsCache.get(oldest)); } catch {}
+                    _ttsCache.delete(oldest);
+                }
+                _ttsCache.set(cacheK, url);
+            }
+            const audio = new Audio(url);
+            _neuralAudio = audio;
+            audio.onended = () => { if (_neuralAudio === audio) _neuralAudio = null; finish(); };
+            audio.onerror = () => { if (_neuralAudio === audio) _neuralAudio = null; finish(); };
+            await audio.play();
+        } catch (err) {
+            _neuralAbort = null;
+            // Stopped on purpose (navigation, next segment) — do NOT advance
+            // the autoplay chain.
+            if (err && (err.name === 'AbortError')) return;
+            console.warn('[tts] neural failed, using device voice:', err && err.message);
+            speakNative(text, rate, finish);
+        }
+    }
+
+    // speak(text, rate?, onEnd?, opts?) — dispatches to the chosen engine.
+    function speak(text, rate, onEnd, opts) {
+        if (!text) { if (typeof onEnd === 'function') onEnd(); return; }
+        const effRate = Number(rate) || parseFloat(window.DB?.getPref?.('speech_speed', '0.9')) || 0.9;
+        if (neuralAvailable()) {
+            speakNeural(text, effRate, onEnd);
+        } else {
+            speakNative(text, effRate, onEnd, opts);
+        }
+    }
+
+    // Force a neural preview regardless of the saved engine — used by the
+    // "Test neural voice" button in Settings.
+    function previewNeuralVoice() {
+        if (!neuralKey()) {
+            showToast('Add an OpenAI key first (or set OpenAI as your AI provider).');
+            return;
+        }
+        speakNeural('Here is a sample of the neural voice reading a full sentence aloud.', 1, null);
+    }
+
     function stopSpeak() {
         try { window.speechSynthesis?.cancel?.(); } catch {}
+        try { if (_neuralAbort) { _neuralAbort.abort(); _neuralAbort = null; } } catch {}
+        try {
+            if (_neuralAudio) {
+                _neuralAudio.pause();
+                _neuralAudio.onended = null;
+                _neuralAudio.onerror = null;
+                _neuralAudio = null;
+            }
+        } catch {}
     }
 
     // ─── Header stats ───────────────────────────────────────
@@ -175,8 +290,13 @@
     }
 
     function hydrateSettingsUI() {
+        // Profile
+        const nameEl = document.getElementById('settings-profile-name');
+        if (nameEl) nameEl.value = getProfileName();
+
         // Voice
         populateVoiceSelect();
+        hydrateNeuralTtsUI();
 
         // Speed
         const speedEl   = document.getElementById('settings-speed');
@@ -272,6 +392,28 @@
         sel.value     = saved;
     }
 
+    // Fill the neural-TTS controls from saved prefs and show/hide the
+    // detail box depending on the chosen engine.
+    function hydrateNeuralTtsUI() {
+        const engEl   = document.getElementById('settings-tts-engine');
+        const voiceEl = document.getElementById('settings-neural-voice');
+        const keyEl   = document.getElementById('settings-tts-key');
+        const boxEl   = document.getElementById('settings-neural-box');
+
+        const engine  = window.DB?.getPref?.('tts_engine', 'native') || 'native';
+        if (engEl) engEl.value = engine;
+        if (boxEl) boxEl.style.display = (engine === 'neural') ? '' : 'none';
+
+        if (voiceEl) {
+            const saved = window.DB?.getPref?.('tts_neural_voice', 'alloy') || 'alloy';
+            voiceEl.innerHTML = NEURAL_VOICES.map(
+                v => `<option value="${v}">${v.charAt(0).toUpperCase() + v.slice(1)}</option>`
+            ).join('');
+            voiceEl.value = NEURAL_VOICES.includes(saved) ? saved : 'alloy';
+        }
+        if (keyEl) keyEl.value = window.DB?.getPref?.('tts_openai_key', '') || '';
+    }
+
     function populateProviderSelect() {
         const sel = document.getElementById('settings-ai-provider');
         if (!sel) return;
@@ -304,6 +446,29 @@
         // Voice / speed / auto-speak
         document.getElementById('settings-voice')?.addEventListener('change', (e) => {
             window.DB.setPref('tts_voice', e.target.value);
+        });
+
+        // Profile name — cosmetic; PROFILE_ID is untouched so data is safe.
+        document.getElementById('settings-profile-name')?.addEventListener('change', (e) => {
+            const saved = setProfileName(e.target.value);
+            e.target.value = saved;
+            showToast('Name updated.');
+        });
+
+        // Voice engine (device vs OpenAI neural)
+        document.getElementById('settings-tts-engine')?.addEventListener('change', (e) => {
+            window.DB.setPref('tts_engine', e.target.value);
+            const box = document.getElementById('settings-neural-box');
+            if (box) box.style.display = (e.target.value === 'neural') ? '' : 'none';
+        });
+        document.getElementById('settings-neural-voice')?.addEventListener('change', (e) => {
+            window.DB.setPref('tts_neural_voice', e.target.value);
+        });
+        document.getElementById('settings-tts-key')?.addEventListener('input', (e) => {
+            window.DB.setPref('tts_openai_key', (e.target.value || '').trim());
+        });
+        document.getElementById('settings-tts-test')?.addEventListener('click', () => {
+            previewNeuralVoice();
         });
         const speedEl = document.getElementById('settings-speed');
         speedEl?.addEventListener('input', (e) => {
@@ -695,6 +860,8 @@
         try {
             if (window.speechSynthesis?.speaking)             return true;
         } catch {}
+        // Neural TTS audio currently playing
+        if (_neuralAudio && !_neuralAudio.paused)             return true;
         // Implicit: the user is currently focused in an editable field
         const ae = document.activeElement;
         if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.isContentEditable)) {
@@ -773,6 +940,7 @@
         showToast,
         speak,
         stopSpeak,
+        previewNeuralVoice,
         openSettings,
         closeSettings,
         openNotebook,
@@ -789,6 +957,58 @@
         // v75: shared swipe-to-navigate helper for card-based UIs
         bindSwipe
     };
+
+    // ─── Profile name ───────────────────────────────────────
+    // The display name is the user-chosen handle for this install.
+    // It is purely cosmetic — the install's identity is PROFILE_ID,
+    // which never changes, so renaming never orphans data.
+    function getProfileName() {
+        try { return localStorage.getItem('emp_profile_name') || ''; }
+        catch { return ''; }
+    }
+    function setProfileName(name) {
+        const clean = (name || '').trim().slice(0, 40) || 'My English Pro';
+        try { localStorage.setItem('emp_profile_name', clean); } catch {}
+        if (window.APP_CONFIG) window.APP_CONFIG.PROFILE_NAME = clean;
+        return clean;
+    }
+
+    // First-run only: a brand-new install is flagged by config.js.
+    // Shows a one-time modal asking what to call the user.
+    function promptForNameIfNeeded() {
+        let needs = false;
+        try { needs = localStorage.getItem('emp_profile_needs_name') === '1'; } catch {}
+        if (!needs) return;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id        = 'profile-name-modal';
+        modal.innerHTML = `
+            <div class="modal-card" style="max-width:360px">
+                <div class="modal-header"><h2>Welcome</h2></div>
+                <div class="modal-body">
+                    <p class="settings-hint">What should this app call you? You can change it later in Settings.</p>
+                    <input type="text" id="profile-name-input" class="settings-input"
+                           placeholder="Your name" maxlength="40"
+                           style="width:100%;margin-bottom:10px">
+                    <button class="wl-btn-primary" id="profile-name-save" style="width:100%">Get started</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.classList.add('open');
+
+        const input = modal.querySelector('#profile-name-input');
+        const finish = () => {
+            const name = setProfileName(input.value);
+            try { localStorage.removeItem('emp_profile_needs_name'); } catch {}
+            modal.classList.remove('open');
+            setTimeout(() => modal.remove(), 250);
+            showToast(`Welcome, ${name}!`);
+        };
+        modal.querySelector('#profile-name-save').addEventListener('click', finish);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') finish(); });
+        setTimeout(() => input.focus(), 50);
+    }
 
     // ─── Boot ───────────────────────────────────────────────
     function boot() {
@@ -837,6 +1057,9 @@
 
             // Header stats
             refreshStats();
+
+            // First-run: ask a brand-new install for a display name.
+            promptForNameIfNeeded();
 
             console.log('[app] Boot complete.');
         } catch (err) {

@@ -810,3 +810,35 @@ window.EXPR_CATEGORIES = {
     scoping    : { label: "Scoping / Consolidating", icon: "🎛️", color: "#E74C3C" },
     workflow   : { label: "Directing Workflow",      icon: "📋", color: "#8E44AD" },
 };
+
+// ============================================================
+// SHARED DEMO SUBSET
+// ------------------------------------------------------------
+// The EXPRESSIONS above are drawn from the owner's real usage and
+// may not suit other learners. Non-owner installs therefore see
+// only this curated demo subset — two entries per category, enough
+// to demonstrate all three exercise types (fill-blank, scenario,
+// rephrase). The owner install (PROFILE_ID === OWNER_ID) keeps the
+// full set. The Ref tab (PHRASING_BANK in speaking-coach.js) is
+// generic reference material and is shared with everyone unchanged.
+// ============================================================
+window.EXPRESSIONS_DEMO_IDS = [
+    'req_01', 'req_02',
+    'sug_01', 'sug_02',
+    'eval_01', 'eval_02',
+    'exp_01', 'exp_02',
+    'sco_01', 'sco_02',
+    'wf_01', 'wf_02'
+];
+
+(function gateExpressions() {
+    var cfg     = window.APP_CONFIG || {};
+    var isOwner = cfg.PROFILE_ID && cfg.OWNER_ID && cfg.PROFILE_ID === cfg.OWNER_ID;
+    if (isOwner) return;   // owner keeps the full personal collection
+
+    var demo = {};
+    (window.EXPRESSIONS_DEMO_IDS || []).forEach(function(id) { demo[id] = true; });
+    window.EXPRESSIONS = (window.EXPRESSIONS || []).filter(function(e) {
+        return demo[e.id];
+    });
+})();

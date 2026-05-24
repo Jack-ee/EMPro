@@ -15,13 +15,24 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v80 — multi-user:
+//   • per-install PROFILE_ID (no data / Gist collision between
+//     users); first run asks for a display name.
+//   • non-owner installs see only a demo subset of Expressions;
+//     the Ref tab stays shared in full.
+
+// v79 — neural TTS:
+//   • optional OpenAI gpt-4o-mini-tts voice engine for far less
+//     robotic sentence playback; device voice remains the offline
+//     fallback. Settings → Voice → Voice engine.
+
 // v78 — batch paste-back fix:
 //   • enriched entries now carry an INPUT field echoing the original
 //     word, so an inflected word ('squeezed') updates its own row
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v78';
+const CACHE_NAME = 'emp-v80';
 const ASSETS = [
     './',
     './index.html',

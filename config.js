@@ -230,3 +230,54 @@ Mix question types:
 Make questions challenging but fair. Each should teach something about natural English usage.
 Return ONLY valid JSON, no markdown fences.`
 };
+
+// ============================================================
+// PER-INSTALL IDENTITY
+// ------------------------------------------------------------
+// PROFILE_ID namespaces every localStorage key and the Gist sync
+// filename. Each install resolves its own ID so separate users on
+// the same deployment never share data or collide. The original
+// single-user build hardcoded "JackChen"; that value is kept as
+// OWNER_ID (gates owner-only content) and as the legacy-migration
+// key so the first user's existing notebook is preserved.
+// ============================================================
+window.APP_CONFIG.OWNER_ID = "JackChen";
+
+(function resolveIdentity() {
+    var cfg = window.APP_CONFIG;
+    try {
+        var id   = localStorage.getItem('emp_profile_id');
+        var name = localStorage.getItem('emp_profile_name');
+
+        if (!id) {
+            // No stored ID yet. If data already exists under the old
+            // hardcoded prefix, this is the original install — adopt
+            // that ID so its notebook stays visible. Otherwise mint a
+            // fresh random ID for a brand-new user.
+            var hasLegacy = false;
+            var legacyPrefix = 'emp_' + cfg.OWNER_ID + '_';
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (k && k.indexOf(legacyPrefix) === 0) { hasLegacy = true; break; }
+            }
+            if (hasLegacy) {
+                id = cfg.OWNER_ID;
+                if (!name) {
+                    name = cfg.PROFILE_NAME;            // keep the original name
+                    localStorage.setItem('emp_profile_name', name);
+                }
+            } else {
+                id = 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+                cfg.PROFILE_NAME = 'My English Pro';    // neutral until the user picks one
+                localStorage.setItem('emp_profile_needs_name', '1');
+            }
+            localStorage.setItem('emp_profile_id', id);
+        }
+
+        cfg.PROFILE_ID = id;
+        if (name) cfg.PROFILE_NAME = name;
+    } catch (e) {
+        // localStorage unavailable — fall back to the compiled defaults.
+        console.warn('[config] identity resolve failed:', e && e.message);
+    }
+})();
