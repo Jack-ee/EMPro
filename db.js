@@ -64,8 +64,95 @@
         'worse':['bad','ill'],'worst':['bad','ill'],
         'more':['many','much'],'most':['many','much'],
         'less':['little'],'least':['little'],
-        'further':['far'],'furthest':['far'],'farther':['far'],'farthest':['far']
+        'further':['far'],'furthest':['far'],'farther':['far'],'farthest':['far'],
+        // Additional irregular verbs (past / past participle / -ing).
+        'began':['begin'],'begun':['begin'],'beginning':['begin'],
+        'drove':['drive'],'driven':['drive'],'driving':['drive'],
+        'rose':['rise'],'risen':['rise'],'rising':['rise'],
+        'fell':['fall'],'fallen':['fall'],'falling':['fall'],
+        'flew':['fly'],'flown':['fly'],'flying':['fly'],
+        'grew':['grow'],'grown':['grow'],'growing':['grow'],
+        'threw':['throw'],'thrown':['throw'],'throwing':['throw'],
+        'blew':['blow'],'blown':['blow'],'blowing':['blow'],
+        'froze':['freeze'],'frozen':['freeze'],'freezing':['freeze'],
+        'stole':['steal'],'stolen':['steal'],'stealing':['steal'],
+        'swam':['swim'],'swum':['swim'],'swimming':['swim'],
+        'sang':['sing'],'sung':['sing'],'singing':['sing'],
+        'drank':['drink'],'drunk':['drink'],'drinking':['drink'],
+        'rang':['ring'],'rung':['ring'],'ringing':['ring'],
+        'sat':['sit'],'sitting':['sit'],
+        'stood':['stand'],'standing':['stand'],
+        'understood':['understand'],'understanding':['understand'],
+        'won':['win'],'winning':['win'],
+        'sent':['send'],'sending':['send'],
+        'spent':['spend'],'spending':['spend'],
+        'built':['build'],'building':['build'],
+        'felt':['feel'],'feeling':['feel'],
+        'kept':['keep'],'keeping':['keep'],
+        'slept':['sleep'],'sleeping':['sleep'],
+        'meant':['mean'],'meaning':['mean'],
+        'dealt':['deal'],'dealing':['deal'],
+        'left':['leave'],'leaving':['leave'],
+        'heard':['hear'],'hearing':['hear'],
+        'paid':['pay'],'paying':['pay'],
+        'laid':['lay'],'laying':['lay'],
+        'became':['become'],'becoming':['become'],
+        'forgot':['forget'],'forgotten':['forget'],'forgetting':['forget'],
+        'wore':['wear'],'worn':['wear'],'wearing':['wear'],
+        'tore':['tear'],'torn':['tear'],'tearing':['tear'],
+        'bore':['bear'],'borne':['bear'],'bearing':['bear'],
+        'beat':['beat'],'beaten':['beat'],'beating':['beat'],
+        'bit':['bite'],'bitten':['bite'],'biting':['bite'],
+        'hid':['hide'],'hidden':['hide'],'hiding':['hide'],
+        'rode':['ride'],'ridden':['ride'],'riding':['ride'],
+        'shook':['shake'],'shaken':['shake'],'shaking':['shake'],
+        'woke':['wake'],'woken':['wake'],'waking':['wake'],
+        'shone':['shine'],'shining':['shine'],
+        'shot':['shoot'],'shooting':['shoot'],
+        'hung':['hang'],'hanging':['hang'],
+        'sold':['sell'],'selling':['sell'],
+        'fed':['feed'],'feeding':['feed'],
+        'fled':['flee'],'fleeing':['flee'],
+        'lit':['light'],'lighting':['light'],
+        'slid':['slide'],'sliding':['slide'],
+        'struck':['strike'],'striking':['strike'],
+        'swung':['swing'],'swinging':['swing'],
+        'sank':['sink'],'sunk':['sink'],'sinking':['sink'],
+        'fought':['fight'],'fighting':['fight'],
+        'sought':['seek'],'seeking':['seek'],
+        'bent':['bend'],'bending':['bend'],
+        'lent':['lend'],'lending':['lend'],
+        'swept':['sweep'],'sweeping':['sweep'],
+        'wept':['weep'],'weeping':['weep'],
+        'crept':['creep'],'creeping':['creep'],
+        'cutting':['cut'],'hitting':['hit'],'letting':['let'],
+        'shutting':['shut'],'spreading':['spread'],'casting':['cast'],
+        'costing':['cost'],'hurting':['hurt'],
+        'forgave':['forgive'],'forgiven':['forgive'],'forgiving':['forgive'],
+        'withdrew':['withdraw'],'withdrawn':['withdraw'],
+        'arose':['arise'],'arisen':['arise'],'arising':['arise'],
+        // Latin / Greek plurals → singular.
+        'analyses':['analysis'],'crises':['crisis'],'theses':['thesis'],
+        'hypotheses':['hypothesis'],'parentheses':['parenthesis'],
+        'diagnoses':['diagnosis'],'criteria':['criterion'],
+        'phenomena':['phenomenon'],'data':['datum'],'media':['medium'],
+        'bacteria':['bacterium'],'curricula':['curriculum'],
+        'memoranda':['memorandum'],'addenda':['addendum'],
+        'indices':['index'],'matrices':['matrix'],'vertices':['vertex'],
+        'appendices':['appendix'],'formulae':['formula'],'antennae':['antenna'],
+        'alumni':['alumnus'],'fungi':['fungus'],'cacti':['cactus'],
+        'nuclei':['nucleus'],'radii':['radius'],'syllabi':['syllabus'],
+        'stimuli':['stimulus'],'foci':['focus']
     };
+
+    // Common adjectives that double the final consonant in the
+    // comparative / superlative (big → bigger). Kept as an explicit
+    // allowlist so we never false-positive on agent nouns or verbs
+    // (e.g. bet → better) from a blind doubling rule.
+    const CVC_ADJ = new Set([
+        'big','hot','thin','fat','sad','wet','fit','flat','slim','dim',
+        'red','mad','glad','grim','tan','big'
+    ]);
 
     function _isCVC(w) {
         if (w.length < 2) return false;
@@ -123,9 +210,17 @@
         cand.add(b + 'ly');
         if (/y$/.test(b) && !/[aeou]y$/.test(b)) cand.add(b.slice(0, -1) + 'ily');
 
-        // Comparatives: NOT generated from rules — irregular table
-        // handles good/better/best etc. Regular rules would cause
-        // false positives like bet→better.
+        // Comparatives / superlatives: a blind base+'er' rule collides
+        // with agent nouns (work→worker, teach→teacher), so we only
+        // generate the consonant-doubling forms for the known CVC
+        // adjective allowlist (big→bigger, hot→hottest). Regular -er/
+        // -est adjectives are left to the irregular table or to exact /
+        // INPUT-field matching, which is the precise path.
+        if (CVC_ADJ.has(b)) {
+            const dbl = b + b.slice(-1);
+            cand.add(dbl + 'er');
+            cand.add(dbl + 'est');
+        }
 
         return cand.has(a);
     }
@@ -163,12 +258,26 @@
         saveNotebook: function(arr) {
             localStorage.setItem(key('notebook'), JSON.stringify(arr || []));
         },
-        upsertNotebookWord: function(entry) {
-            const nb    = this.loadNotebook();
-            const wLow  = String(entry.word || '').trim().toLowerCase();
+        upsertNotebookWord: function(entry, opts) {
+            const nb       = this.loadNotebook();
+            const wLow     = String(entry.word || '').trim().toLowerCase();
+            const matchLow = String((opts && opts.matchWord) || '').trim().toLowerCase();
 
-            // 1) Exact match (unchanged behavior)
-            let idx = nb.findIndex(w => String(w.word || '').trim().toLowerCase() === wLow);
+            // 0) Explicit match key — the exact word the user already
+            // stored (e.g. an inflected form "squeezed"). Supplied by the
+            // batch importer via the AI-echoed INPUT field. This is the
+            // precise path: it does not rely on inflection heuristics, so
+            // a base form returned by the AI ("squeeze") still updates the
+            // original row instead of creating an orphan duplicate.
+            let idx = -1;
+            if (matchLow) {
+                idx = nb.findIndex(w => String(w.word || '').trim().toLowerCase() === matchLow);
+            }
+
+            // 1) Exact match on the canonical word.
+            if (idx < 0) {
+                idx = nb.findIndex(w => String(w.word || '').trim().toLowerCase() === wLow);
+            }
 
             // 2) Lemma match: look for any existing entry whose stored
             // word is a plausible inflection of the incoming `word`.

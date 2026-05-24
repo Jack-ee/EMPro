@@ -15,7 +15,13 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
-const CACHE_NAME = 'emp-v77';
+// v78 — batch paste-back fix:
+//   • enriched entries now carry an INPUT field echoing the original
+//     word, so an inflected word ('squeezed') updates its own row
+//     instead of leaving an orphan when the AI returns the lemma.
+//   • wider irregular-verb / Latin-plural lemma table.
+
+const CACHE_NAME = 'emp-v78';
 const ASSETS = [
     './',
     './index.html',

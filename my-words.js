@@ -521,11 +521,23 @@ window.MyWords = (function() {
         // Normalize line endings
         raw = String(raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
 
-        // Line-by-line parser. Lines matching `LABEL: value` start (or
-        // continue) a labelled field. Lines that DON'T match the label
-        // pattern are treated as continuation of the previous field —
-        // appended with a space — so multi-line NOTE / EXAMPLE_CN /
-        // COLLOCATIONS content from the AI doesn't get silently dropped.
+        // Recognised field labels. A `LABEL: value` line is only treated
+        // as a new field when LABEL is one of these — otherwise it is a
+        // continuation line. This stops example/note text that happens to
+        // begin with an uppercase word + colon (e.g. "WARNING: ...",
+        // "NASA: ...") from being silently parsed as a phantom field and
+        // dropping the rest of the entry's content.
+        const KNOWN = new Set([
+            'WORD', 'INPUT', 'PHONETIC', 'MEANING_CN', 'MEANING_EN',
+            'REGISTER', 'COLLOCATIONS', 'COLLOCATIONS_CN',
+            'EXAMPLE', 'EXAMPLE_CN', 'NOTE'
+        ]);
+
+        // Line-by-line parser. Lines matching a KNOWN `LABEL: value`
+        // pattern start (or continue) a labelled field. Other lines are
+        // treated as continuation of the previous field — appended with a
+        // space — so multi-line NOTE / EXAMPLE_CN / COLLOCATIONS content
+        // from the AI doesn't get silently dropped.
         const lines     = raw.split('\n');
         const results   = [];
         let current     = null;
@@ -536,7 +548,7 @@ window.MyWords = (function() {
             if (!trimmed || trimmed === '---') { lastLabel = null; continue; }
 
             const m = trimmed.match(/^([A-Z][A-Z_]+):\s*(.*)$/);
-            if (m) {
+            if (m && KNOWN.has(m[1])) {
                 const label = m[1];
                 const value = (m[2] || '').trim();
 
@@ -562,8 +574,13 @@ window.MyWords = (function() {
 
         let count = 0;
         for (const f of results) {
+            // INPUT is the word exactly as the user stored it (the AI
+            // echoes it back). WORD is the canonical lemma. Matching on
+            // INPUT guarantees the original notebook row is updated even
+            // when the AI lemmatised an inflected form — that was the
+            // cause of "one word never finishes enriching".
             window.DB.upsertNotebookWord({
-                word      : f.WORD              || '',
+                word      : f.WORD              || f.INPUT || '',
                 phonetic  : f.PHONETIC          || '',
                 meaning   : f.MEANING_CN        || '',
                 enDef     : f.MEANING_EN         || '',
@@ -575,7 +592,7 @@ window.MyWords = (function() {
                 note      : f.NOTE              || '',
                 source    : 'Batch enriched',
                 tags      : ['enriched']
-            });
+            }, { matchWord: f.INPUT || '' });
             count++;
         }
         console.log('[importRich] parsed', results.length, 'entries, saved', count);
@@ -744,9 +761,12 @@ window.MyWords = (function() {
 
         const prompt = `Please provide detailed vocabulary entries for each word/phrase below. Use this EXACT format for EACH word, separated by "---":
 
-LEMMA RULE: If a word is inflected (plural, past tense, -ing/-ed form, comparative, superlative, irregular form), provide the entry for its BASE FORM (lemma) and put the lemma in the WORD field, not the original input. Examples: "capping" → entry for "cap"; "went" → entry for "go"; "studies" → entry for "study"; "better" → entry for "good". For phrases, keep the phrase intact (don't lemmatize individual words inside a phrase). If the input is already in base form, use it unchanged.
+LEMMA RULE: If a word is inflected (plural, past tense, -ing/-ed form, comparative, superlative, irregular form), provide the entry for its BASE FORM (lemma) in the WORD field. Examples: "capping" → entry for "cap"; "went" → entry for "go"; "studies" → entry for "study"; "better" → entry for "good". For phrases, keep the phrase intact (don't lemmatize individual words inside a phrase). If the input is already in base form, use it unchanged.
 
-WORD: [the base form / lemma of the input word; for phrases, the phrase as given]
+ECHO RULE: The INPUT field must contain the original word EXACTLY as it appears in the list below (same spelling, same case), even when WORD differs because of the LEMMA RULE. The app uses INPUT to match the entry back to the correct record, so it must never be changed or omitted.
+
+WORD: [the base form / lemma; for phrases, the phrase as given]
+INPUT: [the original word, copied verbatim from the list below]
 PHONETIC: [IPA pronunciation, e.g. /\u02C8r\u00E6m.b\u028A.t\u0259n/]
 MEANING_CN: [Chinese meaning, concise but complete, 2-20 chars]
 MEANING_EN: [Clear English definition, 1-2 sentences]
@@ -768,6 +788,7 @@ IMPORTANT:
 - Example sentences should reflect real-world usage, not textbook-style
 - Notes should highlight what a Chinese speaker specifically needs to know
 - Apply the LEMMA RULE above: return entries for base forms, not inflected input
+- Apply the ECHO RULE above: every entry MUST include an INPUT line copying the original word verbatim
 - Separate each entry with "---"
 - Do NOT use markdown formatting, just plain text`;
 
