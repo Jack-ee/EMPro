@@ -241,6 +241,16 @@
         return ttsEngine() === 'neural' && !!neuralKey() && navigator.onLine !== false;
     }
 
+    // OpenAI's API blocks direct browser calls (no CORS headers), so a
+    // small pass-through proxy (a Cloudflare Worker) is required. The
+    // user pastes its URL in Settings; requests go there instead of to
+    // api.openai.com directly. Falls back to the direct URL only so the
+    // error path can still report a clear "set the proxy URL" message.
+    function ttsEndpoint() {
+        const proxy = (window.DB?.getPref?.('tts_proxy_url', '') || '').trim();
+        return proxy || OPENAI_TTS_URL;
+    }
+
     // Translate a raw TTS error into a short, human explanation.
     function neuralErrorHint(err) {
         const m = (err && err.message) || String(err || '');
@@ -248,8 +258,12 @@
         if (/TTS_HTTP_429/.test(m))              return 'rate limited — wait a moment, or add API credit at platform.openai.com.';
         if (/TTS_HTTP_400/.test(m))              return 'request rejected (400) by OpenAI.';
         if (/TTS_HTTP_5\d\d/.test(m))            return 'OpenAI server error — try again shortly.';
-        if (/Failed to fetch|NetworkError|load failed|ERR_/i.test(m))
-                                                 return 'could not reach OpenAI — check your network / VPN.';
+        if (/Failed to fetch|NetworkError|load failed|ERR_/i.test(m)) {
+            const hasProxy = !!(window.DB?.getPref?.('tts_proxy_url', '') || '').trim();
+            return hasProxy
+                ? 'could not reach the TTS proxy — check the proxy URL and your network.'
+                : 'no TTS proxy set — OpenAI blocks direct browser calls. Add the proxy URL in Settings.';
+        }
         return m || 'unknown error';
     }
 
@@ -275,12 +289,15 @@
             response_format : 'mp3',
             speed           : Math.max(0.5, Math.min(1.5, Number(rate) || 1))
         });
+        const endpoint = ttsEndpoint();
+        const viaProxy = endpoint !== OPENAI_TTS_URL;
         console.log('[tts] fetch \u2192 voice="' + voice + '" chars=' + String(text).length +
-                    ' key=' + (key ? '\u2026' + String(key).slice(-4) : '(none)'));
+                    ' key=' + (key ? '\u2026' + String(key).slice(-4) : '(none)') +
+                    ' via=' + (viaProxy ? 'proxy' : 'DIRECT (will be CORS-blocked)'));
         let lastErr;
         for (let attempt = 0; attempt < 3; attempt++) {
             try {
-                const resp = await fetch(OPENAI_TTS_URL, {
+                const resp = await fetch(endpoint, {
                     method : 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
                     body   : body,
@@ -607,6 +624,8 @@
             voiceEl.value = NEURAL_VOICES.includes(saved) ? saved : 'alloy';
         }
         if (keyEl) keyEl.value = window.DB?.getPref?.('tts_openai_key', '') || '';
+        const proxyEl = document.getElementById('settings-tts-proxy');
+        if (proxyEl) proxyEl.value = window.DB?.getPref?.('tts_proxy_url', '') || '';
     }
 
     function populateProviderSelect() {
@@ -667,6 +686,10 @@
         });
         document.getElementById('settings-tts-key')?.addEventListener('input', (e) => {
             window.DB.setPref('tts_openai_key', (e.target.value || '').trim());
+            _neuralFailureNotified = false;
+        });
+        document.getElementById('settings-tts-proxy')?.addEventListener('input', (e) => {
+            window.DB.setPref('tts_proxy_url', (e.target.value || '').trim());
             _neuralFailureNotified = false;
         });
         document.getElementById('settings-tts-test')?.addEventListener('click', () => {

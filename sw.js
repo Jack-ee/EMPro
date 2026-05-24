@@ -15,6 +15,11 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v85 — neural TTS via CORS proxy:
+//   • OpenAI blocks direct browser calls; TTS requests now go
+//     through a user-supplied proxy URL (a Cloudflare Worker).
+//   • new 'TTS proxy URL' field in Settings → Voice.
+
 // v84 — neural TTS debug output:
 //   • [tts] console logs for voice resolution, HTTP status, and
 //     byte size (auto-captured by the debug panel log).
@@ -54,7 +59,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v84';
+const CACHE_NAME = 'emp-v85';
 const ASSETS = [
     './',
     './index.html',
