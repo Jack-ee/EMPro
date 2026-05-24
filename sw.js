@@ -15,6 +15,17 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v84 — neural TTS debug output:
+//   • [tts] console logs for voice resolution, HTTP status, and
+//     byte size (auto-captured by the debug panel log).
+//   • Test button shows a visible status line: voice + KB size.
+
+// v83 — neural TTS diagnostics:
+//   • 'Test neural voice' now reports the real outcome (works,
+//     or the specific error) instead of silently downgrading.
+//   • a neural failure during playback shows a one-time toast so
+//     a silent fallback no longer looks like 'the switch does nothing'.
+
 // v82 — neural TTS reliability:
 //   • synthesised clips persist in IndexedDB — each text is
 //     fetched from OpenAI at most once per device, then reused
@@ -43,7 +54,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v82';
+const CACHE_NAME = 'emp-v84';
 const ASSETS = [
     './',
     './index.html',

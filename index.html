@@ -20,10 +20,10 @@
          In VS Code: Ctrl+H, find "?v=N" with the current N, replace
          with "?v=N+1" across this file. Then bump CACHE_NAME in
          sw.js to match (e.g. 'emp-vN+1').
-         Current version: v=82
+         Current version: v=84
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=82">
-    <link rel="stylesheet" href="expressions-coach.css?v=82">
+    <link rel="stylesheet" href="style.css?v=84">
+    <link rel="stylesheet" href="expressions-coach.css?v=84">
 </head>
 <body>
 
@@ -264,7 +264,8 @@ One word or phrase per line</pre>
                             <select id="settings-neural-voice" class="rd-select" style="width:100%;margin-bottom:6px"></select>
                             <input type="password" id="settings-tts-key" placeholder="OpenAI key &mdash; sk-... (blank = use AI provider key)" class="settings-input" style="width:100%;margin-bottom:6px">
                             <button id="settings-tts-test" class="wl-btn-primary" style="width:100%">Test neural voice</button>
-                            <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Uses OpenAI gpt-4o-mini-tts. Clips are cached for the session. Falls back to the device voice when offline or on error.</p>
+                            <div id="settings-tts-status" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-top:5px;min-height:13px"></div>
+                            <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Uses OpenAI gpt-4o-mini-tts. Clips are saved on this device, so each phrase is fetched only once. Tap Test to verify the key and connection — it reports the exact result.</p>
                         </div>
                     </div>
                     <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
@@ -357,24 +358,24 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=82"></script>
-<script src="db.js?v=82"></script>
-<script src="ai-engine.js?v=82"></script>
-<script src="my-words.js?v=82"></script>
-<script src="writing-lab.js?v=82"></script>
-<script src="vocab-drill.js?v=82"></script>
-<script src="reader.js?v=82"></script>
-<script src="speaking-coach.js?v=82"></script>
-<script src="expressions-data.js?v=82"></script>
-<script src="expressions-coach.js?v=82"></script>
-<script src="sentence.js?v=82"></script>
-<script src="sentence-drill.js?v=82"></script>
-<script src="sync.js?v=82"></script>
-<script src="app.js?v=82"></script>
+<script src="config.js?v=84"></script>
+<script src="db.js?v=84"></script>
+<script src="ai-engine.js?v=84"></script>
+<script src="my-words.js?v=84"></script>
+<script src="writing-lab.js?v=84"></script>
+<script src="vocab-drill.js?v=84"></script>
+<script src="reader.js?v=84"></script>
+<script src="speaking-coach.js?v=84"></script>
+<script src="expressions-data.js?v=84"></script>
+<script src="expressions-coach.js?v=84"></script>
+<script src="sentence.js?v=84"></script>
+<script src="sentence-drill.js?v=84"></script>
+<script src="sync.js?v=84"></script>
+<script src="app.js?v=84"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=82"></script>
+<script src="debug-panel.js?v=84"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.

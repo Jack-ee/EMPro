@@ -241,6 +241,29 @@
         return ttsEngine() === 'neural' && !!neuralKey() && navigator.onLine !== false;
     }
 
+    // Translate a raw TTS error into a short, human explanation.
+    function neuralErrorHint(err) {
+        const m = (err && err.message) || String(err || '');
+        if (/TTS_HTTP_401|TTS_HTTP_403/.test(m)) return 'API key was rejected — check the key in Settings.';
+        if (/TTS_HTTP_429/.test(m))              return 'rate limited — wait a moment, or add API credit at platform.openai.com.';
+        if (/TTS_HTTP_400/.test(m))              return 'request rejected (400) by OpenAI.';
+        if (/TTS_HTTP_5\d\d/.test(m))            return 'OpenAI server error — try again shortly.';
+        if (/Failed to fetch|NetworkError|load failed|ERR_/i.test(m))
+                                                 return 'could not reach OpenAI — check your network / VPN.';
+        return m || 'unknown error';
+    }
+
+    // Neural failures fall back to the device voice silently so playback
+    // never dies — but a fully-silent fallback looks like "the engine
+    // switch does nothing". Surface it once per session so the user knows
+    // the device voice is a fallback, not the chosen engine.
+    let _neuralFailureNotified = false;
+    function notifyNeuralFailure(err) {
+        if (_neuralFailureNotified) return;
+        _neuralFailureNotified = true;
+        showToast('Neural voice unavailable: ' + neuralErrorHint(err) + ' Using device voice.');
+    }
+
     // Fetch one clip from OpenAI, retrying transient failures (429 rate
     // limit, 5xx) with backoff. Throws only after retries are exhausted
     // or on a non-retryable error (bad key / bad request).
@@ -252,6 +275,8 @@
             response_format : 'mp3',
             speed           : Math.max(0.5, Math.min(1.5, Number(rate) || 1))
         });
+        console.log('[tts] fetch \u2192 voice="' + voice + '" chars=' + String(text).length +
+                    ' key=' + (key ? '\u2026' + String(key).slice(-4) : '(none)'));
         let lastErr;
         for (let attempt = 0; attempt < 3; attempt++) {
             try {
@@ -261,7 +286,13 @@
                     body   : body,
                     signal : signal
                 });
-                if (resp.ok) return await resp.blob();
+                console.log('[tts] fetch \u2190 HTTP ' + resp.status + ' voice="' + voice +
+                            '" attempt=' + (attempt + 1));
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    console.log('[tts] ok \u2014 voice="' + voice + '" bytes=' + blob.size);
+                    return blob;
+                }
 
                 // Non-retryable (bad key 401, bad request 400, …) — fail now.
                 // The `noRetry` flag stops the catch below from retrying it.
@@ -328,6 +359,7 @@
             // the autoplay chain.
             if (err && (err.name === 'AbortError')) return;
             console.warn('[tts] neural failed, using device voice:', err && err.message);
+            notifyNeuralFailure(err);
             speakNative(text, rate, finish);
         }
     }
@@ -343,14 +375,52 @@
         }
     }
 
-    // Force a neural preview regardless of the saved engine — used by the
-    // "Test neural voice" button in Settings.
-    function previewNeuralVoice() {
-        if (!neuralKey()) {
+    // The "Test neural voice" button. Unlike normal playback, this does
+    // NOT silently fall back to the device voice — it reports the real
+    // outcome (success, or the specific failure) so the user can tell
+    // whether the neural engine actually works and why if it doesn't.
+    async function previewNeuralVoice() {
+        const statusEl = document.getElementById('settings-tts-status');
+        const setStatus = (txt) => { if (statusEl) statusEl.textContent = txt; };
+
+        const key = neuralKey();
+        if (!key) {
             showToast('Add an OpenAI key first (or set OpenAI as your AI provider).');
+            setStatus('No OpenAI key set.');
             return;
         }
-        speakNeural('Here is a sample of the neural voice reading a full sentence aloud.', 1, null);
+        const btn   = document.getElementById('settings-tts-test');
+        const label = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'Testing\u2026'; }
+        const restore = () => { if (btn) { btn.disabled = false; btn.textContent = label || 'Test neural voice'; } };
+
+        const voice  = neuralVoice();
+        const sample = 'Here is a sample of the neural voice reading a full sentence aloud.';
+        console.log('[tts] TEST clicked \u2014 dropdown pref resolves to voice="' + voice + '"');
+        setStatus('Testing voice "' + voice + '"\u2026');
+        try {
+            stopSpeak();
+            const ctrl = new AbortController();
+            const blob = await ttsFetch(sample, voice, 1, key, ctrl.signal);
+            ttsCachePut(`${voice}|${sample}`, blob);   // reuse later
+            const audio = new Audio(URL.createObjectURL(blob));
+            _neuralAudio = audio;
+            audio.onended = () => { if (_neuralAudio === audio) _neuralAudio = null; };
+            await audio.play();
+            _neuralFailureNotified = false;            // confirmed working
+            // The byte count differs per voice for the same text — if it
+            // does NOT change when you switch voices, the request is not
+            // varying and that pinpoints the bug.
+            const kb = (blob.size / 1024).toFixed(1);
+            setStatus('OK \u2014 voice "' + voice + '" \u00b7 ' + kb + ' KB');
+            showToast(`Neural voice works \u2014 playing voice "${voice}".`);
+        } catch (err) {
+            console.warn('[tts] TEST failed:', err && err.message);
+            setStatus('Failed (voice "' + voice + '"): ' + neuralErrorHint(err));
+            showToast('Neural test failed: ' + neuralErrorHint(err));
+        } finally {
+            restore();
+        }
     }
 
     function stopSpeak() {
@@ -583,14 +653,21 @@
         // Voice engine (device vs OpenAI neural)
         document.getElementById('settings-tts-engine')?.addEventListener('change', (e) => {
             window.DB.setPref('tts_engine', e.target.value);
+            _neuralFailureNotified = false;
             const box = document.getElementById('settings-neural-box');
             if (box) box.style.display = (e.target.value === 'neural') ? '' : 'none';
         });
         document.getElementById('settings-neural-voice')?.addEventListener('change', (e) => {
             window.DB.setPref('tts_neural_voice', e.target.value);
+            _neuralFailureNotified = false;
+            // Logs the dropdown value AND what neuralVoice() reads back —
+            // if these ever disagree, the pref save/read is the bug.
+            console.log('[tts] voice dropdown changed \u2192 "' + e.target.value +
+                        '" | neuralVoice() reads back "' + neuralVoice() + '"');
         });
         document.getElementById('settings-tts-key')?.addEventListener('input', (e) => {
             window.DB.setPref('tts_openai_key', (e.target.value || '').trim());
+            _neuralFailureNotified = false;
         });
         document.getElementById('settings-tts-test')?.addEventListener('click', () => {
             previewNeuralVoice();
