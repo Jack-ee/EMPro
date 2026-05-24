@@ -139,17 +139,88 @@
 
     // ─── OpenAI neural TTS (optional, online) ────────────────
     // Device voices read full sentences with flat, robotic prosody.
-    // When the user opts in (Settings → Voice engine → Neural), English
-    // speech is routed through OpenAI's gpt-4o-mini-tts, which sounds
-    // dramatically more natural. Synthesised clips are cached per session
-    // so re-plays and autoplay chains are instant. ANY failure (offline,
-    // bad key, quota, CORS) silently falls back to the device voice, so
-    // playback never dies.
+    // When the user opts in (Settings → Voice engine → Neural), speech
+    // is routed through OpenAI's gpt-4o-mini-tts, which sounds far more
+    // natural. Synthesised clips are cached two ways:
+    //   • in memory  — instant re-play within the session
+    //   • IndexedDB  — survives reloads, so each unique text is fetched
+    //                  from OpenAI at most once per device, ever; after
+    //                  the first pass autoplay needs no network at all.
+    // Transient failures (rate-limit 429, flaky network) are retried
+    // with backoff before giving up; only then does it fall back to the
+    // device voice. This prevents the "half OpenAI, half robotic" mix
+    // that happens when one segment fails and silently downgrades.
     const OPENAI_TTS_URL = 'https://api.openai.com/v1/audio/speech';
     const NEURAL_VOICES  = ['alloy', 'ash', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer'];
-    const _ttsCache      = new Map();   // `${voice}|${text}` → object URL
+    const _ttsCache      = new Map();   // `${voice}|${text}` → object URL (in-memory)
     let   _neuralAudio   = null;        // currently-playing HTMLAudioElement
     let   _neuralAbort   = null;        // AbortController for an in-flight fetch
+
+    // --- Persistent on-device clip store (IndexedDB) ---
+    const TTS_DB_NAME   = 'emp-tts';
+    const TTS_STORE     = 'clips';
+    const TTS_MAX_CLIPS = 1500;         // ~45 MB ceiling; oldest evicted past this
+    let   _ttsDbPromise = null;
+
+    function ttsDb() {
+        if (_ttsDbPromise) return _ttsDbPromise;
+        _ttsDbPromise = new Promise((resolve, reject) => {
+            let req;
+            try { req = indexedDB.open(TTS_DB_NAME, 1); }
+            catch (e) { return reject(e); }
+            req.onupgradeneeded = () => {
+                const db = req.result;
+                if (!db.objectStoreNames.contains(TTS_STORE)) {
+                    const os = db.createObjectStore(TTS_STORE, { keyPath: 'k' });
+                    os.createIndex('used', 'used');
+                }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror   = () => reject(req.error);
+        });
+        return _ttsDbPromise;
+    }
+    async function ttsCacheGet(key) {
+        try {
+            const db = await ttsDb();
+            return await new Promise((resolve) => {
+                const rq = db.transaction(TTS_STORE, 'readonly').objectStore(TTS_STORE).get(key);
+                rq.onsuccess = () => resolve(rq.result ? rq.result.blob : null);
+                rq.onerror   = () => resolve(null);
+            });
+        } catch { return null; }
+    }
+    async function ttsCachePut(key, blob) {
+        try {
+            const db = await ttsDb();
+            await new Promise((resolve) => {
+                const tx = db.transaction(TTS_STORE, 'readwrite');
+                tx.objectStore(TTS_STORE).put({ k: key, blob: blob, used: Date.now() });
+                tx.oncomplete = resolve;
+                tx.onerror    = resolve;
+            });
+            ttsCacheEvict();   // fire-and-forget
+        } catch {}
+    }
+    async function ttsCacheEvict() {
+        try {
+            const db = await ttsDb();
+            const count = await new Promise((res) => {
+                const rq = db.transaction(TTS_STORE, 'readonly').objectStore(TTS_STORE).count();
+                rq.onsuccess = () => res(rq.result || 0);
+                rq.onerror   = () => res(0);
+            });
+            if (count <= TTS_MAX_CLIPS) return;
+            const toDelete = (count - TTS_MAX_CLIPS) + Math.floor(TTS_MAX_CLIPS * 0.2);
+            const tx  = db.transaction(TTS_STORE, 'readwrite');
+            const idx = tx.objectStore(TTS_STORE).index('used');   // oldest first
+            let removed = 0;
+            idx.openCursor().onsuccess = (e) => {
+                const cur = e.target.result;
+                if (cur && removed < toDelete) { cur.delete(); removed++; cur.continue(); }
+            };
+        } catch {}
+    }
 
     function ttsEngine()   { return window.DB?.getPref?.('tts_engine', 'native') || 'native'; }
     function neuralVoice() {
@@ -170,6 +241,52 @@
         return ttsEngine() === 'neural' && !!neuralKey() && navigator.onLine !== false;
     }
 
+    // Fetch one clip from OpenAI, retrying transient failures (429 rate
+    // limit, 5xx) with backoff. Throws only after retries are exhausted
+    // or on a non-retryable error (bad key / bad request).
+    async function ttsFetch(text, voice, rate, key, signal) {
+        const body = JSON.stringify({
+            model           : 'gpt-4o-mini-tts',
+            voice           : voice,
+            input           : String(text),
+            response_format : 'mp3',
+            speed           : Math.max(0.5, Math.min(1.5, Number(rate) || 1))
+        });
+        let lastErr;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const resp = await fetch(OPENAI_TTS_URL, {
+                    method : 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body   : body,
+                    signal : signal
+                });
+                if (resp.ok) return await resp.blob();
+
+                // Non-retryable (bad key 401, bad request 400, …) — fail now.
+                // The `noRetry` flag stops the catch below from retrying it.
+                if (resp.status !== 429 && resp.status < 500) {
+                    const fatal  = new Error('TTS_HTTP_' + resp.status);
+                    fatal.noRetry = true;
+                    throw fatal;
+                }
+                // Transient (429 rate limit / 5xx) — wait, then retry.
+                lastErr = new Error('TTS_HTTP_' + resp.status);
+                if (attempt < 2) {
+                    const ra   = parseFloat(resp.headers.get('retry-after'));
+                    const wait = ra > 0 ? ra * 1000 : 700 * (attempt + 1);
+                    await new Promise(r => setTimeout(r, Math.min(wait, 4000)));
+                }
+            } catch (e) {
+                if (e && e.name === 'AbortError') throw e;   // stopped on purpose
+                if (e && e.noRetry)              throw e;   // bad key / bad request
+                lastErr = e;                                 // network error — retry
+                if (attempt < 2) await new Promise(r => setTimeout(r, 700 * (attempt + 1)));
+            }
+        }
+        throw lastErr || new Error('TTS_FAILED');
+    }
+
     async function speakNeural(text, rate, onEnd) {
         // One-shot onEnd guard — fired by exactly one of: audio end, error.
         let done = false;
@@ -182,24 +299,17 @@
             stopSpeak();
             let url = _ttsCache.get(cacheK);
             if (!url) {
-                _neuralAbort = new AbortController();
-                const resp = await fetch(OPENAI_TTS_URL, {
-                    method : 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-                    body   : JSON.stringify({
-                        model           : 'gpt-4o-mini-tts',
-                        voice           : voice,
-                        input           : String(text),
-                        response_format : 'mp3',
-                        speed           : Math.max(0.5, Math.min(1.5, Number(rate) || 1))
-                    }),
-                    signal : _neuralAbort.signal
-                });
-                _neuralAbort = null;
-                if (!resp.ok) throw new Error('TTS_HTTP_' + resp.status);
-                const blob = await resp.blob();
+                // 1) on-device persistent cache — no network if present
+                let blob = await ttsCacheGet(cacheK);
+                if (!blob) {
+                    // 2) fetch from OpenAI (with retry), then persist
+                    _neuralAbort = new AbortController();
+                    blob = await ttsFetch(text, voice, rate, key, _neuralAbort.signal);
+                    _neuralAbort = null;
+                    ttsCachePut(cacheK, blob);   // fire-and-forget
+                }
                 url = URL.createObjectURL(blob);
-                // Bound the cache so a long session doesn't leak memory.
+                // Bound the in-memory map so a long session doesn't leak.
                 if (_ttsCache.size > 80) {
                     const oldest = _ttsCache.keys().next().value;
                     try { URL.revokeObjectURL(_ttsCache.get(oldest)); } catch {}

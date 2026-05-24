@@ -15,6 +15,13 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v82 — neural TTS reliability:
+//   • synthesised clips persist in IndexedDB — each text is
+//     fetched from OpenAI at most once per device, then reused
+//     across reloads and offline.
+//   • transient failures (429 / network) retried with backoff
+//     before falling back, fixing the mixed-voice autoplay.
+
 // v81 — settings redesign:
 //   • Settings split into 5 tabs (General / Voice / AI / Sync /
 //     Data) so it no longer scrolls as one long page.
@@ -36,7 +43,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v81';
+const CACHE_NAME = 'emp-v82';
 const ASSETS = [
     './',
     './index.html',
