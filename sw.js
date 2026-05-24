@@ -15,6 +15,10 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v81 — settings redesign:
+//   • Settings split into 5 tabs (General / Voice / AI / Sync /
+//     Data) so it no longer scrolls as one long page.
+
 // v80 — multi-user:
 //   • per-install PROFILE_ID (no data / Gist collision between
 //     users); first run asks for a display name.
@@ -32,7 +36,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v80';
+const CACHE_NAME = 'emp-v81';
 const ASSETS = [
     './',
     './index.html',

@@ -283,10 +283,25 @@
         const modal = document.getElementById('settings-modal');
         if (!modal) return;
         hydrateSettingsUI();
+        activateSettingsTab('set-general');   // always open on the first tab
         modal.classList.add('open');
     }
     function closeSettings() {
         document.getElementById('settings-modal')?.classList.remove('open');
+    }
+
+    // Settings is split into tabbed panels (General / Voice / AI / Sync /
+    // Data) so it no longer scrolls as one long page.
+    function activateSettingsTab(panelId) {
+        document.querySelectorAll('.set-tab').forEach(t =>
+            t.classList.toggle('active', t.dataset.setpanel === panelId));
+        document.querySelectorAll('.set-panel').forEach(p =>
+            p.classList.toggle('active', p.id === panelId));
+    }
+    function bindSettingsTabs() {
+        document.querySelectorAll('.set-tab').forEach(tab => {
+            tab.addEventListener('click', () => activateSettingsTab(tab.dataset.setpanel));
+        });
     }
 
     function hydrateSettingsUI() {
@@ -1029,6 +1044,7 @@
             bindTabs();
             bindExpressionSubTabs();
             bindSettingsHandlers();
+            bindSettingsTabs();
             bindNotebookHandlers();
             bindGlobalSpeakButtons();
             document.getElementById('btn-settings')?.addEventListener('click', openSettings);

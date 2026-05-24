@@ -1004,6 +1004,46 @@ body {
     gap      : 6px;
     flex-wrap: wrap;
 }
+
+/* Settings tabs — mirrors the .sc-tab pattern used by the Sentences
+   area, with its own class so the speaking-coach tab handler does
+   not pick up these buttons. */
+.set-tabs {
+    display       : flex;
+    gap           : 4px;
+    padding       : 3px;
+    margin-bottom : 16px;
+    background    : var(--bg-surface);
+    border        : 1px solid var(--border);
+    border-radius : var(--radius-md);
+}
+.set-tab {
+    flex          : 1;
+    padding       : 8px 10px;
+    background    : transparent;
+    border        : none;
+    border-radius : var(--radius-sm);
+    cursor        : pointer;
+    font-family   : var(--font-body);
+    font-size     : 13px;
+    font-weight   : 500;
+    color         : var(--text-secondary);
+    transition    : all 0.15s;
+    text-align    : center;
+    white-space   : nowrap;
+}
+.set-tab:hover { color: var(--text-primary); }
+.set-tab.active {
+    background : var(--bg-card);
+    color      : var(--text-primary);
+    box-shadow : var(--shadow-sm);
+}
+.set-panel { display: none; }
+.set-panel.active { display: block; }
+@media (max-width: 640px) {
+    .set-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .set-tab  { font-size: 12px; padding: 7px 8px; flex-shrink: 0; }
+}
 .settings-field {
     margin-bottom : 8px;
 }
