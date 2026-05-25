@@ -385,7 +385,19 @@
     function speak(text, rate, onEnd, opts) {
         if (!text) { if (typeof onEnd === 'function') onEnd(); return; }
         const effRate = Number(rate) || parseFloat(window.DB?.getPref?.('speech_speed', '0.9')) || 0.9;
-        if (neuralAvailable()) {
+        // Neural (OpenAI) voices read English well but speak Chinese with a
+        // strong foreign accent. Chinese text therefore always uses the
+        // device's native Chinese voice; neural is reserved for English.
+        const langOpt   = (opts && opts.lang) || '';
+        const isChinese = /^(zh|cmn)/i.test(langOpt) || /[\u4e00-\u9fff]/.test(text);
+        if (isChinese) {
+            // Guarantee a Chinese tag so the device path selects a Chinese
+            // voice even when the caller passed no lang.
+            const zhOpts = Object.assign({}, opts, {
+                lang: /^(zh|cmn)/i.test(langOpt) ? langOpt : 'zh-CN'
+            });
+            speakNative(text, effRate, onEnd, zhOpts);
+        } else if (neuralAvailable()) {
             speakNeural(text, effRate, onEnd);
         } else {
             speakNative(text, effRate, onEnd, opts);

@@ -15,6 +15,10 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v86 — bilingual voice routing:
+//   • Chinese text always uses the device's native Chinese
+//     voice; the OpenAI neural voice is reserved for English.
+
 // v85 — neural TTS via CORS proxy:
 //   • OpenAI blocks direct browser calls; TTS requests now go
 //     through a user-supplied proxy URL (a Cloudflare Worker).
@@ -59,7 +63,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v85';
+const CACHE_NAME = 'emp-v86';
 const ASSETS = [
     './',
     './index.html',
