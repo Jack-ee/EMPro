@@ -15,6 +15,11 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v88 — honest neural voice test:
+//   • the Test button now uses a unique sentence each run so
+//     the proxy edge cache can't serve a stale clip — a passing
+//     test now genuinely means the OpenAI key works.
+
 // v87 — OpenAI key sanitization:
 //   • strip non-ASCII characters (zero-width spaces, smart
 //     quotes, full-width letters) from the key before it is put
@@ -69,7 +74,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v87';
+const CACHE_NAME = 'emp-v88';
 const ASSETS = [
     './',
     './index.html',

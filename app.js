@@ -439,14 +439,19 @@
         const restore = () => { if (btn) { btn.disabled = false; btn.textContent = label || 'Test neural voice'; } };
 
         const voice  = neuralVoice();
-        const sample = 'Here is a sample of the neural voice reading a full sentence aloud.';
+        // A unique sentence each run. The proxy caches audio by request
+        // body, so a fixed sample would be served straight from that
+        // cache and the test would pass even with an invalid key. A
+        // unique sentence forces a real call to OpenAI, so a passing
+        // test genuinely means the key works.
+        const sample = 'This is a neural voice test, sample number '
+                     + Math.floor(Math.random() * 100000) + '.';
         console.log('[tts] TEST clicked \u2014 dropdown pref resolves to voice="' + voice + '"');
         setStatus('Testing voice "' + voice + '"\u2026');
         try {
             stopSpeak();
             const ctrl = new AbortController();
             const blob = await ttsFetch(sample, voice, 1, key, ctrl.signal);
-            ttsCachePut(`${voice}|${sample}`, blob);   // reuse later
             const audio = new Audio(URL.createObjectURL(blob));
             _neuralAudio = audio;
             audio.onended = () => { if (_neuralAudio === audio) _neuralAudio = null; };
