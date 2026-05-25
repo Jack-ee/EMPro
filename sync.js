@@ -214,13 +214,22 @@ window.SyncManager = (function() {
     // ─── Collect / Merge ─────────────────────────────────────
     // Collects only the current profile's keys, plus the shared API key
     // (when the user has explicitly opted in to syncing it).
+    // Credentials must never be written to the sync Gist. A secret in
+    // cleartext in a Gist is an account-takeover risk and a likely trigger
+    // for provider-side automatic key revocation. The OpenAI TTS key is
+    // stored as a profile-prefixed pref, so without this it would be swept
+    // into the payload along with ordinary settings.
+    function isSecretPref(k) {
+        return typeof k === 'string' && k.endsWith('_pref_tts_openai_key');
+    }
+
     function collectSyncData() {
         const prefix   = keyPrefix();
         const data     = {};
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
             if (!k) continue;
-            if (k.startsWith(prefix)) data[k] = localStorage.getItem(k);
+            if (k.startsWith(prefix) && !isSecretPref(k)) data[k] = localStorage.getItem(k);
         }
         // v72: API key is now OPT-IN. Even on a private Gist, an API key
         // in cleartext is a credential — accidental Gist exposure (token
@@ -281,7 +290,7 @@ window.SyncManager = (function() {
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
                 if (!k) continue;
-                if (k.startsWith(prefix))                   { localKeys.add(k); localBefore[k] = localStorage.getItem(k); }
+                if (k.startsWith(prefix) && !isSecretPref(k))  { localKeys.add(k); localBefore[k] = localStorage.getItem(k); }
                 else if (k === 'emp_api_key' && apiKeySyncOn) { localKeys.add(k); localBefore[k] = localStorage.getItem(k); }
             }
 
@@ -299,7 +308,7 @@ window.SyncManager = (function() {
                 // v72: only accept inbound emp_api_key when the user has
                 // opted in. An opted-out device must never silently inherit
                 // an API key from another device's sync payload.
-                const accept = k.startsWith(prefix) || (k === 'emp_api_key' && apiKeySyncOn);
+                const accept = (k.startsWith(prefix) && !isSecretPref(k)) || (k === 'emp_api_key' && apiKeySyncOn);
                 if (accept) {
                     if (localBefore[k] !== remote[k]) {
                         changed = true;

@@ -15,6 +15,11 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v89 — stop syncing the OpenAI key:
+//   • the OpenAI TTS key is a credential and is now excluded
+//     from the Gist sync payload (like the AI provider key), so
+//     it is never written to GitHub. Removes a key-exposure path.
+
 // v88 — honest neural voice test:
 //   • the Test button now uses a unique sentence each run so
 //     the proxy edge cache can't serve a stale clip — a passing
@@ -74,7 +79,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v88';
+const CACHE_NAME = 'emp-v89';
 const ASSETS = [
     './',
     './index.html',
