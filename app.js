@@ -230,12 +230,25 @@
     function neuralKey() {
         // A dedicated TTS key wins; otherwise reuse the chat key when the
         // selected AI provider is OpenAI, so the key isn't entered twice.
-        const dedicated = window.DB?.getPref?.('tts_openai_key', '') || '';
-        if (dedicated) return dedicated;
-        try {
-            if (window.AIEngine?.getProvider?.() === 'openai') return window.DB?.getAPIKey?.() || '';
-        } catch {}
-        return '';
+        let raw = window.DB?.getPref?.('tts_openai_key', '') || '';
+        if (!raw) {
+            try {
+                if (window.AIEngine?.getProvider?.() === 'openai') raw = window.DB?.getAPIKey?.() || '';
+            } catch {}
+        }
+        // OpenAI keys are plain ASCII. A key pasted with an invisible
+        // character (zero-width space, smart quote, full-width letter)
+        // makes fetch() throw "non ISO-8859-1 code point" when the key is
+        // placed in the Authorization header. Strip anything that is not
+        // printable ASCII so the request can always be built.
+        const clean = String(raw).replace(/[^\x21-\x7E]/g, '');
+        if (clean.length !== String(raw).length && !_keyCleanWarned) {
+            _keyCleanWarned = true;
+            console.warn('[tts] OpenAI key contained ' +
+                         (String(raw).length - clean.length) +
+                         ' invalid character(s) \u2014 stripped (re-paste the key if neural still fails)');
+        }
+        return clean;
     }
     function neuralAvailable() {
         return ttsEngine() === 'neural' && !!neuralKey() && navigator.onLine !== false;
@@ -272,6 +285,8 @@
     // switch does nothing". Surface it once per session so the user knows
     // the device voice is a fallback, not the chosen engine.
     let _neuralFailureNotified = false;
+    // Logged once if the stored OpenAI key had non-ASCII characters.
+    let _keyCleanWarned = false;
     function notifyNeuralFailure(err) {
         if (_neuralFailureNotified) return;
         _neuralFailureNotified = true;
@@ -697,8 +712,9 @@
                         '" | neuralVoice() reads back "' + neuralVoice() + '"');
         });
         document.getElementById('settings-tts-key')?.addEventListener('input', (e) => {
-            window.DB.setPref('tts_openai_key', (e.target.value || '').trim());
+            window.DB.setPref('tts_openai_key', (e.target.value || '').replace(/[^\x21-\x7E]/g, ''));
             _neuralFailureNotified = false;
+            _keyCleanWarned = false;
         });
         document.getElementById('settings-tts-proxy')?.addEventListener('input', (e) => {
             window.DB.setPref('tts_proxy_url', (e.target.value || '').trim());

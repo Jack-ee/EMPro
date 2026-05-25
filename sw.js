@@ -15,6 +15,12 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v87 — OpenAI key sanitization:
+//   • strip non-ASCII characters (zero-width spaces, smart
+//     quotes, full-width letters) from the key before it is put
+//     in the Authorization header — fixes the fetch() error
+//     'String contains non ISO-8859-1 code point'.
+
 // v86 — bilingual voice routing:
 //   • Chinese text always uses the device's native Chinese
 //     voice; the OpenAI neural voice is reserved for English.
@@ -63,7 +69,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v86';
+const CACHE_NAME = 'emp-v87';
 const ASSETS = [
     './',
     './index.html',
