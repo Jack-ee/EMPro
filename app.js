@@ -472,9 +472,15 @@
             stopSpeak();
             const ctrl = new AbortController();
             const blob = await ttsFetch(sample, voice, 1, key, ctrl.signal);
-            const audio = new Audio(URL.createObjectURL(blob));
+            const url   = URL.createObjectURL(blob);
+            const audio = new Audio(url);
             _neuralAudio = audio;
-            audio.onended = () => { if (_neuralAudio === audio) _neuralAudio = null; };
+            // Release the object URL once playback finishes (or errors)
+            // — the preview clip is one-shot and never replayed, so
+            // keeping the URL alive just leaks memory per test click.
+            const freeUrl = () => { try { URL.revokeObjectURL(url); } catch {} };
+            audio.onended = () => { if (_neuralAudio === audio) _neuralAudio = null; freeUrl(); };
+            audio.onerror = () => { if (_neuralAudio === audio) _neuralAudio = null; freeUrl(); };
             await audio.play();
             _neuralFailureNotified = false;            // confirmed working
             // The byte count differs per voice for the same text — if it

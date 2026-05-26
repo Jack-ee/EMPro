@@ -27,8 +27,10 @@
  *   download(onStatus)      fetch + import the pack; onStatus(msg) for UI
  *   getClip(word, voice)    -> Promise<Blob|null>
  *   getCachedVoices(word)   -> Promise<string[]> voices present for a word
- *   playWord(text, onEnd)   -> Promise<boolean>; plays a random cached
- *                              voice; false if the word is not in the pack
+ *   playWord(text, preferredVoices, onEnd)
+ *                           -> Promise<boolean>; plays a random cached
+ *                              voice (restricted to preferredVoices when
+ *                              given); false if the word is not in the pack
  *   stop()                  stop any pack clip currently playing
  *   deleteWord(word)         remove every voice's clip for a word
  *   status()                -> Promise<{generation,clipCount,voices}|null>

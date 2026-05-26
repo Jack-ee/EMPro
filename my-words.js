@@ -127,7 +127,9 @@ window.MyWords = (function() {
         if (cnBtn) {
             cnBtn.style.display = studyMode === 'quiz' ? 'none' : '';
             cnBtn.classList.toggle('active', showChinese);
-            cnBtn.innerHTML = showChinese ? '中<span class="mw-btn-label"> CN</span>' : '中<span class="mw-btn-label"> CN</span>';
+            cnBtn.innerHTML = showChinese
+                ? '\u{1F441}<span class="mw-btn-label"> Hide CN</span>'
+                : '\u{1F441}<span class="mw-btn-label"> Show CN</span>';
         }
 
         render();
@@ -383,6 +385,12 @@ window.MyWords = (function() {
         const btn = document.getElementById('mw-toggle-cn');
         if (btn) {
             btn.classList.toggle('active', showChinese);
+            // Keep the label in sync with state. Without this the button
+            // text stays stale after a direct tap (only navigate()/lookup
+            // refreshed it), so it could read "Show CN" while CN is shown.
+            btn.innerHTML = showChinese
+                ? '\u{1F441}<span class="mw-btn-label"> Hide CN</span>'
+                : '\u{1F441}<span class="mw-btn-label"> Show CN</span>';
         }
         // Toggle all Chinese text elements
         document.querySelectorAll('.mw-cn').forEach(el => {
@@ -545,7 +553,12 @@ window.MyWords = (function() {
 
         for (const line of lines) {
             const trimmed = line.trim();
-            if (!trimmed || trimmed === '---') { lastLabel = null; continue; }
+            // An explicit '---' ends the current entry's field context.
+            // A blank line is just skipped — it must NOT reset lastLabel,
+            // or a blank line inside a multi-line NOTE/EXAMPLE would drop
+            // every continuation line after it.
+            if (trimmed === '---') { lastLabel = null; continue; }
+            if (!trimmed)          { continue; }
 
             const m = trimmed.match(/^([A-Z][A-Z_]+):\s*(.*)$/);
             if (m && KNOWN.has(m[1])) {
@@ -1054,7 +1067,10 @@ IMPORTANT:
         const cardEl = document.querySelector('.mw-card');
         if (cardEl) cardEl.classList.add('mw-card-playing');
 
-        const rate = parseFloat(window.DB.getPref('speech_speed', '0.85'));
+        // Default kept in sync with speak()/speakNative() (0.9). A
+        // different default here made autoplay run at a different pace
+        // than a manual tap when no speed was saved yet.
+        const rate = parseFloat(window.DB.getPref('speech_speed', '0.9')) || 0.9;
 
         // Per-component toggles (word itself is always on). Read fresh each
         // card so the user can flip these in Settings without restarting.

@@ -112,7 +112,17 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v94';
+// v95 — fix \"app stuck on an old version\":
+//   • the network-first fetch handler now passes { cache: 'no-cache' }
+//     so a request really goes to the server instead of being satisfied
+//     by the browser / CDN HTTP cache. GitHub Pages sends a max-age, so
+//     plain fetch(e.request) could return a stale document that still
+//     referenced the previous ?v= assets — the app then loaded an old
+//     build even though a new one was deployed.
+//   • index.html registers the SW with updateViaCache:'none' so the
+//     worker script itself is never served stale either.
+
+const CACHE_NAME = 'emp-v95';
 const ASSETS = [
     './',
     './index.html',
@@ -189,10 +199,14 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // Local GETs: network-first, fall back to cache when offline
+    // Local GETs: network-first, fall back to cache when offline.
+    // { cache: 'no-cache' } forces the browser to revalidate with the
+    // server instead of returning a stale HTTP-cached copy. This is the
+    // fix for \"a new deploy never shows up\": without it, network-first
+    // could still hand back an old document from the CDN/browser cache.
     e.respondWith((async () => {
         try {
-            const fresh = await fetch(e.request);
+            const fresh = await fetch(e.request, { cache: 'no-cache' });
             if (fresh && fresh.ok && fresh.type !== 'opaque') {
                 const cache = await caches.open(CACHE_NAME);
                 cache.put(e.request, fresh.clone()).catch(() => {});

@@ -77,8 +77,12 @@ window.Reader = (function() {
         if (focus === 'idioms')    focusInstruction = 'Focus especially on idioms, phrasal verbs, and fixed expressions.';
         if (focus === 'technical') focusInstruction = 'Focus especially on domain-specific and technical terms.';
 
-        // Get existing notebook words to avoid duplicates
-        const existing = window.DB.loadNotebook().map(w => w.word.toLowerCase());
+        // Get existing notebook words to avoid duplicates. Guard against
+        // an entry with no `word` field — `.toLowerCase()` on undefined
+        // would throw and abort the whole extraction.
+        const existing = window.DB.loadNotebook()
+            .map(w => (w.word || '').toLowerCase())
+            .filter(Boolean);
         const skipNote = existing.length > 0
             ? `\n\nThe user already knows these words (skip them): ${existing.slice(0, 100).join(', ')}`
             : '';

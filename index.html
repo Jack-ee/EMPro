@@ -20,10 +20,10 @@
          In VS Code: Ctrl+H, find "?v=N" with the current N, replace
          with "?v=N+1" across this file. Then bump CACHE_NAME in
          sw.js to match (e.g. 'emp-vN+1').
-         Current version: v=89
+         Current version: v=95
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=94">
-    <link rel="stylesheet" href="expressions-coach.css?v=94">
+    <link rel="stylesheet" href="style.css?v=95">
+    <link rel="stylesheet" href="expressions-coach.css?v=95">
 </head>
 <body>
 
@@ -378,25 +378,25 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=94"></script>
-<script src="db.js?v=94"></script>
-<script src="ai-engine.js?v=94"></script>
-<script src="my-words.js?v=94"></script>
-<script src="writing-lab.js?v=94"></script>
-<script src="vocab-drill.js?v=94"></script>
-<script src="reader.js?v=94"></script>
-<script src="speaking-coach.js?v=94"></script>
-<script src="expressions-data.js?v=94"></script>
-<script src="expressions-coach.js?v=94"></script>
-<script src="sentence.js?v=94"></script>
-<script src="sentence-drill.js?v=94"></script>
-<script src="sync.js?v=94"></script>
-<script src="tts-pack.js?v=94"></script>
-<script src="app.js?v=94"></script>
+<script src="config.js?v=95"></script>
+<script src="db.js?v=95"></script>
+<script src="ai-engine.js?v=95"></script>
+<script src="my-words.js?v=95"></script>
+<script src="writing-lab.js?v=95"></script>
+<script src="vocab-drill.js?v=95"></script>
+<script src="reader.js?v=95"></script>
+<script src="speaking-coach.js?v=95"></script>
+<script src="expressions-data.js?v=95"></script>
+<script src="expressions-coach.js?v=95"></script>
+<script src="sentence.js?v=95"></script>
+<script src="sentence-drill.js?v=95"></script>
+<script src="sync.js?v=95"></script>
+<script src="tts-pack.js?v=95"></script>
+<script src="app.js?v=95"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=94"></script>
+<script src="debug-panel.js?v=95"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.
@@ -430,7 +430,18 @@ window.promptInstall = async function() {
 
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').then(reg => {
+    // Whether a SW was already controlling this page at load time. On the
+    // very first visit there is none, so the install → activate → claim
+    // sequence fires controllerchange even though no *update* happened.
+    // Reloading in that case is a pointless flash on first launch.
+    const hadControllerAtLoad = !!navigator.serviceWorker.controller;
+
+    // updateViaCache:'none' — never let the browser HTTP cache serve a
+    // stale sw.js on the update check. Without this a CDN cache (GitHub
+    // Pages sends max-age) could keep handing back an old worker, so a
+    // new deploy is never detected and the app stays pinned to an old
+    // version.
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(reg => {
         console.log('[PWA] Service worker registered, scope:', reg.scope);
 
         // Check for updates every 60s while the page is open
@@ -458,6 +469,8 @@ if ('serviceWorker' in navigator) {
     let reloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (reloaded) return;
+        // First-visit claim, not an update — nothing to refresh for.
+        if (!hadControllerAtLoad) return;
         reloaded = true;
 
         const tryReload = () => {
