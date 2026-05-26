@@ -1,81 +1,160 @@
-# English Master Pro
+# EMPro pronunciation packs
 
-A personal English-learning workbench built for advanced Chinese speakers — researchers, graduate students, and professionals who already know English well but want to sound genuinely native in academic papers, emails, presentations, and everyday conversation.
+Pre-generated word pronunciations, built in bulk from a reliable network and
+downloaded into the app, so playback of covered words needs no API key, no
+proxy, and no live network.
 
-This is not a gamified vocabulary app. It's a disciplined tool built around how real learning works: steady exposure to high-quality vocabulary, deliberate practice of native phrasings, honest feedback on your writing, and the ability to study anywhere without a complicated setup.
+This folder is the generation side of the feature. The app side (the download
+button and playback) is built separately and consumes the pack format
+described below.
 
-<!-- TODO: replace with your own screenshot -->
-![EM Pro screenshot](./docs/screenshot.png)
+## How it works
 
-## Project status
+A Python script reads `wordlist.txt`, calls OpenAI TTS for each word in
+several voices, and bundles the audio into one pack file. It runs as a GitHub
+Action, so the OpenAI key lives only in an encrypted Action secret and never
+reaches the app. The pack is published as a GitHub Release asset, which is
+served through a CDN.
 
-This is an active personal project. Only the **My Words** (vocabulary) module has been tested end-to-end and can be considered stable. The other modules — Expressions, Drill, Writing Lab, Reader — are still under construction and may not work fully. Expect bugs, missing states, and incomplete features outside the vocabulary workflow.
+Generation is incremental. Each run downloads the previous pack from the
+Release and reuses it, so only words that do not yet have audio are sent to
+OpenAI. The previous pack is the only state the build needs.
 
-## Five study modules
+## One-time setup
 
-### My Words — vocabulary workbench (stable)
+1. Add the OpenAI key as a repository secret.
+   Repository Settings, then Secrets and variables, then Actions, then New
+   repository secret. Name it `OPENAI_API_KEY` and paste your key as the
+   value. The key stays encrypted and is never written to the app or the
+   pack.
 
-A vocabulary notebook with three views (cards, list, quiz) and a hands-free auto-play mode. Each word can be enriched — in bulk, via a clipboard workflow with Claude or another AI — into a rich entry with:
+2. Confirm Actions may write releases.
+   Repository Settings, then Actions, then General, then Workflow
+   permissions. Select Read and write permissions. The workflow also
+   declares this itself, so this is just a fallback check.
 
-- IPA phonetic transcription
-- Chinese meaning and English definition
-- 3–4 collocations with translations
-- An authentic example sentence with Chinese translation
-- Usage notes tailored to Chinese-speaker pitfalls
+3. Put your vocabulary in `wordlist.txt`.
+   One word per line. Replace the sample words with your own.
 
-Mark words as Core, Pronunciation, or Spelling focus to revisit them. Words you miss in quizzes are tagged as Weak automatically. Auto-play speaks the word, definition, each collocation, and the example sentence in sequence — hands-free study while commuting.
+## Running a build
 
-### Expressions — native phrasing drills (under construction)
+Either commit a change to `wordlist.txt` (a push that touches that file
+triggers a build), or open the Actions tab, choose Build audio pack, and
+click Run workflow.
 
-Teaches native phrasing patterns that distinguish near-native speakers: hedging, soft disagreement, formal transitions, conversational warmth. Three drill modes reinforce the same expressions from different angles — fill-in-the-blank, scenario pick, and AI-evaluated rephrasing.
+The build publishes three assets to a Release tagged `audio-pack`. The
+download URLs are stable, so the app can always fetch the latest pack from
+the same address:
 
-### Writing Lab — AI-powered text transformations (under construction)
+```
+https://github.com/<owner>/EMPro/releases/download/audio-pack/empro-audio-pack.empack
+https://github.com/<owner>/EMPro/releases/download/audio-pack/empro-audio-pack.delta.empack
+https://github.com/<owner>/EMPro/releases/download/audio-pack/empro-audio-pack.manifest.json
+```
 
-Runs your text through six AI-powered transformations: polish, academic rewrite, conversational rewrite, paraphrase-three-ways, Chinglish detection, and professional-email drafting. Each returns structured feedback, not just a rewrite.
+## Running it locally
 
-### Reader — vocabulary extraction (under construction)
+The script needs only Python 3 and the standard library.
 
-Paste any article and extract advanced vocabulary filtered by level (intermediate, advanced, academic) and focus (idioms, technical, general).
+```
+python tools/generate_audio_pack.py --selftest   verify the pack format only
+python tools/generate_audio_pack.py --dry-run     list missing clips, no API calls
+python tools/generate_audio_pack.py --limit 20    cap API calls for a test run
+OPENAI_API_KEY=sk-... python tools/generate_audio_pack.py    real local run
+```
 
-### Speaking Coach — scenario practice (under construction)
+A local run with no `GITHUB_REPOSITORY` set treats every run as a first run
+and rebuilds from scratch, since it cannot reach the previous Release pack.
 
-Scenario-based speaking practice and a native-phrasing quick reference.
+## Voices
 
-## Privacy and data ownership
+The voices are listed in `VOICES` at the top of `generate_audio_pack.py`,
+currently `alloy`, `nova`, and `fable`. The count is not hardcoded anywhere.
+Adding a voice to that list makes every existing word missing that voice, so
+the next run backfills it for the whole word list automatically.
 
-All learning data lives in your browser's local storage. Nothing is collected, tracked, or sent to any server owned by the author of this tool. Optional features have clearly scoped third-party dependencies:
+## Pack format
 
-- **Cloud sync** uses a GitHub personal access token with `gist` scope only. Your data syncs to a private gist under your own GitHub account. The token cannot access your repos, code, or account settings — it can only touch your gists. Revoke anytime at https://github.com/settings/tokens.
-- **AI features** use your own API key from the provider of your choice — Claude, OpenAI, DeepSeek, Gemini, or Doubao. Usage is billed to your account, not ours.
+The pack is a single binary file. It uses no base64 and no zip, so the app
+needs no extra library and no build step to read it. MP3 is already
+compressed, so a zip would add a dependency for almost no size saving; raw
+concatenation avoids both the dependency and the base64 size penalty.
 
-The GitHub token is stored only on your device. Your AI API key is backed up to your private sync gist as part of cross-device sync, which means it shares the security of your GitHub account — a breach there would expose it.
+```
+bytes  0..7      ASCII magic, exactly  EMPACK1\0
+bytes  8..11     uint32 little-endian, the manifest length M in bytes
+bytes 12..12+M   UTF-8 JSON manifest
+bytes 12+M..end  raw audio payload, every clip's MP3 bytes concatenated
+```
 
-## Getting started
+The manifest is a JSON object:
 
-1. Open https://jack-ee.github.io/EMPro/ in any modern browser.
-2. To try AI-powered word enrichment, open Settings (gear icon) and paste an API key for your chosen provider. Without a key, you can still import and browse words manually.
-3. To sync data across devices, create a GitHub personal access token with the `gist` scope only at https://github.com/settings/tokens, then paste it into Settings → Cloud Sync.
-4. On supported mobile devices, you can install the app to your home screen via Settings → Install on this device, or via Chrome's menu → "Install app".
+```
+{
+  "format"    : "empack",
+  "version"   : 1,
+  "generation": 3,
+  "createdAt" : "2026-05-26T08:00:00Z",
+  "model"     : "gpt-4o-mini-tts",
+  "voices"    : ["alloy", "nova", "fable"],
+  "clipCount" : 1287,
+  "clips"     : [
+    { "word": "ubiquitous", "voice": "alloy", "gen": 1,
+      "offset": 0, "length": 8421 }
+  ]
+}
+```
 
-## Device compatibility
+Each clip entry locates its MP3 bytes inside the audio payload. `offset` is
+measured from the start of the payload, that is from byte `12+M` of the file.
+`word` is always lowercased. `gen` records the generation the clip was added
+in. The app keys its IndexedDB store by `voice + "|" + word`, the same key
+shape as the existing live TTS cache.
 
-The app is currently tested only on the **Xiaomi 17 Pro Max**. It's a standard progressive web app built with vanilla HTML/CSS/JS and should work on modern Android phones, iOS devices (Safari 16.4+), and any current desktop browser. Other devices haven't been verified, so your experience may vary.
+Reading a pack in the browser is a few lines:
 
-If you try it on another device and hit a problem, please open an issue with your device model, browser, and a description of what went wrong.
+```
+const buf  = await response.arrayBuffer();
+const dv   = new DataView(buf);
+const mLen = dv.getUint32(8, true);
+const manifest  = JSON.parse(
+    new TextDecoder().decode(new Uint8Array(buf, 12, mLen)));
+const dataStart = 12 + mLen;
+for (const c of manifest.clips) {
+    const slice = buf.slice(dataStart + c.offset,
+                            dataStart + c.offset + c.length);
+    const blob  = new Blob([slice], { type: "audio/mpeg" });
+    // store blob under `${c.voice}|${c.word}`
+}
+```
 
-## Technical notes
+## The three output files
 
-Built as a vanilla HTML/CSS/JavaScript PWA — no framework dependencies. Runs entirely in the browser with a service worker for offline support. Uses:
+empro-audio-pack.empack
+The full pack, every word in every voice. The app downloads this once, then
+imports clips it does not already have. Re-downloading after a small change
+is wasteful on bandwidth but cheap on work, since the import skips clips that
+are already stored.
 
-- localStorage for persistence (profile-scoped)
-- GitHub Gist API for optional cross-device sync
-- Web Speech API (with Google TTS fallback on Android) for pronunciation
-- Screen Wake Lock API to keep the screen on during auto-play sessions
-- Standard `fetch` for AI API calls (Claude, OpenAI, DeepSeek, Gemini, Doubao)
+empro-audio-pack.delta.empack
+Only the clips added in the most recent run. Same format as the full pack. If
+the app is exactly one generation behind the Release, it can fetch this
+instead of the whole pack. If it is further behind, it should fetch the full
+pack. A run that adds nothing produces no delta file.
 
-No backend, no telemetry, no accounts.
+empro-audio-pack.manifest.json
+The full pack manifest on its own, without audio. It is tiny. The app can
+fetch it first to learn the current generation and which words are covered,
+then decide whether a download is needed at all.
 
-## License
+## Scope notes
 
-Personal project. See LICENSE for details.
+The pack covers single words only. Expression sentences stay on the live
+neural path and the device voice. Sentences are far larger than single words
+and the Expressions content changes more often, so bundling them would inflate
+the pack for little gain. This keeps the pack a stable, slowly growing
+single-word asset.
 
+Words removed from `wordlist.txt` are pruned from the pack on the next build,
+so audio for deleted vocabulary does not accumulate. The app performs the same
+cleanup on its own store when a word is deleted from the notebook.

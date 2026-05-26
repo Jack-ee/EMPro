@@ -1,0 +1,66 @@
+name: Build audio pack
+
+# Builds the EMPro pronunciation pack and publishes it as a Release asset.
+#
+# Runs when:
+#   - tools/wordlist.txt changes on the main branch, or
+#   - it is started by hand from the Actions tab (Run workflow).
+#
+# Setup needed once:
+#   Settings -> Secrets and variables -> Actions -> New repository secret
+#     name : OPENAI_API_KEY
+#     value: your OpenAI API key (sk-...)
+#   The key stays encrypted in the secret and never reaches the app.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - tools/wordlist.txt
+
+# The job updates a Release, so it needs write access to repository contents.
+permissions:
+  contents: write
+
+# One build at a time; a newer run waits rather than racing the release.
+concurrency:
+  group: audio-pack
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build pronunciation pack
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PACK_RELEASE_TAG: audio-pack
+        run: python tools/generate_audio_pack.py
+
+      - name: Publish pack to the audio-pack release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: audio-pack
+          name: EMPro audio pack
+          # A no-op run produces no delta file; skip it instead of failing.
+          fail_on_unmatched_files: false
+          body: >
+            Pre-generated pronunciation audio for EMPro. This release is
+            updated in place by the Build audio pack workflow. The download
+            URLs are stable, so the app can always fetch the latest pack
+            from the same address.
+          files: |
+            tools/dist/empro-audio-pack.empack
+            tools/dist/empro-audio-pack.delta.empack
+            tools/dist/empro-audio-pack.manifest.json

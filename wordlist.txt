@@ -1,0 +1,22 @@
+# EMPro audio pack - word list
+# ----------------------------------------------------------------------
+# One word per line. Blank lines and lines starting with '#' are ignored.
+# Words are matched case-insensitively, so capitalisation here does not
+# matter. The build only synthesises words that are not already in the
+# pack, so adding words to the bottom of this file is cheap.
+#
+# Replace the sample words below with your own vocabulary, then either
+# run the "Build audio pack" workflow manually from the Actions tab, or
+# just commit this file - a push that changes it triggers a build.
+# ----------------------------------------------------------------------
+
+ubiquitous
+ephemeral
+salient
+nuance
+pivotal
+comprehensive
+mitigate
+robust
+inherent
+discrepancy
