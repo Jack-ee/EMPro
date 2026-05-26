@@ -15,6 +15,9 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v94 — audio pack: diagnostic logging on the playback path
+//   (tagged "[pack]", visible in the debug panel Log tab).
+
 // v93 — audio pack playback:
 //   • speak() now plays English words from the downloaded pack when a
 //     clip exists — no key, proxy, or network for covered words —
@@ -109,7 +112,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v93';
+const CACHE_NAME = 'emp-v94';
 const ASSETS = [
     './',
     './index.html',

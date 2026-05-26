@@ -335,7 +335,14 @@ window.TTSPack = (function () {
     // (the caller then falls back to the live or device voice).
     async function playWord(text, preferredVoices, onEnd) {
         const cached = await getCachedVoices(text);
-        if (!cached.length) return false;
+        if (!cached.length) {
+            const meta = await idbGet(META_KEY);
+            console.log('[pack] MISS ' + JSON.stringify(norm(text)) + ' \u2014 '
+                + (meta ? ('pack has ' + meta.clipCount
+                           + ' clip(s) but not this word')
+                        : 'no pack installed') + '; falling back');
+            return false;
+        }
 
         let pool = cached;
         if (Array.isArray(preferredVoices) && preferredVoices.length) {
@@ -345,7 +352,13 @@ window.TTSPack = (function () {
         }
         const voice = pool[Math.floor(Math.random() * pool.length)];
         const blob  = await getClip(text, voice);
-        if (!blob) return false;
+        if (!blob) {
+            console.log('[pack] MISS ' + JSON.stringify(norm(text))
+                + ' \u2014 clip blob missing for voice ' + voice);
+            return false;
+        }
+        console.log('[pack] HIT ' + JSON.stringify(norm(text)) + ' \u2014 voice '
+            + voice + ' (cached: ' + cached.join(',') + ')');
 
         stop();
         const url   = URL.createObjectURL(blob);
@@ -363,7 +376,10 @@ window.TTSPack = (function () {
         audio.onended = finish;
         audio.onerror = finish;
         try { await audio.play(); }
-        catch (e) { finish(); }
+        catch (e) {
+            console.log('[pack] audio.play() rejected: ' + (e && e.message));
+            finish();
+        }
         return true;
     }
 

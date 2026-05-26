@@ -427,8 +427,13 @@
             if (window.TTSPack && window.TTSPack.playWord) {
                 window.TTSPack.playWord(text, getPackVoices(), onEnd)
                     .then(played => { if (!played) fallback(); })
-                    .catch(() => fallback());
+                    .catch(err => {
+                        console.log('[pack] playWord error: ' + (err && err.message));
+                        fallback();
+                    });
             } else {
+                console.log('[pack] TTSPack not loaded \u2014 using '
+                            + (neuralAvailable() ? 'neural' : 'device') + ' voice');
                 fallback();
             }
         }
