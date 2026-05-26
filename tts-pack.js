@@ -282,6 +282,33 @@ window.TTSPack = (function () {
         return found;
     }
 
+    // Compare a word list against the installed pack. A word counts as
+    // covered if at least one voice has a clip for it. Returns counts
+    // plus the list of words that have no audio yet.
+    async function coverage(words) {
+        const keys = await idbAllKeys();
+        const have = new Set();
+        for (const k of keys) {
+            if (k === META_KEY) continue;
+            const bar = k.indexOf('|');
+            if (bar > 0) have.add(k.slice(bar + 1));
+        }
+        const seen    = new Set();
+        const missing = [];
+        for (const w of (words || [])) {
+            const n = norm(w);
+            if (!n || seen.has(n)) continue;
+            seen.add(n);
+            if (!have.has(n)) missing.push(n);
+        }
+        return {
+            total       : seen.size,
+            covered     : seen.size - missing.length,
+            missing     : missing.length,
+            missingWords: missing,
+        };
+    }
+
     // --- Public: playback -------------------------------------------
 
     let _audio = null;
@@ -370,6 +397,7 @@ window.TTSPack = (function () {
         download       : download,
         getClip        : getClip,
         getCachedVoices: getCachedVoices,
+        coverage       : coverage,
         playWord       : playWord,
         stop           : stop,
         deleteWord     : deleteWord,

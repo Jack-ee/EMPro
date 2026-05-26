@@ -152,6 +152,10 @@
     // that happens when one segment fails and silently downgrades.
     const OPENAI_TTS_URL = 'https://api.openai.com/v1/audio/speech';
     const NEURAL_VOICES  = ['alloy', 'ash', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer'];
+    // Voices the pack generator accepts. The user picks a subset in
+    // Settings; that subset drives both cloud generation and rotation.
+    const PACK_VOICE_LIST    = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse'];
+    const PACK_VOICE_DEFAULT = ['ash', 'fable', 'nova', 'shimmer'];
     const _ttsCache      = new Map();   // `${voice}|${text}` → object URL (in-memory)
     let   _neuralAudio   = null;        // currently-playing HTMLAudioElement
     let   _neuralAbort   = null;        // AbortController for an in-flight fetch
@@ -491,6 +495,8 @@
             setStat('Failed: ' + ((err && err.message) || err));
         } finally {
             if (btn) { btn.disabled = false; btn.textContent = label || 'Download audio pack'; }
+            hydratePackStatus();
+            hydratePackCoverage();
         }
     }
 
@@ -503,6 +509,106 @@
                   + s.clipCount + ' clip(s), ' + s.voices.length + ' voice(s).'
                 : 'No pack installed yet.';
         }).catch(() => {});
+    }
+
+    // The voices the user picks for the pack. The set is saved as a
+    // pref and written into the exported word list, so the cloud
+    // generator synthesises exactly these and playback rotates them.
+    function getPackVoices() {
+        let saved = [];
+        try { saved = JSON.parse(window.DB?.getPref?.('pack_voices', '') || '[]'); }
+        catch (e) { saved = []; }
+        if (!Array.isArray(saved)) saved = [];
+        const set    = new Set(saved.map(v => String(v).toLowerCase()));
+        const chosen = PACK_VOICE_LIST.filter(v => set.has(v));
+        return chosen.length ? chosen : PACK_VOICE_DEFAULT.slice();
+    }
+
+    function setPackVoices(voices) {
+        const set    = new Set((voices || []).map(v => String(v).toLowerCase()));
+        const chosen = PACK_VOICE_LIST.filter(v => set.has(v));
+        window.DB?.setPref?.('pack_voices', JSON.stringify(chosen));
+        return chosen;
+    }
+
+    function renderPackVoiceChecks() {
+        const box = document.getElementById('settings-pack-voices');
+        if (!box) return;
+        const chosen = new Set(getPackVoices());
+        box.innerHTML = PACK_VOICE_LIST.map(v => {
+            const cap = v.charAt(0).toUpperCase() + v.slice(1);
+            return '<label style="display:flex;align-items:center;gap:4px;'
+                 + 'cursor:pointer;font-size:11px;color:var(--text-secondary)">'
+                 + '<input type="checkbox" data-voice="' + v + '"'
+                 + (chosen.has(v) ? ' checked' : '') + '> ' + cap + '</label>';
+        }).join('');
+        box.querySelectorAll('input[data-voice]').forEach(cb => {
+            cb.addEventListener('change', onPackVoiceToggle);
+        });
+    }
+
+    function onPackVoiceToggle() {
+        const box = document.getElementById('settings-pack-voices');
+        if (!box) return;
+        const picked = [];
+        box.querySelectorAll('input[data-voice]').forEach(cb => {
+            if (cb.checked) picked.push(cb.dataset.voice);
+        });
+        if (!picked.length) {
+            // An empty set would leave nothing to generate; keep one.
+            showToast('Keep at least one voice selected.');
+            renderPackVoiceChecks();
+            return;
+        }
+        setPackVoices(picked);
+    }
+
+    // The unique, lowercased word bank, used for both coverage and export.
+    function notebookWordList() {
+        const seen = new Set();
+        const out  = [];
+        (window.DB?.loadNotebook?.() || []).forEach(it => {
+            const n = it && it.word ? String(it.word).trim().toLowerCase() : '';
+            if (n && !seen.has(n)) { seen.add(n); out.push(n); }
+        });
+        return out;
+    }
+
+    function hydratePackCoverage() {
+        const el = document.getElementById('settings-pack-coverage');
+        if (!el || !window.TTSPack) return;
+        window.TTSPack.coverage(notebookWordList()).then(c => {
+            el.textContent = c.total
+                ? c.total + ' word(s) \u00b7 ' + c.covered + ' with audio \u00b7 '
+                  + c.missing + ' missing'
+                : 'No words in your bank yet.';
+        }).catch(() => {});
+    }
+
+    // Write the word bank to a wordlist.txt download, with the chosen
+    // voices in the header. The user replaces tools/wordlist.txt with
+    // it and commits; the cloud build then fills in the missing words.
+    function exportWordList() {
+        const words = notebookWordList();
+        if (!words.length) { showToast('No words to export.'); return; }
+        const lines = [
+            '# EMPro audio pack - word list',
+            '# Exported ' + new Date().toISOString().slice(0, 10) + ' from the app.',
+            '# Replace tools/wordlist.txt with this file, then commit it.',
+            '# voices: ' + getPackVoices().join(', '),
+            '# ' + words.length + ' word(s)',
+            '',
+        ].concat(words);
+        const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'wordlist.txt';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 1000);
+        showToast('Exported ' + words.length + ' word(s) to wordlist.txt');
     }
 
     function stopSpeak() {
@@ -576,6 +682,8 @@
         populateVoiceSelect();
         hydrateNeuralTtsUI();
         hydratePackStatus();
+        renderPackVoiceChecks();
+        hydratePackCoverage();
 
         // Speed
         const speedEl   = document.getElementById('settings-speed');
@@ -765,6 +873,9 @@
         });
         document.getElementById('settings-pack-download')?.addEventListener('click', () => {
             downloadAudioPack();
+        });
+        document.getElementById('settings-pack-export')?.addEventListener('click', () => {
+            exportWordList();
         });
         const speedEl = document.getElementById('settings-speed');
         speedEl?.addEventListener('input', (e) => {

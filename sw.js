@@ -15,6 +15,13 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v91 — audio pack: voice picker, coverage, word-list export:
+//   • Settings → Voice gains voice checkboxes, a coverage line
+//     (how many words still lack pronunciation), and an Export word
+//     list button that writes wordlist.txt with the chosen voices.
+//   • the pack generator reads voices from a "# voices:" header in
+//     the word list, so voices are chosen in the app, not source.
+
 // v90 — pre-generated pronunciation pack:
 //   • new module tts-pack.js: downloads a bundled pack of word audio
 //     into a dedicated, never-evicted IndexedDB store ('emp-tts-pack').
@@ -87,7 +94,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v90';
+const CACHE_NAME = 'emp-v91';
 const ASSETS = [
     './',
     './index.html',

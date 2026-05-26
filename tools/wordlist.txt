@@ -1,14 +1,17 @@
 # EMPro audio pack - word list
 # ----------------------------------------------------------------------
 # One word per line. Blank lines and lines starting with '#' are ignored.
-# Words are matched case-insensitively, so capitalisation here does not
-# matter. The build only synthesises words that are not already in the
-# pack, so adding words to the bottom of this file is cheap.
+# Words are matched case-insensitively. The build only synthesises words
+# not already in the pack, so adding words to the bottom is cheap.
 #
-# Replace the sample words below with your own vocabulary, then either
-# run the "Build audio pack" workflow manually from the Actions tab, or
-# just commit this file - a push that changes it triggers a build.
+# The "# voices:" line below chooses which voices to synthesise. The
+# EMPro app rewrites this whole file when you tap "Export word list" in
+# Settings, Voice, so you normally edit it there, not here.
+#
+# To build: commit this file (a push that changes it triggers a build),
+# or start "Build audio pack" by hand from the Actions tab.
 # ----------------------------------------------------------------------
+# voices: ash, fable, nova, shimmer
 
 ubiquitous
 ephemeral

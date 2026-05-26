@@ -14,6 +14,11 @@ name: Build audio pack
 
 on:
   workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max words to synthesise this run (blank = all). Use a small number for a test run."
+        required: false
+        default: ""
   push:
     branches: [main]
     paths:
@@ -46,7 +51,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PACK_RELEASE_TAG: audio-pack
-        run: python tools/generate_audio_pack.py
+          # Empty on a push event; set only for a manual test run.
+          PACK_LIMIT: ${{ inputs.limit }}
+        run: |
+          if [ -n "$PACK_LIMIT" ]; then
+            echo "Test run: limiting to $PACK_LIMIT word(s)."
+            python tools/generate_audio_pack.py --limit "$PACK_LIMIT"
+          else
+            python tools/generate_audio_pack.py
+          fi
 
       - name: Publish pack to the audio-pack release
         uses: softprops/action-gh-release@v2

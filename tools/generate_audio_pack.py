@@ -8,9 +8,13 @@ OpenAI key lives only in an encrypted Action secret and never reaches the app.
 
 Generation is incremental. The previous pack is downloaded from the GitHub
 Release and reused as the state store, so each run synthesises only the
-(word, voice) pairs that are not already present. Adding a new voice to the
-VOICES list below makes every existing word missing that voice, so the next
-run backfills it automatically. No voice count is hardcoded anywhere.
+(word, voice) pairs that are not already present. Adding a voice makes every
+existing word missing that voice, so the next run backfills it automatically.
+
+The voices to synthesise come from a "# voices: ..." header line in the word
+list when one is present, otherwise from the VOICES default below. The EMPro
+app writes that header when it exports a word list, so voices are chosen in
+the app UI rather than edited here.
 
 PACK FORMAT (.empack, version 1)
 --------------------------------
@@ -168,6 +172,27 @@ def read_wordlist(path):
             seen.add(norm)
             unique.append(norm)
     return unique
+
+
+def read_voice_config(path):
+    """Look for a "# voices: a, b, c" header in a plain-text word list.
+
+    The EMPro app writes this line when it exports a word list, so the
+    voice choice lives in the app UI. Returns the voice list, or None
+    when no such line is present (the caller then falls back to VOICES).
+    """
+    if not os.path.exists(path) or path.endswith(".json"):
+        return None
+    for line in open(path, "r", encoding="utf-8"):
+        body = line.strip()
+        if not body.startswith("#"):
+            continue
+        body = body[1:].strip()
+        if body.lower().startswith("voices:"):
+            spec   = body.split(":", 1)[1].replace(",", " ")
+            voices = [t.lower() for t in spec.split()]
+            return voices or None
+    return None
 
 
 # --- Pack format ---------------------------------------------------------
@@ -357,9 +382,12 @@ def run_build(dry_run=False, limit=0):
     tag     = os.environ.get("PACK_RELEASE_TAG", "audio-pack").strip() \
               or "audio-pack"
 
-    words = read_wordlist(WORDLIST)
+    words       = read_wordlist(WORDLIST)
+    file_voices = read_voice_config(WORDLIST)
+    voices      = file_voices or VOICES
     print("[words] %d unique words in %s" % (len(words), WORDLIST))
-    print("[voices] %s" % ", ".join(VOICES))
+    print("[voices] %s  (%s)" % (", ".join(voices),
+          "from word list" if file_voices else "default"))
 
     prev_manifest, existing = download_previous_pack(repo, tag, token)
     prev_gen = prev_manifest.get("generation", 0) if prev_manifest else 0
@@ -373,7 +401,7 @@ def run_build(dry_run=False, limit=0):
         print("[prune] dropped %d clip(s) for words removed from the list"
               % dropped)
 
-    missing = collect_missing(words, VOICES, kept)
+    missing = collect_missing(words, voices, kept)
     print("[plan] %d clip(s) already cached, %d to synthesise"
           % (len(kept), len(missing)))
 
@@ -429,7 +457,7 @@ def run_build(dry_run=False, limit=0):
 
     os.makedirs(DIST_DIR, exist_ok=True)
 
-    full_bytes, manifest = build_pack(all_clips, VOICES, new_gen, model)
+    full_bytes, manifest = build_pack(all_clips, voices, new_gen, model)
     open(os.path.join(DIST_DIR, FULL_NAME), "wb").write(full_bytes)
 
     manifest_only = dict(manifest)
@@ -438,7 +466,7 @@ def run_build(dry_run=False, limit=0):
 
     delta_clips = [c for c in all_clips if c["gen"] == new_gen and new_clips]
     if delta_clips:
-        delta_bytes, _ = build_pack(delta_clips, VOICES, new_gen, model)
+        delta_bytes, _ = build_pack(delta_clips, voices, new_gen, model)
         open(os.path.join(DIST_DIR, DELTA_NAME), "wb").write(delta_bytes)
         print("[write] %s  (%d clip(s) added this run)"
               % (DELTA_NAME, len(delta_clips)))
