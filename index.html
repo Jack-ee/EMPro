@@ -22,8 +22,8 @@
          sw.js to match (e.g. 'emp-vN+1').
          Current version: v=89
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=91">
-    <link rel="stylesheet" href="expressions-coach.css?v=91">
+    <link rel="stylesheet" href="style.css?v=92">
+    <link rel="stylesheet" href="expressions-coach.css?v=92">
 </head>
 <body>
 
@@ -266,33 +266,42 @@ One word or phrase per line</pre>
                             <input type="text" id="settings-tts-proxy" placeholder="TTS proxy URL &mdash; https://...workers.dev" class="settings-input" style="width:100%;margin-bottom:6px">
                             <button id="settings-tts-test" class="wl-btn-primary" style="width:100%">Test neural voice</button>
                             <div id="settings-tts-status" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-top:5px;min-height:13px"></div>
-                            <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Neural voice needs a CORS proxy — OpenAI blocks direct browser calls. Paste your Cloudflare Worker URL above, then tap Test. Clips are cached on this device, so each phrase is fetched once.</p>
+                            <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Needs your Cloudflare Worker URL &mdash; OpenAI blocks direct browser calls. Clips are cached after the first fetch.</p>
                         </div>
                     </div>
                     <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
                         <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px">Audio pack <span style="color:var(--text-secondary)">(offline pronunciations)</span></div>
                         <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px">Voices to generate and rotate</div>
                         <div id="settings-pack-voices" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:6px"></div>
-                        <div id="settings-pack-coverage" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-bottom:6px;min-height:13px"></div>
-                        <button id="settings-pack-export" class="wl-btn-secondary" style="width:100%;margin-bottom:6px">Export word list</button>
-                        <button id="settings-pack-download" class="wl-btn-primary" style="width:100%">Download audio pack</button>
+                        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px;margin-bottom:6px">
+                            <span id="settings-pack-coverage" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);flex:1;min-width:120px"></span>
+                            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-tertiary);white-space:nowrap">Words/build
+                                <input type="number" id="settings-pack-limit" min="0" step="10" placeholder="all" class="settings-input" style="width:58px;text-align:center">
+                            </label>
+                        </div>
+                        <div style="display:flex;gap:6px">
+                            <button id="settings-pack-export" class="wl-btn-secondary" style="flex:1;justify-content:center">Export word list</button>
+                            <button id="settings-pack-download" class="wl-btn-primary" style="flex:1;justify-content:center">Download audio pack</button>
+                        </div>
                         <div id="settings-pack-status" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-top:5px;min-height:13px"></div>
-                        <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Pick your voices, then Export word list and replace tools/wordlist.txt with the file. Commit it and the cloud build generates the missing words. Download audio pack then pulls the finished pack to this device.</p>
+                        <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Export the word list, commit it as tools/wordlist.txt, then Download once the cloud build finishes. Words/build paces how many words each build generates.</p>
                     </div>
                     <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
                         <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px">Auto-pronounce <span style="color:var(--text-secondary)">(word is always on)</span></div>
-                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-secondary);margin-bottom:3px">
-                            <input type="checkbox" id="settings-autoplay-endef" checked> English definition
-                        </label>
-                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-secondary);margin-bottom:3px">
-                            <input type="checkbox" id="settings-autoplay-cn" checked> Chinese meaning
-                        </label>
-                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-secondary);margin-bottom:3px">
-                            <input type="checkbox" id="settings-autoplay-collo" checked> Collocations / phrases
-                        </label>
-                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-secondary)">
-                            <input type="checkbox" id="settings-autoplay-sent" checked> Example sentence
-                        </label>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 12px">
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-secondary)">
+                                <input type="checkbox" id="settings-autoplay-endef" checked> English definition
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-secondary)">
+                                <input type="checkbox" id="settings-autoplay-cn" checked> Chinese meaning
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-secondary)">
+                                <input type="checkbox" id="settings-autoplay-collo" checked> Collocations / phrases
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-secondary)">
+                                <input type="checkbox" id="settings-autoplay-sent" checked> Example sentence
+                            </label>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -369,25 +378,25 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=91"></script>
-<script src="db.js?v=91"></script>
-<script src="ai-engine.js?v=91"></script>
-<script src="my-words.js?v=91"></script>
-<script src="writing-lab.js?v=91"></script>
-<script src="vocab-drill.js?v=91"></script>
-<script src="reader.js?v=91"></script>
-<script src="speaking-coach.js?v=91"></script>
-<script src="expressions-data.js?v=91"></script>
-<script src="expressions-coach.js?v=91"></script>
-<script src="sentence.js?v=91"></script>
-<script src="sentence-drill.js?v=91"></script>
-<script src="sync.js?v=91"></script>
-<script src="tts-pack.js?v=91"></script>
-<script src="app.js?v=91"></script>
+<script src="config.js?v=92"></script>
+<script src="db.js?v=92"></script>
+<script src="ai-engine.js?v=92"></script>
+<script src="my-words.js?v=92"></script>
+<script src="writing-lab.js?v=92"></script>
+<script src="vocab-drill.js?v=92"></script>
+<script src="reader.js?v=92"></script>
+<script src="speaking-coach.js?v=92"></script>
+<script src="expressions-data.js?v=92"></script>
+<script src="expressions-coach.js?v=92"></script>
+<script src="sentence.js?v=92"></script>
+<script src="sentence-drill.js?v=92"></script>
+<script src="sync.js?v=92"></script>
+<script src="tts-pack.js?v=92"></script>
+<script src="app.js?v=92"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=91"></script>
+<script src="debug-panel.js?v=92"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.

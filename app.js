@@ -531,6 +531,26 @@
         return chosen;
     }
 
+    // Words to synthesise per cloud build. 0 (or blank) means no cap;
+    // the value is written into the exported word list as "# limit:".
+    function getPackLimit() {
+        const n = parseInt(window.DB?.getPref?.('pack_limit', '') || '', 10);
+        return (Number.isFinite(n) && n > 0) ? n : 0;
+    }
+
+    function setPackLimit(value) {
+        const n = parseInt(value, 10);
+        window.DB?.setPref?.('pack_limit',
+            (Number.isFinite(n) && n > 0) ? String(n) : '');
+    }
+
+    function hydratePackLimit() {
+        const el = document.getElementById('settings-pack-limit');
+        if (!el) return;
+        const n = getPackLimit();
+        el.value = n ? String(n) : '';
+    }
+
     function renderPackVoiceChecks() {
         const box = document.getElementById('settings-pack-voices');
         if (!box) return;
@@ -591,14 +611,17 @@
     function exportWordList() {
         const words = notebookWordList();
         if (!words.length) { showToast('No words to export.'); return; }
-        const lines = [
+        const header = [
             '# EMPro audio pack - word list',
             '# Exported ' + new Date().toISOString().slice(0, 10) + ' from the app.',
             '# Replace tools/wordlist.txt with this file, then commit it.',
             '# voices: ' + getPackVoices().join(', '),
-            '# ' + words.length + ' word(s)',
-            '',
-        ].concat(words);
+        ];
+        const lim = getPackLimit();
+        if (lim) header.push('# limit: ' + lim);
+        header.push('# ' + words.length + ' word(s)');
+        header.push('');
+        const lines = header.concat(words);
         const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
@@ -683,6 +706,7 @@
         hydrateNeuralTtsUI();
         hydratePackStatus();
         renderPackVoiceChecks();
+        hydratePackLimit();
         hydratePackCoverage();
 
         // Speed
@@ -876,6 +900,10 @@
         });
         document.getElementById('settings-pack-export')?.addEventListener('click', () => {
             exportWordList();
+        });
+        document.getElementById('settings-pack-limit')?.addEventListener('change', (e) => {
+            setPackLimit(e.target.value);
+            hydratePackLimit();
         });
         const speedEl = document.getElementById('settings-speed');
         speedEl?.addEventListener('input', (e) => {

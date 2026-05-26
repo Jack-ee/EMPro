@@ -15,6 +15,13 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v92 — audio pack: word limit and a more compact Voice panel:
+//   • a "Words/build" field caps how many words each cloud build
+//     generates; it is written into the exported word list and the
+//     generator reads it from a "# limit:" header.
+//   • Settings → Voice is tightened: two-column auto-pronounce, side
+//     by side pack buttons, shorter help text.
+
 // v91 — audio pack: voice picker, coverage, word-list export:
 //   • Settings → Voice gains voice checkboxes, a coverage line
 //     (how many words still lack pronunciation), and an Export word
@@ -94,7 +101,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v91';
+const CACHE_NAME = 'emp-v92';
 const ASSETS = [
     './',
     './index.html',

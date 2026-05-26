@@ -4,9 +4,11 @@
 # Words are matched case-insensitively. The build only synthesises words
 # not already in the pack, so adding words to the bottom is cheap.
 #
-# The "# voices:" line below chooses which voices to synthesise. The
-# EMPro app rewrites this whole file when you tap "Export word list" in
-# Settings, Voice, so you normally edit it there, not here.
+# The "# voices:" line chooses which voices to synthesise. An optional
+# "# limit: N" line caps how many words each build generates, which is
+# useful for pacing cost; omit it to generate everything. The EMPro app
+# rewrites this whole file when you tap "Export word list" in Settings,
+# Voice, so you normally set both there, not here.
 #
 # To build: commit this file (a push that changes it triggers a build),
 # or start "Build audio pack" by hand from the Actions tab.

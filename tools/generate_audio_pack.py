@@ -77,7 +77,7 @@ USAGE
   python tools/generate_audio_pack.py --dry-run  list missing clips, no API calls
   python tools/generate_audio_pack.py --selftest build+parse a pack with fake
                                                  audio; verifies the format only
-  python tools/generate_audio_pack.py --limit 20 cap API calls (for a test run)
+  python tools/generate_audio_pack.py --limit 20 cap words synthesised this run
   python tools/generate_audio_pack.py --extract  unpack the built pack into
                                                  individual MP3 files to listen
 
@@ -174,25 +174,38 @@ def read_wordlist(path):
     return unique
 
 
-def read_voice_config(path):
-    """Look for a "# voices: a, b, c" header in a plain-text word list.
+def read_pack_config(path):
+    """Parse "# key: value" header lines from a plain-text word list.
 
-    The EMPro app writes this line when it exports a word list, so the
-    voice choice lives in the app UI. Returns the voice list, or None
-    when no such line is present (the caller then falls back to VOICES).
+    The EMPro app writes these lines when it exports a word list, so
+    pack settings are chosen in the app UI rather than edited here.
+    Recognised keys:
+      voices  comma- or space-separated voice names
+      limit   max words to synthesise per run (0 or absent = no cap)
+    Returns a dict holding only the keys that were actually present.
     """
+    cfg = {}
     if not os.path.exists(path) or path.endswith(".json"):
-        return None
+        return cfg
     for line in open(path, "r", encoding="utf-8"):
         body = line.strip()
         if not body.startswith("#"):
             continue
         body = body[1:].strip()
-        if body.lower().startswith("voices:"):
+        low = body.lower()
+        if low.startswith("voices:"):
             spec   = body.split(":", 1)[1].replace(",", " ")
             voices = [t.lower() for t in spec.split()]
-            return voices or None
-    return None
+            if voices:
+                cfg["voices"] = voices
+        elif low.startswith("limit:"):
+            try:
+                n = int(body.split(":", 1)[1].strip())
+                if n > 0:
+                    cfg["limit"] = n
+            except ValueError:
+                pass
+    return cfg
 
 
 # --- Pack format ---------------------------------------------------------
@@ -383,11 +396,11 @@ def run_build(dry_run=False, limit=0):
               or "audio-pack"
 
     words       = read_wordlist(WORDLIST)
-    file_voices = read_voice_config(WORDLIST)
-    voices      = file_voices or VOICES
+    cfg         = read_pack_config(WORDLIST)
+    voices      = cfg.get("voices") or VOICES
     print("[words] %d unique words in %s" % (len(words), WORDLIST))
     print("[voices] %s  (%s)" % (", ".join(voices),
-          "from word list" if file_voices else "default"))
+          "from word list" if cfg.get("voices") else "default"))
 
     prev_manifest, existing = download_previous_pack(repo, tag, token)
     prev_gen = prev_manifest.get("generation", 0) if prev_manifest else 0
@@ -405,10 +418,26 @@ def run_build(dry_run=False, limit=0):
     print("[plan] %d clip(s) already cached, %d to synthesise"
           % (len(kept), len(missing)))
 
-    if limit and len(missing) > limit:
-        print("[plan] --limit %d applied; deferring %d clip(s) to a later run"
-              % (limit, len(missing) - limit))
-        missing = missing[:limit]
+    # The --limit CLI flag overrides the word list's "# limit:" header.
+    # The cap counts whole words: a word's clips are kept together so a
+    # word is never half-generated across two runs.
+    eff_limit = limit or cfg.get("limit", 0)
+    if eff_limit:
+        seen_w = set()
+        capped = []
+        for w, v in missing:
+            if w not in seen_w:
+                if len(seen_w) >= eff_limit:
+                    break
+                seen_w.add(w)
+            capped.append((w, v))
+        if len(capped) < len(missing):
+            total_w = len(set(w for w, _ in missing))
+            print("[plan] limit %d word(s) applied; %d word(s) and %d "
+                  "clip(s) deferred to a later run"
+                  % (eff_limit, total_w - len(seen_w),
+                     len(missing) - len(capped)))
+            missing = capped
 
     if dry_run:
         for w, v in missing:
