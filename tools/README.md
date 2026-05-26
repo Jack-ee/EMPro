@@ -34,7 +34,10 @@ OpenAI. The previous pack is the only state the build needs.
    declares this itself, so this is just a fallback check.
 
 3. Put your vocabulary in `wordlist.txt`.
-   One word per line. Replace the sample words with your own.
+   One entry per line. An entry can be a word, a collocation, an example
+   sentence, or a definition. The EMPro app's "Export word list" button
+   writes all of these from your notebook, so normally you just replace
+   this file with that export rather than editing it by hand.
 
 ## Running a build
 
@@ -149,12 +152,26 @@ then decide whether a download is needed at all.
 
 ## Scope notes
 
-The pack covers single words only. Expression sentences stay on the live
-neural path and the device voice. Sentences are far larger than single words
-and the Expressions content changes more often, so bundling them would inflate
-the pack for little gain. This keeps the pack a stable, slowly growing
-single-word asset.
+The pack covers whatever is in `wordlist.txt`. When exported from the app
+that means single words plus their collocations, example sentences, and
+English definitions, so My Words autoplay can read all of them offline
+with no key, proxy, or network.
 
-Words removed from `wordlist.txt` are pruned from the pack on the next build,
-so audio for deleted vocabulary does not accumulate. The app performs the same
-cleanup on its own store when a word is deleted from the notebook.
+To keep the pack from ballooning, a single word is synthesised in every
+voice (so autoplay can vary the voice on repeat), while a multi-word entry
+(collocation, sentence, definition) is synthesised in only the first voice
+— voice variety matters far less for a whole sentence, and these clips are
+much larger. A list of a few hundred words with their phrases and sentences
+still produces a pack on the order of a couple of hundred megabytes; use
+the `# limit:` header (set in the app, Settings, Voice) to build it across
+several incremental runs, or pick fewer voices to shrink it further.
+
+Chinese meanings and translations are never packed: the app always reads
+Chinese with the device's native voice, so packing it would add size for
+audio that is never used. The exporter drops any entry containing Chinese
+characters automatically.
+
+Words removed from `wordlist.txt` are pruned from the pack on the next
+build, so audio for deleted vocabulary does not accumulate. The app
+performs the same cleanup on its own store when a word is deleted from
+the notebook.

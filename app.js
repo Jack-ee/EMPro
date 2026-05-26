@@ -605,13 +605,36 @@
         setPackVoices(picked);
     }
 
-    // The unique, lowercased word bank, used for both coverage and export.
-    function notebookWordList() {
+    // Normalise a speakable string the same way the pack generator and
+    // the pack key builder do: trim, lowercase, collapse whitespace. This
+    // guarantees the key the app looks up matches the key the generator
+    // stored, even for multi-word phrases and sentences.
+    function _normSpeak(s) {
+        return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    // Every English string the app speaks for the notebook: each word,
+    // each collocation, the English definition, and the example sentence.
+    // Chinese fields (meaning, colloCn, contextCn) are intentionally
+    // excluded — Chinese always plays on the device voice and never
+    // touches the offline pack, so packing it would only waste space.
+    function notebookSpeechList() {
         const seen = new Set();
         const out  = [];
+        const add  = (s) => {
+            const n = _normSpeak(s);
+            // Skip empties and anything containing CJK characters.
+            if (!n || /[\u4e00-\u9fff]/.test(n)) return;
+            if (seen.has(n)) return;
+            seen.add(n);
+            out.push(n);
+        };
         (window.DB?.loadNotebook?.() || []).forEach(it => {
-            const n = it && it.word ? String(it.word).trim().toLowerCase() : '';
-            if (n && !seen.has(n)) { seen.add(n); out.push(n); }
+            if (!it) return;
+            add(it.word);
+            add(it.enDef);
+            add(it.context);
+            (it.collo || '').split(/\s*·\s*/).forEach(add);
         });
         return out;
     }
@@ -619,9 +642,9 @@
     function hydratePackCoverage() {
         const el = document.getElementById('settings-pack-coverage');
         if (!el || !window.TTSPack) return;
-        window.TTSPack.coverage(notebookWordList()).then(c => {
+        window.TTSPack.coverage(notebookSpeechList()).then(c => {
             el.textContent = c.total
-                ? c.total + ' word(s) \u00b7 ' + c.covered + ' with audio \u00b7 '
+                ? c.total + ' item(s) \u00b7 ' + c.covered + ' with audio \u00b7 '
                   + c.missing + ' missing'
                 : 'No words in your bank yet.';
         }).catch(() => {});
@@ -629,19 +652,23 @@
 
     // Write the word bank to a wordlist.txt download, with the chosen
     // voices in the header. The user replaces tools/wordlist.txt with
-    // it and commits; the cloud build then fills in the missing words.
+    // it and commits; the cloud build then fills in the missing entries.
+    // The list now includes collocations, example sentences and English
+    // definitions, so those play from the offline pack too — not only
+    // single words.
     function exportWordList() {
-        const words = notebookWordList();
+        const words = notebookSpeechList();
         if (!words.length) { showToast('No words to export.'); return; }
         const header = [
             '# EMPro audio pack - word list',
             '# Exported ' + new Date().toISOString().slice(0, 10) + ' from the app.',
             '# Replace tools/wordlist.txt with this file, then commit it.',
+            '# Entries: words, collocations, example sentences, definitions.',
             '# voices: ' + getPackVoices().join(', '),
         ];
         const lim = getPackLimit();
         if (lim) header.push('# limit: ' + lim);
-        header.push('# ' + words.length + ' word(s)');
+        header.push('# ' + words.length + ' item(s)');
         header.push('');
         const lines = header.concat(words);
         const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
@@ -653,7 +680,7 @@
         a.click();
         a.remove();
         setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 1000);
-        showToast('Exported ' + words.length + ' word(s) to wordlist.txt');
+        showToast('Exported ' + words.length + ' item(s) to wordlist.txt');
     }
 
     function stopSpeak() {

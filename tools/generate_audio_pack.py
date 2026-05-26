@@ -108,11 +108,12 @@ import urllib.request
 # sage shimmer verse. Distinct voices give a learner pronunciation variety.
 VOICES = ["ash", "fable", "nova", "shimmer"]
 
-# Delivery guidance passed to gpt-4o-mini-tts. Single words read too fast by
-# default; this asks for a clear, learner-paced model pronunciation.
+# Delivery guidance passed to gpt-4o-mini-tts. The list now contains
+# words, collocations, example sentences and definitions, so the prompt
+# is phrased to suit any of them: a clear, learner-paced model reading.
 TTS_INSTRUCTIONS = (
-    "Pronounce this single English word clearly and at a natural, "
-    "unhurried pace, as a model for an English learner. Use a standard accent."
+    "Read the following English text clearly and at a natural, unhurried "
+    "pace, as a model for an English learner. Use a standard accent."
 )
 
 MAGIC          = b"EMPACK1\x00"           # 8 bytes, fixed
@@ -375,11 +376,24 @@ def synthesize(word, voice, api_key, model):
 
 # --- Build orchestration -------------------------------------------------
 
+def voices_for(entry, voices):
+    """Voices to synthesise for one word-list entry.
+
+    A single word gets every voice, so My Words autoplay can vary the
+    voice on repeat. A multi-word entry (collocation, example sentence,
+    definition) gets only the FIRST voice: those clips are far larger,
+    and voice variety matters little for a whole sentence. Without this
+    a list of 480 words plus their phrases and sentences would produce
+    a multi-hundred-megabyte pack.
+    """
+    return voices if " " not in entry else voices[:1]
+
+
 def collect_missing(words, voices, existing):
     """Return the list of (word, voice) pairs not present in `existing`."""
     missing = []
     for w in words:
-        for v in voices:
+        for v in voices_for(w, voices):
             if (w, v) not in existing:
                 missing.append((w, v))
     return missing

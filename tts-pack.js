@@ -113,8 +113,12 @@ window.TTSPack = (function () {
 
     // --- Key helpers -------------------------------------------------
 
-    // Words are matched case-insensitively; the pack stores them lowercased.
-    function norm(word)            { return String(word || '').trim().toLowerCase(); }
+    // Words/phrases are matched case-insensitively; the pack stores them
+    // lowercased. Internal whitespace is collapsed too, matching the
+    // generator's normalisation (\" \".join(text.split())), so a key built
+    // from a multi-word collocation or a sentence resolves the same on
+    // both sides regardless of stray double spaces.
+    function norm(word)            { return String(word || '').trim().toLowerCase().replace(/\s+/g, ' '); }
     function clipKey(word, voice)  { return voice + '|' + norm(word); }
 
     // --- Pack parsing ------------------------------------------------
