@@ -22,8 +22,8 @@
          sw.js to match (e.g. 'emp-vN+1').
          Current version: v=89
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=89">
-    <link rel="stylesheet" href="expressions-coach.css?v=89">
+    <link rel="stylesheet" href="style.css?v=90">
+    <link rel="stylesheet" href="expressions-coach.css?v=90">
 </head>
 <body>
 
@@ -270,6 +270,12 @@ One word or phrase per line</pre>
                         </div>
                     </div>
                     <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+                        <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px">Audio pack <span style="color:var(--text-secondary)">(offline pronunciations)</span></div>
+                        <button id="settings-pack-download" class="wl-btn-primary" style="width:100%">Download audio pack</button>
+                        <div id="settings-pack-status" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-top:5px;min-height:13px"></div>
+                        <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Downloads pre-generated word pronunciations to this device. Once installed, those words play with no key, proxy, or network. Uses the same Worker URL as the neural voice above.</p>
+                    </div>
+                    <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
                         <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px">Auto-pronounce <span style="color:var(--text-secondary)">(word is always on)</span></div>
                         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-secondary);margin-bottom:3px">
                             <input type="checkbox" id="settings-autoplay-endef" checked> English definition
@@ -359,24 +365,25 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=89"></script>
-<script src="db.js?v=89"></script>
-<script src="ai-engine.js?v=89"></script>
-<script src="my-words.js?v=89"></script>
-<script src="writing-lab.js?v=89"></script>
-<script src="vocab-drill.js?v=89"></script>
-<script src="reader.js?v=89"></script>
-<script src="speaking-coach.js?v=89"></script>
-<script src="expressions-data.js?v=89"></script>
-<script src="expressions-coach.js?v=89"></script>
-<script src="sentence.js?v=89"></script>
-<script src="sentence-drill.js?v=89"></script>
-<script src="sync.js?v=89"></script>
-<script src="app.js?v=89"></script>
+<script src="config.js?v=90"></script>
+<script src="db.js?v=90"></script>
+<script src="ai-engine.js?v=90"></script>
+<script src="my-words.js?v=90"></script>
+<script src="writing-lab.js?v=90"></script>
+<script src="vocab-drill.js?v=90"></script>
+<script src="reader.js?v=90"></script>
+<script src="speaking-coach.js?v=90"></script>
+<script src="expressions-data.js?v=90"></script>
+<script src="expressions-coach.js?v=90"></script>
+<script src="sentence.js?v=90"></script>
+<script src="sentence-drill.js?v=90"></script>
+<script src="sync.js?v=90"></script>
+<script src="tts-pack.js?v=90"></script>
+<script src="app.js?v=90"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=89"></script>
+<script src="debug-panel.js?v=90"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.

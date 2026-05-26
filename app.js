@@ -472,6 +472,39 @@
         }
     }
 
+    // ─── Pre-generated pronunciation pack ───────────────────
+    // The pack downloads bundled word audio to this device so covered
+    // words play with no key, proxy, or live network. The engine lives
+    // in tts-pack.js (window.TTSPack); these helpers wire it to the
+    // Settings UI.
+    async function downloadAudioPack() {
+        const btn     = document.getElementById('settings-pack-download');
+        const statEl  = document.getElementById('settings-pack-status');
+        const setStat = (m) => { if (statEl) statEl.textContent = m; };
+        if (!window.TTSPack) { setStat('Audio pack module not loaded.'); return; }
+        const label = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'Working\u2026'; }
+        try {
+            await window.TTSPack.download(setStat);
+        } catch (err) {
+            console.warn('[pack] download failed:', err && err.message);
+            setStat('Failed: ' + ((err && err.message) || err));
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = label || 'Download audio pack'; }
+        }
+    }
+
+    function hydratePackStatus() {
+        const statEl = document.getElementById('settings-pack-status');
+        if (!statEl || !window.TTSPack) return;
+        window.TTSPack.status().then(s => {
+            statEl.textContent = s
+                ? 'Installed \u2014 generation ' + s.generation + ', '
+                  + s.clipCount + ' clip(s), ' + s.voices.length + ' voice(s).'
+                : 'No pack installed yet.';
+        }).catch(() => {});
+    }
+
     function stopSpeak() {
         try { window.speechSynthesis?.cancel?.(); } catch {}
         try { if (_neuralAbort) { _neuralAbort.abort(); _neuralAbort = null; } } catch {}
@@ -483,6 +516,7 @@
                 _neuralAudio = null;
             }
         } catch {}
+        try { window.TTSPack?.stop?.(); } catch {}
     }
 
     // ─── Header stats ───────────────────────────────────────
@@ -541,6 +575,7 @@
         // Voice
         populateVoiceSelect();
         hydrateNeuralTtsUI();
+        hydratePackStatus();
 
         // Speed
         const speedEl   = document.getElementById('settings-speed');
@@ -727,6 +762,9 @@
         });
         document.getElementById('settings-tts-test')?.addEventListener('click', () => {
             previewNeuralVoice();
+        });
+        document.getElementById('settings-pack-download')?.addEventListener('click', () => {
+            downloadAudioPack();
         });
         const speedEl = document.getElementById('settings-speed');
         speedEl?.addEventListener('input', (e) => {

@@ -15,6 +15,14 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v90 — pre-generated pronunciation pack:
+//   • new module tts-pack.js: downloads a bundled pack of word audio
+//     into a dedicated, never-evicted IndexedDB store ('emp-tts-pack').
+//   • the pack is fetched through the existing Cloudflare Worker,
+//     which now also relays the GitHub Release asset (Release assets
+//     send no CORS header, so a direct browser fetch is blocked).
+//   • Settings → Voice gains a "Download audio pack" button.
+
 // v89 — stop syncing the OpenAI key:
 //   • the OpenAI TTS key is a credential and is now excluded
 //     from the Gist sync payload (like the AI provider key), so
@@ -79,7 +87,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v89';
+const CACHE_NAME = 'emp-v90';
 const ASSETS = [
     './',
     './index.html',
@@ -99,6 +107,7 @@ const ASSETS = [
     './sentence.js',
     './sentence-drill.js',
     './sync.js',
+    './tts-pack.js',
     './app.js',
     './debug-panel.js',
     './icon-192.png',

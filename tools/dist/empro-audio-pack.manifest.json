@@ -1,0 +1,57 @@
+{
+  "format": "empack",
+  "version": 1,
+  "generation": 1,
+  "createdAt": "2026-05-26T07:06:43Z",
+  "model": "gpt-4o-mini-tts",
+  "voices": [
+    "alloy",
+    "nova",
+    "fable"
+  ],
+  "clipCount": 6,
+  "clips": [
+    {
+      "word": "ephemeral",
+      "voice": "alloy",
+      "gen": 1,
+      "offset": 0,
+      "length": 26496
+    },
+    {
+      "word": "ephemeral",
+      "voice": "fable",
+      "gen": 1,
+      "offset": 26496,
+      "length": 19200
+    },
+    {
+      "word": "ephemeral",
+      "voice": "nova",
+      "gen": 1,
+      "offset": 45696,
+      "length": 22656
+    },
+    {
+      "word": "ubiquitous",
+      "voice": "alloy",
+      "gen": 1,
+      "offset": 68352,
+      "length": 24960
+    },
+    {
+      "word": "ubiquitous",
+      "voice": "fable",
+      "gen": 1,
+      "offset": 93312,
+      "length": 18432
+    },
+    {
+      "word": "ubiquitous",
+      "voice": "nova",
+      "gen": 1,
+      "offset": 111744,
+      "length": 22656
+    }
+  ]
+}

@@ -74,6 +74,8 @@ USAGE
   python tools/generate_audio_pack.py --selftest build+parse a pack with fake
                                                  audio; verifies the format only
   python tools/generate_audio_pack.py --limit 20 cap API calls (for a test run)
+  python tools/generate_audio_pack.py --extract  unpack the built pack into
+                                                 individual MP3 files to listen
 
 ENVIRONMENT VARIABLES
 ---------------------
@@ -98,9 +100,9 @@ import urllib.request
 
 # Voices synthesised for every word. Edit this list to add or drop voices;
 # the incremental logic backfills any newly added voice on the next run.
-# Valid gpt-4o-mini-tts voices: alloy ash coral echo fable nova onyx sage
-# shimmer. Three distinct voices give a learner useful pronunciation variety.
-VOICES = ["alloy", "nova", "fable"]
+# Valid gpt-4o-mini-tts voices: alloy ash ballad coral echo fable nova onyx
+# sage shimmer verse. Distinct voices give a learner pronunciation variety.
+VOICES = ["ash", "fable", "nova", "shimmer"]
 
 # Delivery guidance passed to gpt-4o-mini-tts. Single words read too fast by
 # default; this asks for a clear, learner-paced model pronunciation.
@@ -114,9 +116,12 @@ PACK_VERSION   = 1
 OPENAI_TTS_URL = "https://api.openai.com/v1/audio/speech"
 DEFAULT_MODEL  = "gpt-4o-mini-tts"
 
-REPO_ROOT    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WORDLIST     = os.path.join(REPO_ROOT, "tools", "wordlist.txt")
-DIST_DIR     = os.path.join(REPO_ROOT, "tools", "dist")
+# Paths are resolved next to this script. It works whether the script sits
+# in tools/ (the intended layout) or anywhere else, as long as wordlist.txt
+# is in the same folder. The dist/ output folder is created beside it too.
+SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
+WORDLIST     = os.path.join(SCRIPT_DIR, "wordlist.txt")
+DIST_DIR     = os.path.join(SCRIPT_DIR, "dist")
 FULL_NAME    = "empro-audio-pack.empack"
 DELTA_NAME   = "empro-audio-pack.delta.empack"
 MANIFEST_NAME = "empro-audio-pack.manifest.json"
@@ -495,12 +500,39 @@ def run_selftest():
           % (len(fake), len(pack)))
 
 
+# --- Extract (listen to clips) -------------------------------------------
+
+def run_extract():
+    """Unpack the built pack into individual MP3 files so the clips can be
+    played and checked. Reads tools/dist/empro-audio-pack.empack and writes
+    one MP3 per clip into tools/dist/clips/, named word__voice.mp3.
+    """
+    pack_path = os.path.join(DIST_DIR, FULL_NAME)
+    if not os.path.exists(pack_path):
+        raise SystemExit("no pack at %s; run a build first" % pack_path)
+
+    raw             = open(pack_path, "rb").read()
+    manifest, clips = parse_pack(raw)
+    out_dir         = os.path.join(DIST_DIR, "clips")
+    os.makedirs(out_dir, exist_ok=True)
+
+    for (word, voice), info in sorted(clips.items()):
+        safe = "".join(ch if ch.isalnum() else "_" for ch in word)
+        name = "%s__%s.mp3" % (safe, voice)
+        open(os.path.join(out_dir, name), "wb").write(info["audio"])
+
+    print("[extract] wrote %d MP3 file(s) to %s" % (len(clips), out_dir))
+    print("[extract] open that folder and play a few to check the audio")
+
+
 # --- Entry point ---------------------------------------------------------
 
 _args = sys.argv[1:]
 
 if "--selftest" in _args:
     run_selftest()
+elif "--extract" in _args:
+    run_extract()
 elif "--dry-run" in _args:
     run_build(dry_run=True)
 else:
