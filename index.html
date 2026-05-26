@@ -275,8 +275,8 @@ One word or phrase per line</pre>
                         <div id="settings-pack-voices" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:6px"></div>
                         <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px;margin-bottom:6px">
                             <span id="settings-pack-coverage" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);flex:1;min-width:120px"></span>
-                            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-tertiary);white-space:nowrap">Words/build
-                                <input type="number" id="settings-pack-limit" min="0" step="10" placeholder="all" class="settings-input" style="width:58px;text-align:center">
+                            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-tertiary);white-space:nowrap">Range
+                                <input type="text" id="settings-pack-range" placeholder="all" inputmode="numeric" class="settings-input" style="width:68px;text-align:center">
                             </label>
                         </div>
                         <div style="display:flex;gap:6px">
@@ -284,7 +284,7 @@ One word or phrase per line</pre>
                             <button id="settings-pack-download" class="wl-btn-primary" style="flex:1;justify-content:center">Download audio pack</button>
                         </div>
                         <div id="settings-pack-status" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-top:5px;min-height:13px"></div>
-                        <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Export the word list, commit it as tools/wordlist.txt, then Download once the cloud build finishes. Words/build paces how many words each build generates.</p>
+                        <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px">Export the word list, commit it as tools/wordlist.txt, then Download once the cloud build finishes. Range builds one batch of words by index, e.g. 1-50, then 51-100 — leave blank to build all.</p>
                     </div>
                     <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
                         <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px">Auto-pronounce <span style="color:var(--text-secondary)">(word is always on)</span></div>

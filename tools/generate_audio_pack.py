@@ -78,6 +78,12 @@ USAGE
   python tools/generate_audio_pack.py --selftest build+parse a pack with fake
                                                  audio; verifies the format only
   python tools/generate_audio_pack.py --limit 20 cap words synthesised this run
+  python tools/generate_audio_pack.py --range 51-100  build only word indices
+                                                 51..100 (the word list, when
+                                                 exported from the app, tags
+                                                 each word with a stable index;
+                                                 a "# range:" header does the
+                                                 same and the CLI flag overrides it)
   python tools/generate_audio_pack.py --extract  unpack the built pack into
                                                  individual MP3 files to listen
 
@@ -107,6 +113,18 @@ import urllib.request
 # Valid gpt-4o-mini-tts voices: alloy ash ballad coral echo fable nova onyx
 # sage shimmer verse. Distinct voices give a learner pronunciation variety.
 VOICES = ["ash", "fable", "nova", "shimmer"]
+
+# Per-entry voice policy. A word-list entry no longer than
+# SHORT_ENTRY_MAX_CHARS (a word or a short collocation) is synthesised in
+# EVERY voice, so My Words autoplay can vary the voice on repeat. A longer
+# entry (an example sentence or a definition) is synthesised in only
+# LONG_ENTRY_VOICES voice(s): those clips are several times larger, are
+# heard far less often than a drilled word, and voice variety across a
+# whole sentence is barely noticeable — so paying 4x the bytes for it is
+# not worth it. Raise LONG_ENTRY_VOICES toward len(VOICES) if you do want
+# sentences and definitions to rotate too, at a real cost in pack size.
+SHORT_ENTRY_MAX_CHARS = 40
+LONG_ENTRY_VOICES     = 1
 
 # Delivery guidance passed to gpt-4o-mini-tts. The list now contains
 # words, collocations, example sentences and definitions, so the prompt
@@ -138,41 +156,84 @@ MAX_RETRIES  = 5                          # for 429 / 5xx / network errors
 
 # --- Word list -----------------------------------------------------------
 
-def read_wordlist(path):
-    """Return a deduplicated, lowercased list of words from a word list file.
+def _norm_entry(s):
+    """Lowercase, trim, and collapse internal whitespace."""
+    return " ".join(str(s).strip().lower().split())
 
-    Plain text: one word per line, blank lines and lines starting with '#'
-    ignored. A .json file is also accepted: an array of strings, or an array
-    of objects each carrying a "word" field (an EMPro notebook export).
+
+def read_wordlist(path):
+    """Parse the word list into indexed blocks.
+
+    A line  '#@N label'  starts block number N; every non-comment,
+    non-blank line after it (until the next marker) is an entry for that
+    block. Other '#' lines are comments. Blank lines are ignored. A file
+    with no '#@' markers is read as one entry per block, numbered 1..n in
+    file order, so a range still works on a hand-written list.
+
+    Returns a list of dicts {"index": int, "entries": [str, ...]}. Entries
+    are normalised (lowercased, whitespace-collapsed) and de-duplicated
+    across the whole list; the first occurrence wins. A .json file (an
+    array of strings, or notebook objects with a "word" field) is also
+    accepted and yields one entry per block.
     """
     if not os.path.exists(path):
         raise SystemExit("word list not found: " + path)
 
-    raw = open(path, "r", encoding="utf-8").read().strip()
-    words = []
+    raw      = open(path, "r", encoding="utf-8").read()
+    stripped = raw.strip()
+    seen     = set()
 
-    if path.endswith(".json") or raw.startswith("[") or raw.startswith("{"):
-        parsed = json.loads(raw)
-        items  = parsed if isinstance(parsed, list) else parsed.get("notebook", [])
+    if path.endswith(".json") or stripped.startswith("[") \
+            or stripped.startswith("{"):
+        parsed = json.loads(stripped)
+        items  = parsed if isinstance(parsed, list) \
+                 else parsed.get("notebook", [])
+        blocks = []
         for it in items:
-            if isinstance(it, str):
-                words.append(it)
-            elif isinstance(it, dict) and it.get("word"):
-                words.append(it["word"])
-    else:
-        for line in raw.splitlines():
-            line = line.strip()
-            if line and not line.startswith("#"):
-                words.append(line)
+            w = it if isinstance(it, str) \
+                else (it.get("word") if isinstance(it, dict) else "")
+            n = _norm_entry(w)
+            if n and n not in seen:
+                seen.add(n)
+                blocks.append({"index": len(blocks) + 1, "entries": [n]})
+        return blocks
 
-    seen   = set()
-    unique = []
-    for w in words:
-        norm = " ".join(str(w).strip().lower().split())
-        if norm and norm not in seen:
-            seen.add(norm)
-            unique.append(norm)
-    return unique
+    lines      = raw.splitlines()
+    has_marker = any(ln.lstrip().startswith("#@") for ln in lines)
+    blocks     = []
+    current    = None
+
+    for line in lines:
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("#@"):
+            # Block marker. The index is the run of digits after '@'.
+            digits = ""
+            for ch in s[2:].strip():
+                if ch.isdigit():
+                    digits += ch
+                else:
+                    break
+            idx = int(digits) if digits else (len(blocks) + 1)
+            current = {"index": idx, "entries": []}
+            blocks.append(current)
+            continue
+        if s.startswith("#"):
+            continue                        # config / comment line
+        n = _norm_entry(s)
+        if not n or n in seen:
+            continue
+        seen.add(n)
+        if has_marker:
+            if current is None:
+                # Stray entry before the first marker — give it a block.
+                current = {"index": len(blocks) + 1, "entries": []}
+                blocks.append(current)
+            current["entries"].append(n)
+        else:
+            blocks.append({"index": len(blocks) + 1, "entries": [n]})
+    return blocks
 
 
 def read_pack_config(path):
@@ -183,6 +244,8 @@ def read_pack_config(path):
     Recognised keys:
       voices  comma- or space-separated voice names
       limit   max words to synthesise per run (0 or absent = no cap)
+      range   word-index range to build this run, e.g. "1-50" (A-B, A..B
+              or A B all accepted; trailing comment text is ignored)
     Returns a dict holding only the keys that were actually present.
     """
     cfg = {}
@@ -206,6 +269,20 @@ def read_pack_config(path):
                     cfg["limit"] = n
             except ValueError:
                 pass
+        elif low.startswith("range:"):
+            spec  = body.split(":", 1)[1]
+            found = []
+            for tok in spec.replace("..", " ").replace("-", " ") \
+                           .replace(",", " ").split():
+                if tok.isdigit():
+                    found.append(int(tok))
+                if len(found) >= 2:        # only the two bounds matter
+                    break
+            if len(found) >= 2:
+                lo, hi = found[0], found[1]
+                if lo > hi:
+                    lo, hi = hi, lo
+                cfg["range"] = (max(1, lo), hi)
     return cfg
 
 
@@ -379,14 +456,15 @@ def synthesize(word, voice, api_key, model):
 def voices_for(entry, voices):
     """Voices to synthesise for one word-list entry.
 
-    A single word gets every voice, so My Words autoplay can vary the
-    voice on repeat. A multi-word entry (collocation, example sentence,
-    definition) gets only the FIRST voice: those clips are far larger,
-    and voice variety matters little for a whole sentence. Without this
-    a list of 480 words plus their phrases and sentences would produce
-    a multi-hundred-megabyte pack.
+    Words and short collocations (up to SHORT_ENTRY_MAX_CHARS) get every
+    voice, so autoplay rotates the voice on repeat. Long entries — example
+    sentences and definitions — get only LONG_ENTRY_VOICES voice(s), since
+    they are much larger and rotation on a whole sentence is barely
+    audible. See the constants near the top of the file to tune this.
     """
-    return voices if " " not in entry else voices[:1]
+    if len(entry) <= SHORT_ENTRY_MAX_CHARS:
+        return voices
+    return voices[:max(1, LONG_ENTRY_VOICES)]
 
 
 def collect_missing(words, voices, existing):
@@ -399,7 +477,7 @@ def collect_missing(words, voices, existing):
     return missing
 
 
-def run_build(dry_run=False, limit=0):
+def run_build(dry_run=False, limit=0, cli_range=None):
     """Full build pipeline. Reads the word list, fills gaps, writes packs."""
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     model   = os.environ.get("OPENAI_TTS_MODEL", DEFAULT_MODEL).strip() \
@@ -409,33 +487,72 @@ def run_build(dry_run=False, limit=0):
     tag     = os.environ.get("PACK_RELEASE_TAG", "audio-pack").strip() \
               or "audio-pack"
 
-    words       = read_wordlist(WORDLIST)
-    cfg         = read_pack_config(WORDLIST)
-    voices      = cfg.get("voices") or VOICES
-    print("[words] %d unique words in %s" % (len(words), WORDLIST))
+    blocks = read_wordlist(WORDLIST)
+    cfg    = read_pack_config(WORDLIST)
+    voices = cfg.get("voices") or VOICES
+
+    # Every entry across all blocks. Used for PRUNING, so a range build
+    # never deletes audio for words outside the current range.
+    all_entries = []
+    seen_all    = set()
+    for b in blocks:
+        for e in b["entries"]:
+            if e not in seen_all:
+                seen_all.add(e)
+                all_entries.append(e)
+
+    # Selected build set. An explicit range (the --range CLI flag, else
+    # the "# range:" header) restricts the build to those word indices;
+    # otherwise every block is built.
+    sel_range = cli_range or cfg.get("range")
+    if sel_range:
+        lo, hi     = sel_range
+        sel_blocks = [b for b in blocks if lo <= b["index"] <= hi]
+    else:
+        sel_blocks = blocks
+
+    build_entries = []
+    seen_build    = set()
+    for b in sel_blocks:
+        for e in b["entries"]:
+            if e not in seen_build:
+                seen_build.add(e)
+                build_entries.append(e)
+
+    idx_lo = min((b["index"] for b in blocks), default=0)
+    idx_hi = max((b["index"] for b in blocks), default=0)
+    print("[words] %d block(s), index %d..%d, %d unique entr(ies) in %s"
+          % (len(blocks), idx_lo, idx_hi, len(all_entries), WORDLIST))
     print("[voices] %s  (%s)" % (", ".join(voices),
           "from word list" if cfg.get("voices") else "default"))
+    if sel_range:
+        print("[range] building word index %d..%d  ->  %d block(s), "
+              "%d entr(ies)"
+              % (sel_range[0], sel_range[1],
+                 len(sel_blocks), len(build_entries)))
 
     prev_manifest, existing = download_previous_pack(repo, tag, token)
     prev_gen = prev_manifest.get("generation", 0) if prev_manifest else 0
 
-    # Drop clips for words no longer in the list so the pack does not grow
-    # forever with audio for deleted vocabulary.
-    wordset = set(words)
-    kept    = {k: v for k, v in existing.items() if k[0] in wordset}
+    # Drop clips for entries no longer anywhere in the list. This uses the
+    # FULL entry set, never the range, so building one range cannot delete
+    # another range's audio.
+    allset  = set(all_entries)
+    kept    = {k: v for k, v in existing.items() if k[0] in allset}
     dropped = len(existing) - len(kept)
     if dropped:
-        print("[prune] dropped %d clip(s) for words removed from the list"
+        print("[prune] dropped %d clip(s) for entries removed from the list"
               % dropped)
 
-    missing = collect_missing(words, voices, kept)
+    missing = collect_missing(build_entries, voices, kept)
     print("[plan] %d clip(s) already cached, %d to synthesise"
           % (len(kept), len(missing)))
 
-    # The --limit CLI flag overrides the word list's "# limit:" header.
-    # The cap counts whole words: a word's clips are kept together so a
-    # word is never half-generated across two runs.
-    eff_limit = limit or cfg.get("limit", 0)
+    # The --limit / "# limit:" cap still works, but only when no range is
+    # in effect — a range is already an explicit, deterministic selection,
+    # so capping it further would be confusing. The cap counts whole
+    # words: a word's clips stay together, never split across two runs.
+    eff_limit = 0 if sel_range else (limit or cfg.get("limit", 0))
     if eff_limit:
         seen_w = set()
         capped = []
@@ -600,14 +717,38 @@ def run_extract():
 
 _args = sys.argv[1:]
 
+
+def _opt_value(flag):
+    """Value following a CLI flag, or None if the flag is absent/last."""
+    if flag in _args:
+        i = _args.index(flag)
+        if i + 1 < len(_args):
+            return _args[i + 1]
+    return None
+
+
+def _parse_range_arg(spec):
+    """Parse a --range value like '51-100' (or '51 100', '51..100')."""
+    if not spec:
+        return None
+    nums = []
+    for tok in str(spec).replace("..", " ").replace("-", " ") \
+                   .replace(",", " ").split():
+        if tok.isdigit():
+            nums.append(int(tok))
+    if len(nums) < 2:
+        return None
+    lo, hi = nums[0], nums[1]
+    if lo > hi:
+        lo, hi = hi, lo
+    return (max(1, lo), hi)
+
+
 if "--selftest" in _args:
     run_selftest()
 elif "--extract" in _args:
     run_extract()
-elif "--dry-run" in _args:
-    run_build(dry_run=True)
 else:
-    _limit = 0
-    if "--limit" in _args:
-        _limit = int(_args[_args.index("--limit") + 1])
-    run_build(dry_run=False, limit=_limit)
+    _limit = int(_opt_value("--limit") or 0)
+    _range = _parse_range_arg(_opt_value("--range"))
+    run_build(dry_run=("--dry-run" in _args), limit=_limit, cli_range=_range)

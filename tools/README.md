@@ -157,14 +157,17 @@ that means single words plus their collocations, example sentences, and
 English definitions, so My Words autoplay can read all of them offline
 with no key, proxy, or network.
 
-To keep the pack from ballooning, a single word is synthesised in every
-voice (so autoplay can vary the voice on repeat), while a multi-word entry
-(collocation, sentence, definition) is synthesised in only the first voice
-— voice variety matters far less for a whole sentence, and these clips are
-much larger. A list of a few hundred words with their phrases and sentences
-still produces a pack on the order of a couple of hundred megabytes; use
-the `# limit:` header (set in the app, Settings, Voice) to build it across
-several incremental runs, or pick fewer voices to shrink it further.
+To keep the pack from ballooning, words and short collocations are
+synthesised in every voice (so autoplay can vary the voice on repeat),
+while long entries — example sentences and definitions — are synthesised
+in only one voice, since rotation on a whole sentence is barely audible
+and these clips are much larger. The cut-off and the long-entry voice
+count are the `SHORT_ENTRY_MAX_CHARS` and `LONG_ENTRY_VOICES` constants
+near the top of `generate_audio_pack.py`. A list of a few hundred words
+with their phrases and sentences still produces a pack on the order of a
+couple of hundred megabytes; use the `# limit:` header (set in the app,
+Settings, Voice) to build it across several incremental runs, or pick
+fewer voices to shrink it further.
 
 Chinese meanings and translations are never packed: the app always reads
 Chinese with the device's native voice, so packing it would add size for

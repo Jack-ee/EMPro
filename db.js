@@ -308,7 +308,12 @@
                 reviewedAt : entry.reviewedAt || 0,
                 strength   : entry.strength   || 0,
                 wrongCount    : entry.wrongCount    || 0,
-                correctStreak : entry.correctStreak || 0
+                correctStreak : entry.correctStreak || 0,
+                // Stable index for audio-pack range builds. 0 means it is
+                // not assigned yet; the app assigns a permanent number on
+                // export. The merge loop below preserves an existing
+                // non-zero index, so enriching a word never renumbers it.
+                packIndex     : entry.packIndex     || 0
             };
 
             if (idx >= 0) {

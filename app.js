@@ -553,24 +553,38 @@
         return chosen;
     }
 
-    // Words to synthesise per cloud build. 0 (or blank) means no cap;
-    // the value is written into the exported word list as "# limit:".
-    function getPackLimit() {
-        const n = parseInt(window.DB?.getPref?.('pack_limit', '') || '', 10);
-        return (Number.isFinite(n) && n > 0) ? n : 0;
+    // Word-index range to synthesise per cloud build, e.g. \"1-50\". Blank
+    // means all words. The value is written into the exported word list
+    // as a \"# range:\" header; the generator builds only the word blocks
+    // whose index falls in the range. Each build is incremental, so the
+    // range is just a way to pace a large pack across several runs.
+    // Returns a normalised \"LO-HI\" string, or '' for no range.
+    function getPackRange() {
+        const raw = (window.DB?.getPref?.('pack_range', '') || '').trim();
+        return normalizeRange(raw);
     }
 
-    function setPackLimit(value) {
-        const n = parseInt(value, 10);
-        window.DB?.setPref?.('pack_limit',
-            (Number.isFinite(n) && n > 0) ? String(n) : '');
+    // Accepts \"1-50\", \"1 - 50\", \"1..50\", \"1 50\"; returns \"1-50\" or ''.
+    function normalizeRange(raw) {
+        const m = String(raw || '')
+            .replace(/\u2013|\.\./g, '-')
+            .match(/(\d+)\s*[-\s]\s*(\d+)/);
+        if (!m) return '';
+        let lo = parseInt(m[1], 10);
+        let hi = parseInt(m[2], 10);
+        if (!(lo > 0) || !(hi > 0)) return '';
+        if (lo > hi) { const t = lo; lo = hi; hi = t; }
+        return lo + '-' + hi;
     }
 
-    function hydratePackLimit() {
-        const el = document.getElementById('settings-pack-limit');
+    function setPackRange(value) {
+        window.DB?.setPref?.('pack_range', normalizeRange(value));
+    }
+
+    function hydratePackRange() {
+        const el = document.getElementById('settings-pack-range');
         if (!el) return;
-        const n = getPackLimit();
-        el.value = n ? String(n) : '';
+        el.value = getPackRange();
     }
 
     function renderPackVoiceChecks() {
@@ -613,19 +627,71 @@
         return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
-    // Every English string the app speaks for the notebook: each word,
-    // each collocation, the English definition, and the example sentence.
-    // Chinese fields (meaning, colloCn, contextCn) are intentionally
-    // excluded — Chinese always plays on the device voice and never
-    // touches the offline pack, so packing it would only waste space.
+    // Assign a stable packIndex to every notebook word that lacks one,
+    // and persist it. The index is permanent: a word keeps its number
+    // across future exports, shuffles, edits, and even after other words
+    // are deleted, so an audio-pack range like \"51-100\" always refers to
+    // the same 50 words. New words are numbered after the current highest
+    // index, in the order they were added.
+    function ensurePackIndices() {
+        const nb = window.DB?.loadNotebook?.() || [];
+        let maxIdx = 0;
+        nb.forEach(w => {
+            const n = Number(w && w.packIndex) || 0;
+            if (n > maxIdx) maxIdx = n;
+        });
+        const unindexed = nb.filter(w => w && !(Number(w.packIndex) > 0));
+        if (!unindexed.length) return nb;
+        unindexed.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+        unindexed.forEach(w => { w.packIndex = ++maxIdx; });
+        window.DB.saveNotebook(nb);
+        return nb;
+    }
+
+    // Build one indexed block per notebook word, ordered by packIndex.
+    // Each block is { index, word, entries[] }; entries are every English
+    // string spoken for that word (the word, its definition, its example
+    // sentence, its collocations), normalised and de-duplicated globally
+    // so a string is synthesised once. Chinese fields are excluded — they
+    // always use the device voice and never the offline pack.
+    function notebookSpeechBlocks() {
+        const nb     = ensurePackIndices();
+        const seen   = new Set();
+        const blocks = [];
+        nb.slice()
+          .sort((a, b) => (Number(a.packIndex) || 0) - (Number(b.packIndex) || 0))
+          .forEach(w => {
+            if (!w) return;
+            const entries = [];
+            const add = (s) => {
+                const n = _normSpeak(s);
+                if (!n || /[\u4e00-\u9fff]/.test(n) || seen.has(n)) return;
+                seen.add(n);
+                entries.push(n);
+            };
+            add(w.word);
+            add(w.enDef);
+            add(w.context);
+            (w.collo || '').split(/\s*·\s*/).forEach(add);
+            if (entries.length) {
+                blocks.push({
+                    index   : Number(w.packIndex) || 0,
+                    word    : _normSpeak(w.word) || '(word)',
+                    entries : entries
+                });
+            }
+          });
+        return blocks;
+    }
+
+    // The flat list of every speakable string, for the coverage readout.
+    // Side-effect free (does not assign or persist indices).
     function notebookSpeechList() {
         const seen = new Set();
         const out  = [];
         const add  = (s) => {
             const n = _normSpeak(s);
-            // Skip empties and anything containing CJK characters.
-            if (!n || /[\u4e00-\u9fff]/.test(n)) return;
-            if (seen.has(n)) return;
+            if (!n || /[\u4e00-\u9fff]/.test(n) || seen.has(n)) return;
             seen.add(n);
             out.push(n);
         };
@@ -650,28 +716,47 @@
         }).catch(() => {});
     }
 
-    // Write the word bank to a wordlist.txt download, with the chosen
-    // voices in the header. The user replaces tools/wordlist.txt with
-    // it and commits; the cloud build then fills in the missing entries.
-    // The list now includes collocations, example sentences and English
-    // definitions, so those play from the offline pack too — not only
-    // single words.
+    // Write the word bank to a wordlist.txt download. Each word becomes a
+    // block tagged  #@<index> <word>  with a stable index, followed by
+    // every English string spoken for it (word, definition, example
+    // sentence, collocations). The user replaces tools/wordlist.txt with
+    // this file and commits it; the cloud build fills in missing audio.
+    // A \"# range:\" header (set in Settings) tells the build to do only
+    // one batch of word indices, e.g. 1-50, so a large pack can be built
+    // across several runs.
     function exportWordList() {
-        const words = notebookSpeechList();
-        if (!words.length) { showToast('No words to export.'); return; }
+        const blocks = notebookSpeechBlocks();
+        if (!blocks.length) { showToast('No words to export.'); return; }
+
+        const itemCount = blocks.reduce((n, b) => n + b.entries.length, 0);
+        const idxMax    = blocks.reduce((m, b) => Math.max(m, b.index), 0);
+        const range     = getPackRange();
+
         const header = [
             '# EMPro audio pack - word list',
             '# Exported ' + new Date().toISOString().slice(0, 10) + ' from the app.',
             '# Replace tools/wordlist.txt with this file, then commit it.',
-            '# Entries: words, collocations, example sentences, definitions.',
-            '# voices: ' + getPackVoices().join(', '),
+            '# Each block is tagged  #@<index> <word>  with a stable index.',
+            '# voices: ' + getPackVoices().join(', ')
         ];
-        const lim = getPackLimit();
-        if (lim) header.push('# limit: ' + lim);
-        header.push('# ' + words.length + ' item(s)');
+        if (range) {
+            header.push('# range: ' + range
+                        + '   (build only word indices in this range)');
+        } else {
+            header.push('# (no range set - building all ' + idxMax + ' words; '
+                        + 'add e.g.  "# range: 1-50"  to build one batch)');
+        }
+        header.push('# ' + blocks.length + ' word(s), ' + itemCount + ' item(s)');
         header.push('');
-        const lines = header.concat(words);
-        const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
+
+        const lines = [];
+        blocks.forEach(b => {
+            lines.push('#@' + b.index + ' ' + b.word);
+            b.entries.forEach(e => lines.push(e));
+        });
+
+        const blob = new Blob([header.concat(lines).join('\n') + '\n'],
+                              { type: 'text/plain' });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
         a.href     = url;
@@ -680,7 +765,9 @@
         a.click();
         a.remove();
         setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 1000);
-        showToast('Exported ' + words.length + ' item(s) to wordlist.txt');
+        showToast('Exported ' + blocks.length + ' word(s) / '
+                  + itemCount + ' item(s)' + (range ? ' \u00b7 range ' + range : '')
+                  + '.');
     }
 
     function stopSpeak() {
@@ -755,7 +842,7 @@
         hydrateNeuralTtsUI();
         hydratePackStatus();
         renderPackVoiceChecks();
-        hydratePackLimit();
+        hydratePackRange();
         hydratePackCoverage();
 
         // Speed
@@ -950,9 +1037,9 @@
         document.getElementById('settings-pack-export')?.addEventListener('click', () => {
             exportWordList();
         });
-        document.getElementById('settings-pack-limit')?.addEventListener('change', (e) => {
-            setPackLimit(e.target.value);
-            hydratePackLimit();
+        document.getElementById('settings-pack-range')?.addEventListener('change', (e) => {
+            setPackRange(e.target.value);
+            hydratePackRange();   // echo the normalised value back
         });
         const speedEl = document.getElementById('settings-speed');
         speedEl?.addEventListener('input', (e) => {
