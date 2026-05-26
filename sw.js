@@ -15,6 +15,14 @@
 //     like style.css?v=15 still matches the plain style.css entry cached
 //     at install time. This keeps the app working offline across deploys.
 
+// v93 — audio pack playback:
+//   • speak() now plays English words from the downloaded pack when a
+//     clip exists — no key, proxy, or network for covered words —
+//     falling back to the neural and then the device voice otherwise.
+//   • each play picks a random voice from the chosen set, so a word
+//     sounds different on repeat during autoplay.
+//   • removing a notebook word also deletes its pack audio.
+
 // v92 — audio pack: word limit and a more compact Voice panel:
 //   • a "Words/build" field caps how many words each cloud build
 //     generates; it is written into the exported word list and the
@@ -101,7 +109,7 @@
 //     instead of leaving an orphan when the AI returns the lemma.
 //   • wider irregular-verb / Latin-plural lemma table.
 
-const CACHE_NAME = 'emp-v92';
+const CACHE_NAME = 'emp-v93';
 const ASSETS = [
     './',
     './index.html',

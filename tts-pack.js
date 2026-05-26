@@ -325,18 +325,25 @@ window.TTSPack = (function () {
         } catch (e) { /* ignore */ }
     }
 
-    // Play one word from the pack, choosing a random cached voice each
-    // call so the same word sounds different on repeat. Because every
-    // voice is already local, the random pick costs no network fetch.
+    // Play one word from the pack. preferredVoices, when given, restricts
+    // the random pick to the user's chosen voices; if none of those are
+    // cached for this word, any cached voice is used so offline audio is
+    // never wasted. A voice is picked at random each call, so the same
+    // word sounds different on repeat at no network cost. Pack clips are
+    // pre-rendered at a model learner pace and play at natural speed.
     // Resolves true if it played, false if the word is not in the pack
     // (the caller then falls back to the live or device voice).
-    // Pack clips are pre-rendered at a model learner pace, so they play
-    // at natural speed and ignore the device-voice speed preference.
-    async function playWord(text, onEnd) {
-        const voices = await getCachedVoices(text);
-        if (!voices.length) return false;
+    async function playWord(text, preferredVoices, onEnd) {
+        const cached = await getCachedVoices(text);
+        if (!cached.length) return false;
 
-        const voice = voices[Math.floor(Math.random() * voices.length)];
+        let pool = cached;
+        if (Array.isArray(preferredVoices) && preferredVoices.length) {
+            const want     = new Set(preferredVoices.map(v => String(v).toLowerCase()));
+            const narrowed = cached.filter(v => want.has(v));
+            if (narrowed.length) pool = narrowed;
+        }
+        const voice = pool[Math.floor(Math.random() * pool.length)];
         const blob  = await getClip(text, voice);
         if (!blob) return false;
 

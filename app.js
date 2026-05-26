@@ -416,10 +416,21 @@
                 lang: /^(zh|cmn)/i.test(langOpt) ? langOpt : 'zh-CN'
             });
             speakNative(text, effRate, onEnd, zhOpts);
-        } else if (neuralAvailable()) {
-            speakNeural(text, effRate, onEnd);
         } else {
-            speakNative(text, effRate, onEnd, opts);
+            // English: try the offline pack first so a covered word plays
+            // with no key, proxy, or network. A miss (or no pack) falls
+            // back to the neural voice, then the device voice.
+            const fallback = () => {
+                if (neuralAvailable()) speakNeural(text, effRate, onEnd);
+                else speakNative(text, effRate, onEnd, opts);
+            };
+            if (window.TTSPack && window.TTSPack.playWord) {
+                window.TTSPack.playWord(text, getPackVoices(), onEnd)
+                    .then(played => { if (!played) fallback(); })
+                    .catch(() => fallback());
+            } else {
+                fallback();
+            }
         }
     }
 

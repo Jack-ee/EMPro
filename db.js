@@ -347,6 +347,10 @@
             const wLow = String(word || '').toLowerCase();
             const next = nb.filter(w => String(w.word || '').toLowerCase() !== wLow);
             this.saveNotebook(next);
+            // Drop the word's offline pack audio too, so the pack store
+            // does not keep clips for vocabulary that has been removed.
+            try { window.TTSPack && window.TTSPack.deleteWord(word); }
+            catch (e) { /* ignore */ }
         },
         toggleFocus: function(word, focusType) {
             const nb   = this.loadNotebook();
