@@ -102,6 +102,7 @@ import json
 import os
 import struct
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -152,6 +153,7 @@ MANIFEST_NAME = "empro-audio-pack.manifest.json"
 MAX_WORKERS  = 4                          # gentle concurrency for the API
 HTTP_TIMEOUT = 60                         # seconds per request
 MAX_RETRIES  = 5                          # for 429 / 5xx / network errors
+ABORT_AFTER_FAILS = 12                    # consecutive failures => stop early
 
 
 # --- Word list -----------------------------------------------------------
@@ -404,13 +406,59 @@ def download_previous_pack(repo, tag, token):
 
 # --- OpenAI TTS ----------------------------------------------------------
 
-def synthesize(word, voice, api_key, model):
-    """Synthesise one word in one voice. Returns MP3 bytes.
+# A fatal, account-level problem (a bad or blocked key, or — most often —
+# the OpenAI usage / billing limit being reached) sets this event. Worker
+# threads check it and return quickly instead of each grinding through five
+# slow retries, and run_build stops submitting new work. Crucially the
+# worker NEVER raises out: a SystemExit raised inside a thread used to
+# propagate out of run_build and skip the pack write entirely, which is how
+# an earlier run lost thousands of already-synthesised clips. Now the run
+# always continues far enough to save whatever it managed to generate.
+_abort        = threading.Event()
+_abort_reason = [""]
 
-    Retries 429 and 5xx and network errors with exponential backoff. Raises
-    on a 401/403 (bad key) so the run aborts rather than burning the quota.
-    Returns None on a 400 so a single bad word is skipped, not fatal.
+
+def _signal_abort(reason):
+    """Record the first fatal reason and raise the shared abort flag."""
+    if not _abort.is_set():
+        _abort_reason[0] = reason
+        _abort.set()
+
+
+def _retry_after(http_error):
+    """Seconds to wait from a Retry-After header, clamped; 0 if absent."""
+    try:
+        val = http_error.headers.get("Retry-After")
+        if val:
+            return max(1, min(60, int(float(val))))
+    except (ValueError, TypeError, AttributeError):
+        pass
+    return 0
+
+
+def _is_quota_error(detail):
+    """True when an OpenAI error body shows a billing / quota limit rather
+    than a transient rate limit. A quota error never clears by retrying,
+    so it must be treated as fatal instead of retried for minutes."""
+    low = (detail or "").lower()
+    return ("insufficient_quota" in low
+            or "exceeded your current quota" in low
+            or ("billing" in low and "limit" in low))
+
+
+def synthesize(word, voice, api_key, model):
+    """Synthesise one word in one voice. Returns MP3 bytes, or None.
+
+    Transient errors (a rate-limit 429, 5xx, or a network error) are retried
+    with exponential backoff, honouring a Retry-After header when present. A
+    400 skips just that one clip. A 401/403, or a 429 whose body shows a
+    quota / billing limit, is FATAL: it sets the shared abort signal and
+    returns None so the run stops soon and saves what it already has. It
+    never raises out of the worker thread.
     """
+    if _abort.is_set():
+        return None
+
     body = json.dumps({
         "model"          : model,
         "voice"          : voice,
@@ -420,6 +468,8 @@ def synthesize(word, voice, api_key, model):
     }).encode("utf-8")
 
     for attempt in range(MAX_RETRIES):
+        if _abort.is_set():
+            return None
         req = urllib.request.Request(OPENAI_TTS_URL, data=body, method="POST")
         req.add_header("Authorization", "Bearer " + api_key)
         req.add_header("Content-Type", "application/json")
@@ -430,14 +480,22 @@ def synthesize(word, voice, api_key, model):
                     raise urllib.error.URLError("empty audio body")
                 return audio
         except urllib.error.HTTPError as e:
-            detail = e.read().decode("utf-8", "replace")[:200]
+            detail = e.read().decode("utf-8", "replace")[:300]
             if e.code in (401, 403):
-                raise SystemExit("OpenAI rejected the API key (HTTP %d): %s"
-                                 % (e.code, detail))
-            if e.code == 400:
-                print("  ! skipped '%s' [%s]: HTTP 400 %s" % (word, voice, detail))
+                _signal_abort("OpenAI rejected the request (HTTP %d) - a bad "
+                              "or blocked key, or the account/billing limit "
+                              "was reached: %s" % (e.code, detail))
                 return None
-            wait = 2 ** attempt
+            if e.code == 429 and _is_quota_error(detail):
+                _signal_abort("OpenAI quota / billing limit reached "
+                              "(HTTP 429): %s" % detail)
+                return None
+            if e.code == 400:
+                print("  ! skipped '%s' [%s]: HTTP 400 %s"
+                      % (word, voice, detail))
+                return None
+            # Transient: a rate-limit 429 or a 5xx. Honour Retry-After.
+            wait = _retry_after(e) or (2 ** attempt)
             print("  . retry '%s' [%s] in %ds (HTTP %d)"
                   % (word, voice, wait, e.code))
             time.sleep(wait)
@@ -585,22 +643,49 @@ def run_build(dry_run=False, limit=0, cli_range=None):
     # Synthesise missing clips with a small thread pool.
     new_gen   = prev_gen + 1 if missing else prev_gen
     new_clips = {}
+    aborted   = False
     if missing:
         print("[synth] generating %d clip(s) at generation %d ..."
               % (len(missing), new_gen))
-        done = 0
-        with concurrent.futures.ThreadPoolExecutor(MAX_WORKERS) as pool:
-            futures = {pool.submit(synthesize, w, v, api_key, model): (w, v)
-                       for w, v in missing}
+        done             = 0
+        consecutive_fail = 0
+        pool    = concurrent.futures.ThreadPoolExecutor(MAX_WORKERS)
+        futures = {pool.submit(synthesize, w, v, api_key, model): (w, v)
+                   for w, v in missing}
+        try:
             for fut in concurrent.futures.as_completed(futures):
-                w, v  = futures[fut]
-                audio = fut.result()
+                w, v = futures[fut]
+                try:
+                    audio = fut.result()
+                except Exception as exc:        # never let one clip kill the run
+                    audio = None
+                    print("  ! error on '%s' [%s]: %s" % (w, v, exc))
                 done += 1
                 if audio:
                     new_clips[(w, v)] = audio
+                    consecutive_fail = 0
+                else:
+                    consecutive_fail += 1
+                    # A long unbroken run of failures means the API is
+                    # systematically rejecting requests (rate or quota
+                    # wall). Stop now and save, rather than burning an hour.
+                    if consecutive_fail >= ABORT_AFTER_FAILS:
+                        _signal_abort("%d clip(s) failed in a row - the API "
+                                      "is rejecting requests (rate-limit or "
+                                      "quota/billing limit)" % consecutive_fail)
                 if done % 25 == 0 or done == len(missing):
-                    print("  progress %d/%d" % (done, len(missing)))
-        print("[synth] %d clip(s) synthesised, %d failed"
+                    print("  progress %d/%d  (%d ok)"
+                          % (done, len(missing), len(new_clips)))
+                if _abort.is_set():
+                    aborted = True
+                    print("  ! stopping early - %s" % _abort_reason[0])
+                    break
+        finally:
+            # cancel_futures drops not-yet-started work, so an aborted run
+            # ends in seconds instead of grinding through thousands of
+            # doomed retries (an earlier run wasted ~50 minutes doing that).
+            pool.shutdown(wait=True, cancel_futures=True)
+        print("[synth] %d clip(s) synthesised, %d not done this run"
               % (len(new_clips), len(missing) - len(new_clips)))
 
     # Assemble the full clip set: old kept clips plus the new ones.
@@ -643,6 +728,28 @@ def run_build(dry_run=False, limit=0, cli_range=None):
           % (FULL_NAME, manifest["clipCount"], size_mb, new_gen))
     print("[write] %s  (manifest only)" % MANIFEST_NAME)
     print("[done]  pack ready in %s" % DIST_DIR)
+
+    if aborted:
+        # The pack containing everything synthesised SO FAR has already
+        # been written above and will be published by the workflow, so no
+        # work from this run is lost. Exit non-zero so the run is correctly
+        # marked failed and the operator knows to re-run; the next run
+        # downloads this saved pack and continues from where it stopped.
+        raise SystemExit(
+            "\n[INCOMPLETE] synthesis stopped early:\n"
+            "  %s\n\n"
+            "  Good news: the partial pack (generation %d, %d clip(s)) was "
+            "still written\n"
+            "  and will be published, so nothing already generated is lost.\n\n"
+            "  Most likely cause: the OpenAI account hit its usage / billing "
+            "limit.\n"
+            "  Check platform.openai.com -> Settings -> Limits and add credit "
+            "or raise\n"
+            "  the limit, then re-run. The next run continues from the %d "
+            "saved clip(s)\n"
+            "  and only synthesises what is still missing."
+            % (_abort_reason[0], new_gen,
+               manifest["clipCount"], manifest["clipCount"]))
 
 
 # --- Self-test -----------------------------------------------------------

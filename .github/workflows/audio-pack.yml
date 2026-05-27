@@ -62,6 +62,10 @@ jobs:
           fi
 
       - name: Publish pack to the audio-pack release
+        # always() so that if the build stops early (e.g. the OpenAI usage
+        # limit is hit), the partial pack written so far is still published.
+        # The next run then continues from it instead of starting over.
+        if: always()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: audio-pack
