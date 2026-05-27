@@ -1,11 +1,10 @@
 # EMPro audio pack - word list
-# Exported 2026-05-26 from the app.
+# Exported 2026-05-27 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: ash, fable, nova, shimmer
-# (no range set - building all 480 words; add e.g.  "# range: 1-50"  to build one batch)
-# 480 word(s), 3313 item(s)
-
+# (no range set - building all 487 words; add e.g.  "# range: 1-50"  to build one batch)
+# 486 word(s), 3397 item(s)
 
 #@1 wax apple
 wax apple
@@ -3634,8 +3633,14 @@ take fingerprints
 digital fingerprint
 spectral fingerprint
 device fingerprinting
-#@455 obsolate
-obsolate
+#@455 obsolete
+obsolete
+no longer in use or no longer useful because something newer or better has replaced it; describing technology, methods, parts, or ideas that have been superseded.
+the old modis-based product is now largely obsolete since sentinel-2 provides much higher spatial resolution.
+become obsolete
+technologically obsolete
+obsolete equipment
+render obsolete
 #@456 preamble
 preamble
 an introductory section or statement that comes before the main content of a document, speech, or response, providing context or framing.
@@ -3708,14 +3713,6 @@ right after lunch
 right after that
 right after the meeting
 right after class
-#@465 obsolete
-obsolete
-no longer in use or no longer useful because something newer or better has replaced it; describing technology, methods, parts, or ideas that have been superseded.
-the old modis-based product is now largely obsolete since sentinel-2 provides much higher spatial resolution.
-become obsolete
-technologically obsolete
-obsolete equipment
-render obsolete
 #@466 schema
 schema
 a structured framework or formal description of how something is organized; in databases, the formal definition of tables, fields, and relationships; in psychology, a mental structure for organizing knowledge.
@@ -3790,13 +3787,105 @@ orthogonal concerns
 mutually orthogonal
 #@475 footgun
 footgun
+an informal term for a feature, tool, or design that makes it dangerously easy for a user to cause serious harm to their own work or system, as in "shooting oneself in the foot."
+allowing implicit type coercion in the language is a real footgun for beginners.
+a classic footgun
+a major footgun
+avoid the footgun
+footgun feature
 #@476 offender
 offender
+a person who commits a crime or breaks a rule; more broadly, the specific thing identified as the cause of a problem.
+when profiling the script, we found that the nested loop was the worst offender for slow performance.
+a repeat offender
+first-time offender
+the main offender
+the worst offender
 #@477 neural
 neural
+relating to a nerve or the nervous system; in artificial intelligence, relating to neural networks, which are computing systems loosely inspired by biological brains.
+we trained a deep neural network to classify rubber plantations from multi-temporal sentinel-2 imagery.
+neural network
+neural activity
+deep neural network
+neural pathway
 #@478 phytosanitary
 phytosanitary
-#@479 sideway
-sideway
+relating to the health of plants and the official measures taken to prevent the spread of plant pests and diseases, especially in international trade.
+exported rubber seedlings must be accompanied by a phytosanitary certificate confirming they are free of regulated pests.
+phytosanitary certificate
+phytosanitary measures
+phytosanitary regulations
+phytosanitary inspection
+#@479 sideways
+sideways
+toward or from one side; oriented horizontally rather than forward or upward; figuratively, in a way that goes wrong or takes an unexpected bad turn.
+the deployment went sideways when a dependency update silently broke the build pipeline.
+move sideways
+turn sideways
+a sideways glance
+go sideways
 #@480 handoff
 handoff
+the act of transferring responsibility, control, a task, or information from one person, team, or system to another.
+we documented every parameter to ensure a smooth handoff when the visiting scholar takes over the analysis.
+a smooth handoff
+design handoff
+handoff between teams
+clean handoff
+#@481 route
+route
+a way or course taken to get from one place to another; as a verb, to send something along a particular path; in web development, a url pattern mapped to specific content or a handler.
+we defined a new api route that returns the classification results for a given province.
+a scenic route
+api route
+route traffic
+route the request
+#@482 commission error
+commission error
+in classification and remote sensing, an error in which a pixel or item is incorrectly assigned to a class it does not actually belong to; a false positive, reflecting how much a class is over-predicted.
+the rubber class showed a high commission error because young rubber stands were spectrally similar to other broadleaf plantations.
+high commission error
+commission error rate
+reduce commission error
+commission and omission errors
+#@483 omission error
+omission error
+in classification and remote sensing, an error in which a pixel or item that truly belongs to a class is incorrectly excluded from it; a false negative, reflecting how much a class is under-predicted.
+cloud contamination led to a high omission error for the rubber class in the northern study area.
+high omission error
+omission error rate
+reduce omission error
+omission and commission errors
+#@484 fixture
+fixture
+a piece of equipment fixed in position, such as a light or sink; in software testing, a fixed set of data or a prepared environment used as a consistent baseline for tests; also, a person or thing that has become a permanent presence somewhere.
+we created a test fixture with ten sample polygons so that every unit test runs against the same input.
+light fixture
+test fixture
+a permanent fixture
+load a fixture
+#@485 partway
+partway
+to some extent along a distance, process, or period of time, but not all the way to the end.
+the script crashed partway through processing, so only the first 200 tiles were classified.
+partway through
+partway down
+stop partway
+partway between
+#@486 prune
+prune
+to cut away dead or overgrown branches from a plant to encourage healthy growth; figuratively, to remove unnecessary or unwanted parts from something to make it leaner or more efficient.
+we pruned the feature set from 80 variables down to 15 to reduce overfitting and speed up training.
+prune a tree
+prune the branches
+prune the dataset
+prune dead code
+#@487 centroid
+centroid
+the geometric center of a shape, object, or set of points, calculated as the mean position of all the points it contains.
+we labeled each plantation polygon at its centroid so the text would not overflow the boundary.
+compute the centroid
+polygon centroid
+cluster centroid
+centroid coordinates
