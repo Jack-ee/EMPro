@@ -122,7 +122,11 @@
 //   • index.html registers the SW with updateViaCache:'none' so the
 //     worker script itself is never served stale either.
 
-const CACHE_NAME = 'emp-v95';
+// v96 — redeploy of the audio-pack Range UI (app.js / index.html / db.js)
+//        after an older copy was accidentally republished; cache bumped so
+//        the corrected files refresh cleanly on every device.
+
+const CACHE_NAME = 'emp-v96';
 const ASSETS = [
     './',
     './index.html',
