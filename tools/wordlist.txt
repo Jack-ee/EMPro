@@ -1,10 +1,10 @@
 # EMPro audio pack - word list
-# Exported 2026-05-27 from the app.
+# Exported 2026-06-01 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: ash, fable, nova, shimmer
-# (no range set - building all 487 words; add e.g.  "# range: 1-50"  to build one batch)
-# 486 word(s), 3397 item(s)
+# (no range set - building all 508 words; add e.g.  "# range: 1-50"  to build one batch)
+# 507 word(s), 3538 item(s)
 
 #@1 wax apple
 wax apple
@@ -3889,3 +3889,165 @@ compute the centroid
 polygon centroid
 cluster centroid
 centroid coordinates
+#@488 convex
+convex
+curving outward like the exterior of a sphere or circle; in optimization, describing functions or sets where any line segment between two points stays within the region or on/above the curve.
+we computed the convex hull of all sample points to define the spatial extent of the study region.
+convex lens
+convex function
+convex hull
+convex optimization
+#@489 concave
+concave
+curving inward like the interior of a sphere or bowl; describing surfaces, lenses, or functions that dip downward in the middle relative to their edges.
+the relationship between fertilizer input and yield is concave, with diminishing returns at higher doses.
+concave lens
+concave surface
+concave function
+concave shape
+#@490 poison
+poison
+a substance that causes illness or death when introduced into a living organism; as a verb, to harm or kill with poison; figuratively, to corrupt, contaminate, or sabotage something.
+adversaries can poison a training dataset by injecting carefully crafted samples that bias the model's predictions.
+a deadly poison
+poison the well
+data poisoning
+poison the atmosphere
+#@491 chase
+chase
+to pursue someone or something in order to catch them; figuratively, to try to obtain something elusive, or to follow up persistently on a pending matter.
+i've been chasing a memory leak in the gee script for three days without finding the source.
+chase a dream
+chase down a bug
+chase up the editor
+cut to the chase
+#@492 extrapolate
+extrapolate
+to extend known information, trends, or results into an area where data are not yet available, in order to estimate or predict; to draw a conclusion by projecting beyond the observed range.
+we extrapolated the historical deforestation rate to estimate forest loss under business-as-usual scenarios through 2040.
+extrapolate from data
+extrapolate to
+extrapolate trends
+linear extrapolation
+#@493 counterintuitive
+counterintuitive
+going against what one would naturally or instinctively expect; describing results, findings, or behaviors that contradict common sense or initial assumptions.
+it seems counterintuitive that increasing model complexity sometimes reduces overfitting, but with sufficient data this effect emerges.
+counterintuitive result
+seemingly counterintuitive
+counterintuitive finding
+counterintuitive at first
+#@494 mindset
+mindset
+an established set of attitudes, beliefs, or habitual ways of thinking that shape how a person approaches problems, decisions, or learning.
+adopting a growth mindset helps researchers see negative results as opportunities to learn rather than failures.
+a growth mindset
+shift the mindset
+fixed mindset
+the right mindset
+#@495 boilerplate
+boilerplate
+standardized text or code that is reused in multiple places with little or no modification; in software, the repetitive setup code required by a framework or pattern.
+modern frameworks like fastapi dramatically reduce the boilerplate needed to set up a rest api.
+boilerplate code
+reduce boilerplate
+boilerplate text
+legal boilerplate
+#@496 conjecture
+conjecture
+an opinion or conclusion formed on the basis of incomplete information; in mathematics, a proposition believed to be true based on evidence but not yet proven.
+without additional field data, any explanation for the anomalous ndvi drop remains pure conjecture.
+pure conjecture
+goldbach's conjecture
+open conjecture
+conjecture that
+#@497 decouple
+decouple
+to separate or disconnect two things that are linked, so that they can change or operate independently; in software, to reduce dependencies between modules so they can evolve separately.
+we decoupled the data loading layer from the model so we can swap data sources without touching the training code.
+decouple a from b
+decouple the modules
+loosely decoupled
+economic decoupling
+#@498 deprecate
+deprecate
+to officially mark a feature, function, or version as outdated and discourage its use in favor of a replacement, while typically keeping it available for backward compatibility; also, more rarely, to express disapproval of something.
+the old `image.cloudmask()` method has been deprecated; please use `image.maskclouds()` in new code.
+deprecate the function
+officially deprecated
+deprecation warning
+deprecated api
+#@499 font
+font
+a complete set of characters of a particular typeface, size, and style used for printing or displaying text; in computing, a digital file defining the visual appearance of characters.
+use a monospace font like fira code in the documentation so code samples line up correctly.
+change the font
+monospace font
+install a font
+default font
+#@500 materialize
+materialize
+to become an actual reality after being expected, planned, or hoped for; in databases, to compute and store the result of a query rather than computing it on the fly.
+the expected funding never materialized, so we had to scale back the field campaign.
+fail to materialize
+materialize a view
+suddenly materialize
+materialize as
+#@501 cutpoint
+cutpoint
+a specific numeric value used to divide a continuous variable into discrete categories or classes; in classification and statistics, the threshold at which a decision changes.
+we selected an ndvi cutpoint of 0.45 to separate forested from non-forested pixels in the classification.
+select a cutpoint
+optimal cutpoint
+cutpoint value
+choose the cutpoint
+#@502 walk through
+walk through
+to go through something step by step with someone, explaining each part in detail; commonly used for tutorials, demonstrations, code reviews, and procedures.
+let me walk you through the pipeline so you can take over after the workshop.
+walk through the code
+walk through the steps
+walk someone through
+a quick walk-through
+#@503 stewardship
+stewardship
+the careful and responsible management of something entrusted to one's care, such as resources, land, finances, or institutions, often with an emphasis on preserving it for future generations.
+the community has demonstrated exemplary land stewardship by sustainably managing their rubber plantations for over four decades.
+environmental stewardship
+land stewardship
+financial stewardship
+good stewardship
+#@504 predate
+predate
+to exist or occur at a date earlier than something else; in biology, also to hunt and eat other organisms as prey.
+many of these terrace systems predate the modern rubber industry by several centuries.
+predate the introduction of
+long predate
+predate by
+clearly predate
+#@505 heads-up
+heads-up
+an advance warning or notice given to someone so they can be prepared for something upcoming; also used as an adjective for displays positioned in a user's line of sight.
+just a quick heads-up — the gee asset urls will change next monday, so update your scripts accordingly.
+give a heads-up
+thanks for the heads-up
+a quick heads-up
+heads-up display
+#@506 guardrails
+guardrails
+protective barriers along roads, stairs, or bridges to prevent falls or accidents; figuratively, rules, policies, or technical safeguards designed to keep behavior or systems within safe limits.
+we added validation guardrails so users can't submit polygons with self-intersecting boundaries.
+install guardrails
+safety guardrails
+policy guardrails
+ai guardrails
+#@507 encode
+encode
+to convert information into a particular form, format, or representation, often for storage, transmission, or processing; in computing, to convert characters, audio, or images into a specific digital format.
+we encode the categorical land cover labels using one-hot encoding before feeding them into the neural network.
+encode the data
+utf-8 encoded
+encode as
+one-hot encode
+#@508 recurring
+recurring
