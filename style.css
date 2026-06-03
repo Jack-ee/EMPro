@@ -3900,6 +3900,10 @@ html {
         color      : var(--accent) !important;
         background : var(--accent-bg) !important;
     }
+    #mw-shuffle.mw-shuffle-on {
+        color      : var(--accent) !important;
+        background : var(--accent-bg) !important;
+    }
 }
 
 /* Autoplay button — active state + subtle pulse when playing */
@@ -3921,6 +3925,14 @@ html {
 @keyframes mw-autoplay-pulse {
     0%, 100% { opacity: 0.5; transform: scale(1); }
     50%      { opacity: 0;   transform: scale(1.15); }
+}
+
+/* Shuffle button — active (shuffled) state. Static highlight, no pulse:
+   it reflects a persistent mode, not transient playback. */
+.mw-shuffle-on {
+    background   : var(--accent-bg) !important;
+    color        : var(--accent) !important;
+    border-color : var(--accent) !important;
 }
 
 /* Card being played — subtle left-border accent */

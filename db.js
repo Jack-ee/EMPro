@@ -225,6 +225,35 @@
         return cand.has(a);
     }
 
+    // ─── Streak helpers ──────────────────────────────────────
+    // Local calendar date (YYYY-MM-DD) in the user's timezone — NOT UTC.
+    // toISOString().slice(0,10) gives the UTC date, which rolls early or
+    // late depending on timezone (China is UTC+8, so a UTC date lags a
+    // day) and would mis-count streaks.
+    function _localYMD(d) {
+        const dd = d || new Date();
+        const y  = dd.getFullYear();
+        const m  = String(dd.getMonth() + 1).padStart(2, '0');
+        const da = String(dd.getDate()).padStart(2, '0');
+        return `${y}-${m}-${da}`;
+    }
+
+    // Advance the daily streak on `stats` if today has not been counted
+    // yet. Idempotent within a calendar day. Mutates and returns `stats`
+    // but does NOT persist — the caller decides when to save.
+    function _advanceStreak(stats) {
+        const today = _localYMD();
+        if (stats.lastActiveDate === today) return stats;  // already counted today
+        const yd = new Date();
+        yd.setDate(yd.getDate() - 1);
+        const yesterday = _localYMD(yd);
+        stats.streakDays = (stats.lastActiveDate === yesterday)
+            ? (stats.streakDays || 0) + 1
+            : 1;
+        stats.lastActiveDate = today;
+        return stats;
+    }
+
     window.DB = {
         // --- Profile ---
         getProfile: function() {
@@ -525,20 +554,7 @@
             localStorage.setItem(key('stats'), JSON.stringify(stats || {}));
         },
         bumpSession: function(mode, score) {
-            const stats   = this.loadStats();
-            // v72: use LOCAL date, not UTC. toISOString().slice(0,10) gives
-            // the UTC date which can roll early or late depending on the
-            // user's timezone — e.g. in Utah at 5pm local on Apr 26 it's
-            // already Apr 27 in UTC, so the streak would advance a day
-            // early; in China (UTC+8), it lags a day.
-            const localYMD = (d) => {
-                const dd = d || new Date();
-                const y  = dd.getFullYear();
-                const m  = String(dd.getMonth() + 1).padStart(2, '0');
-                const da = String(dd.getDate()).padStart(2, '0');
-                return `${y}-${m}-${da}`;
-            };
-            const today = localYMD();
+            const stats = this.loadStats();
 
             stats.totalSessions++;
             if (typeof score === 'number') {
@@ -547,18 +563,8 @@
                 stats.avgScore = Math.round(((prev * (n - 1)) + score) / n);
             }
 
-            // Streak
-            if (stats.lastActiveDate === today) {
-                // same day, no change
-            } else {
-                const yd = new Date();
-                yd.setDate(yd.getDate() - 1);
-                const yesterday = localYMD(yd);
-                stats.streakDays = (stats.lastActiveDate === yesterday)
-                    ? (stats.streakDays || 0) + 1
-                    : 1;
-            }
-            stats.lastActiveDate = today;
+            // Streak (shared, timezone-correct, idempotent per day)
+            _advanceStreak(stats);
 
             // Mode usage
             if (mode) {
@@ -567,6 +573,22 @@
             }
 
             this.saveStats(stats);
+            return stats;
+        },
+
+        // Mark today as an active study day WITHOUT recording a discrete
+        // session. Used by continuous-study surfaces (My Words browse / quiz)
+        // where there is no natural "session complete" event but the user is
+        // clearly active. Idempotent within a calendar day, so it is safe to
+        // call on every study gesture — only the first call each day changes
+        // anything (and only then does it persist / trigger a sync push).
+        // Deliberately leaves totalSessions / modeUsage untouched so the
+        // per-session averages stay meaningful.
+        markActiveDay: function() {
+            const stats  = this.loadStats();
+            const before = stats.lastActiveDate;
+            _advanceStreak(stats);
+            if (stats.lastActiveDate !== before) this.saveStats(stats);
             return stats;
         },
 
@@ -726,6 +748,124 @@
             console.log(`[DB] dedupByLemma: ${apply ? 'APPLIED' : 'DRY RUN'} — would merge ${actions.length} entries.`);
             actions.forEach(a => console.log(`  merge "${a.drop}" → "${a.keep}"`));
             return result;
+        },
+
+        /**
+         * Group notebook entries that are inflected forms of one another
+         * (cap / capping / caps, collection / collections, ...). Read-only;
+         * powers the "Merge word forms" review tool. Returns an array of
+         *   { base, members: [{ word, complete, isBase }] }
+         * where `base` is the suggested form to keep (the shortest root the
+         * others inflect from, tie-broken toward the more-complete entry) and
+         * `members` are ALL forms in the group (base included, flagged via
+         * isBase). Only groups with 2+ entries are returned.
+         */
+        findInflectionGroups: function() {
+            const nb    = this.loadNotebook();
+            const n     = nb.length;
+            const words = nb.map(w => String((w && w.word) || '').trim());
+
+            // Union-Find over indices: two entries join a group when either
+            // is a plausible inflection of the other.
+            const parent = Array.from({ length: n }, (_, i) => i);
+            const find   = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+            const union  = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+
+            for (let i = 0; i < n; i++) {
+                if (!words[i]) continue;
+                for (let j = i + 1; j < n; j++) {
+                    if (!words[j]) continue;
+                    if (isInflectionOf(words[i], words[j]) || isInflectionOf(words[j], words[i])) union(i, j);
+                }
+            }
+
+            const isComplete = (w) => Boolean(w && (w.meaning || w.enDef) && (w.collo || w.example || w.context));
+
+            const clusters = {};
+            for (let i = 0; i < n; i++) {
+                if (!words[i]) continue;
+                const r = find(i);
+                (clusters[r] = clusters[r] || []).push(i);
+            }
+
+            const groups = [];
+            Object.keys(clusters).forEach(rootKey => {
+                const idxs = clusters[rootKey];
+                if (idxs.length < 2) return;
+
+                // A "root" is a member that is not an inflection of any OTHER
+                // member (i.e. the base form). Prefer the shortest root, then
+                // the more-complete entry, then alphabetical for stability.
+                const isRoot = (i) => !idxs.some(j => j !== i && isInflectionOf(words[i], words[j]));
+                let roots = idxs.filter(isRoot);
+                if (roots.length === 0) roots = idxs.slice();
+                roots.sort((a, b) => {
+                    if (words[a].length !== words[b].length) return words[a].length - words[b].length;
+                    const ca = isComplete(nb[a]) ? 0 : 1;
+                    const cb = isComplete(nb[b]) ? 0 : 1;
+                    if (ca !== cb) return ca - cb;
+                    return words[a].localeCompare(words[b]);
+                });
+                const baseIdx = roots[0];
+
+                const members = idxs
+                    .slice()
+                    .sort((a, b) => words[a].localeCompare(words[b]))
+                    .map(i => ({ word: words[i], complete: isComplete(nb[i]), isBase: i === baseIdx }));
+
+                groups.push({ base: words[baseIdx], members });
+            });
+
+            // Most-actionable groups first (more forms = more clutter removed).
+            groups.sort((a, b) => b.members.length - a.members.length);
+            return groups;
+        },
+
+        /**
+         * Merge inflected forms into one kept entry. `keepWord` is retained;
+         * every word in `dropWords` is folded into it and then removed. The
+         * kept entry's own non-empty fields win; its blanks are filled from
+         * the dropped entries; array fields (focus tags, ...) are unioned;
+         * the earliest addedAt is preserved. Case-insensitive on the word
+         * key. Returns { merged } — the number of entries removed.
+         */
+        mergeInflections: function(keepWord, dropWords) {
+            const nb      = this.loadNotebook();
+            const keepLow = String(keepWord || '').trim().toLowerCase();
+            const dropSet = new Set((dropWords || []).map(w => String(w || '').trim().toLowerCase()).filter(Boolean));
+            dropSet.delete(keepLow);
+            if (!keepLow || dropSet.size === 0) return { merged: 0 };
+
+            const keep = nb.find(w => String((w && w.word) || '').trim().toLowerCase() === keepLow);
+            if (!keep) return { merged: 0 };
+
+            let merged = 0;
+            nb.forEach(w => {
+                const wl = String((w && w.word) || '').trim().toLowerCase();
+                if (wl === keepLow || !dropSet.has(wl)) return;
+                Object.keys(w).forEach(k => {
+                    if (k === 'word' || k === 'addedAt') return;
+                    if (Array.isArray(w[k])) {
+                        const base = Array.isArray(keep[k]) ? keep[k] : [];
+                        const seen = new Set(base);
+                        w[k].forEach(v => { if (!seen.has(v)) { base.push(v); seen.add(v); } });
+                        keep[k] = base;
+                        return;
+                    }
+                    const empty = keep[k] === undefined || keep[k] === null || keep[k] === '';
+                    if (empty && w[k] !== undefined && w[k] !== null && w[k] !== '') keep[k] = w[k];
+                });
+                if (w.addedAt && (!keep.addedAt || w.addedAt < keep.addedAt)) keep.addedAt = w.addedAt;
+                merged++;
+            });
+
+            const next = nb.filter(w => {
+                const wl = String((w && w.word) || '').trim().toLowerCase();
+                return wl === keepLow || !dropSet.has(wl);
+            });
+            this.saveNotebook(next);
+            console.log(`[DB] mergeInflections: kept "${keepWord}", merged ${merged} form(s).`);
+            return { merged };
         }
     };
 })();

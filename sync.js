@@ -596,21 +596,28 @@ window.SyncManager = (function() {
     // (drafts on every keystroke, slider scrubs, scroll positions).
     // Data still gets picked up on the next push triggered by a real
     // save, the focus/visibility pull, or the 30s poll.
+    // Prefs that must NOT trigger an immediate sync push. Two kinds:
+    //   • High-frequency writers (drafts on every keystroke) — a push per
+    //     keystroke would spam the API. The 3s debounce + next real save
+    //     still carries the latest value to the cloud.
+    //   • Device-local view state (reading position, shuffle order) — these
+    //     are per-device; syncing them would yank the other device's
+    //     position/order around on every poll.
+    //
+    // NOTE: genuine settings (voice, speed, group size, auto-pronounce, AI
+    // provider/model, show-CN) used to be listed here too. That meant a
+    // change made in isolation was never pushed — and the next 30s poll /
+    // focus pull then CLOBBERED it with the stale remote value (the cause of
+    // "voice speed resets on a fresh login"). They are debounce-synced now;
+    // the 3s debounce already collapses slider scrubs into a single push, so
+    // these settings persist across devices and reloads.
     const PREF_SYNC_BLOCKLIST = new Set([
-        'wl_draft',         // writing lab draft (fires on every keystroke)
-        'speech_speed',     // slider
-        'voice_id',         // voice selector
-        'autoplay_endef',   // checkbox (auto-pronounce English definition)
-        'autoplay_cn',      // checkbox (auto-pronounce Chinese meaning)
-        'autoplay_collo',   // checkbox (auto-pronounce collocations)
-        'autoplay_sent',    // checkbox (auto-pronounce example sentence)
-        'show_cn_default',  // checkbox
-        'group_size',       // number input
-        'ai_provider',      // provider selector (rarely changed)
-        'ai_model',         // model selector (rarely changed)
-        'mw_progress',      // scroll/position within My Words
+        'wl_draft',          // writing lab draft (fires on every keystroke)
+        'mw_progress',       // My Words position within a group (per device)
         'mw_pos_all', 'mw_pos_core', 'mw_pos_pronunciation',
-        'mw_pos_spelling', 'mw_pos_weak'
+        'mw_pos_spelling', 'mw_pos_weak',
+        'mw_shuffle',        // shuffle on/off — per-device view preference
+        'mw_shuffle_seed'    // shuffle permutation seed — per device
     ]);
 
     function hookSaves() {

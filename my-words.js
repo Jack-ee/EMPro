@@ -15,6 +15,8 @@ window.MyWords = (function() {
     let quizTotal    = 0;
     let quizAnswered = false;
     let currentGroup = 0;
+    let shuffleOn    = false;  // view-only shuffle toggle — never mutates stored order
+    let shuffleSeed  = 0;      // stable seed so the shuffled order is consistent across renders/reloads
     let studyFilter  = 'all'; // 'all' | 'core' | 'pronunciation' | 'spelling'
 
     // --- Autoplay state ---
@@ -95,6 +97,8 @@ window.MyWords = (function() {
     function init() {
         console.log('[MyWords] init started');
         showChinese = window.DB.getPref('show_cn_default', 'false') === 'true';
+        shuffleOn   = window.DB.getPref('mw_shuffle', 'false') === 'true';
+        shuffleSeed = parseInt(window.DB.getPref('mw_shuffle_seed', '0'), 10) || 0;
         bindEvents();
         refreshStudyList();
 
@@ -253,7 +257,7 @@ window.MyWords = (function() {
         // Navigation
         document.getElementById('mw-prev')?.addEventListener('click', () => { stopAutoplay(); navigate(-1); });
         document.getElementById('mw-next')?.addEventListener('click', () => { stopAutoplay(); navigate(1); });
-        document.getElementById('mw-shuffle')?.addEventListener('click', () => { stopAutoplay(); shuffleList(); });
+        document.getElementById('mw-shuffle')?.addEventListener('click', () => { stopAutoplay(); toggleShuffle(); });
 
         // v75: swipe left/right anywhere on the card area to walk through
         // study words. Stops autoplay if running, mirroring the prev/next
@@ -341,7 +345,45 @@ window.MyWords = (function() {
         });
     }
 
-    function refreshStudyList() { studyList = window.DB.loadNotebook(); }
+    function refreshStudyList() {
+        const nb  = window.DB.loadNotebook();
+        // Shuffle is a VIEW transform only — the stored notebook order is
+        // never mutated, so switching back to sequential restores the
+        // canonical order. The seed keeps the permutation stable across
+        // re-renders and reloads.
+        studyList = shuffleOn ? _seededShuffle(nb, shuffleSeed) : nb;
+    }
+
+    // Deterministic shuffle (mulberry32 PRNG + Fisher–Yates). A given seed
+    // always yields the same permutation, so navigation stays coherent and
+    // the order survives reloads. Returns a new array; input is untouched.
+    function _seededShuffle(arr, seed) {
+        let s = (seed >>> 0) || 1;
+        const rng = () => {
+            s = (s + 0x6D2B79F5) | 0;
+            let t = Math.imul(s ^ (s >>> 15), 1 | s);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    // Register a day of study activity for the streak. Idempotent per day
+    // (cheap to call on every gesture) and tied to real user actions only —
+    // never to background re-renders — so the streak reflects genuine study.
+    function markStudyActivity() {
+        try {
+            const before = window.DB.loadStats?.().streakDays;
+            window.DB.markActiveDay?.();
+            const after  = window.DB.loadStats?.().streakDays;
+            if (before !== after) window.App?.refreshStats?.();
+        } catch {}
+    }
 
     // =====================================================
     // MODE / VIEW
@@ -382,6 +424,7 @@ window.MyWords = (function() {
 
     function toggleChinese() {
         showChinese = !showChinese;
+        markStudyActivity();
         const btn = document.getElementById('mw-toggle-cn');
         if (btn) {
             btn.classList.toggle('active', showChinese);
@@ -911,6 +954,7 @@ IMPORTANT:
     function navigate(dir) {
         const words = getGroupWords();
         if (words.length === 0) return;
+        markStudyActivity();
         currentIdx += dir;
         // Wrap within group
         if (currentIdx >= words.length) currentIdx = 0;
@@ -940,19 +984,29 @@ IMPORTANT:
         render();
     }
 
-    function shuffleList() {
-        // Shuffle the notebook and save so render()'s refreshStudyList picks up the new order
-        const nb = window.DB.loadNotebook();
-        for (let i = nb.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [nb[i], nb[j]] = [nb[j], nb[i]];
+    function toggleShuffle() {
+        shuffleOn = !shuffleOn;
+        if (shuffleOn) {
+            // Fresh permutation each time shuffle is switched on.
+            shuffleSeed = ((Date.now() & 0x7fffffff) ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+            window.DB.setPref('mw_shuffle_seed', String(shuffleSeed));
         }
-        window.DB.saveNotebook(nb);
+        window.DB.setPref('mw_shuffle', shuffleOn ? 'true' : 'false');
         currentIdx   = 0;
         quizAnswered = false;
+        updateShuffleBtn();
         saveProgress();
         render();
-        window.App?.showToast?.('Shuffled.');
+        window.App?.showToast?.(shuffleOn ? 'Shuffled.' : 'Sequential order.');
+    }
+
+    function updateShuffleBtn() {
+        const btn = document.getElementById('mw-shuffle');
+        if (!btn) return;
+        btn.classList.toggle('mw-shuffle-on', shuffleOn);
+        btn.title = shuffleOn
+            ? 'Shuffle on \u2014 tap for sequential order'
+            : 'Shuffle off \u2014 tap to shuffle';
     }
 
     function speakCurrent() {
@@ -1184,6 +1238,7 @@ IMPORTANT:
         const groupInfo = document.getElementById('mw-group-info');
         if (!area) { console.warn('[MyWords] render: mw-area element missing, bailing'); return; }
         refreshStudyList();
+        updateShuffleBtn();
         console.log('[MyWords] render: studyList=' + studyList.length + ' currentGroup=' + currentGroup + ' currentIdx=' + currentIdx + ' mode=' + studyMode + ' view=' + viewMode + ' filter=' + studyFilter);
 
         const words      = getGroupWords();
@@ -1418,6 +1473,7 @@ IMPORTANT:
         if (quizAnswered) return;
         quizAnswered = true;
         quizTotal++;
+        markStudyActivity();
 
         const isCorrect = btn.dataset.correct === 'true';
         const words     = getGroupWords();
