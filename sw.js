@@ -126,7 +126,7 @@
 //        after an older copy was accidentally republished; cache bumped so
 //        the corrected files refresh cleanly on every device.
 
-const CACHE_NAME = 'emp-v97';
+const CACHE_NAME = 'emp-v98';
 const ASSETS = [
     './',
     './index.html',

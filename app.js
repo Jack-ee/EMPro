@@ -1242,10 +1242,12 @@
         document.getElementById('notebook-modal')?.classList.remove('open');
     }
 
-    // ─── Merge word forms (inflected-duplicate cleanup) ─────
-    // Builds a review modal listing groups of entries that are the same word
-    // in different forms (cap / capping / caps). The user picks the form to
-    // keep per group and confirms; nothing changes until they tap Merge.
+    // ─── Merge word forms (duplicate / inflected-form cleanup) ─────
+    // Builds a review modal listing groups of entries that are the same word,
+    // whether identical duplicates (obsolete / obsolete) or inflected forms
+    // (cap / capping / caps). Entries are tracked by notebook index, so even
+    // exact duplicates are distinguishable. The user picks the entry to keep
+    // per group and confirms; nothing changes until they tap Merge.
     function openMergeForms() {
         const groups = window.DB?.findInflectionGroups?.() || [];
         document.getElementById('merge-forms-modal')?.remove();
@@ -1268,17 +1270,18 @@
                     const id        = `mgf-${gi}-${mi}`;
                     const tag       = m.complete ? '' : '<span style="font-size:10px;color:var(--danger);margin-left:6px">needs enrich</span>';
                     const baseHint  = m.isBase  ? '<span style="font-size:10px;color:var(--text-tertiary);margin-left:6px">suggested base</span>' : '';
+                    const detail    = m.hint ? `<div style="font-size:11px;color:var(--text-tertiary);margin-left:26px;margin-top:-2px">${escapeHtml(m.hint)}</div>` : '';
                     return `
-                        <label for="${id}" style="display:flex;align-items:center;gap:8px;padding:5px 2px;cursor:pointer;font-size:14px">
-                            <input type="radio" id="${id}" name="mgf-keep-${gi}" value="${escapeAttr(m.word)}" ${m.isBase ? 'checked' : ''} style="cursor:pointer">
+                        <label for="${id}" style="display:flex;align-items:center;gap:8px;padding:5px 2px 1px;cursor:pointer;font-size:14px">
+                            <input type="radio" id="${id}" name="mgf-keep-${gi}" value="${m.index}" ${m.isBase ? 'checked' : ''} style="cursor:pointer">
                             <span style="font-weight:500">${escapeHtml(m.word)}</span>${baseHint}${tag}
-                        </label>`;
+                        </label>${detail}`;
                 }).join('');
                 return `
                     <div class="mgf-group" data-mgf-group="${gi}" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px">
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px;font-size:12px;color:var(--text-tertiary)">
                             <input type="checkbox" class="mgf-include" data-mgf-include="${gi}" checked style="cursor:pointer">
-                            Merge these ${g.members.length} forms &mdash; keep:
+                            Merge these ${g.members.length} entries &mdash; keep:
                         </label>
                         ${opts}
                     </div>`;
@@ -1289,8 +1292,8 @@
                     <div class="modal-header"><h2>Merge word forms</h2><button class="modal-close" data-mgf-close>&times;</button></div>
                     <div class="modal-body" style="overflow-y:auto">
                         <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
-                            Found ${groups.length} group${groups.length === 1 ? '' : 's'} of the same word in different forms.
-                            Pick the form to keep in each group &mdash; the others merge into it (blank fields are filled in and focus tags combined). Uncheck a group to leave it untouched.
+                            Found ${groups.length} group${groups.length === 1 ? '' : 's'} of duplicate or inflected forms of the same word.
+                            Pick the entry to keep in each group &mdash; the others merge into it (blank fields are filled in and focus tags combined). Uncheck a group to leave it untouched.
                         </p>
                         ${groupHtml}
                     </div>
@@ -1321,28 +1324,30 @@
 
         if (applyBtn) {
             applyBtn.addEventListener('click', () => {
-                let totalMerged = 0, groupsMerged = 0;
+                const operations = [];
                 overlay.querySelectorAll('.mgf-group').forEach(groupEl => {
                     const include = groupEl.querySelector('.mgf-include');
                     if (!include || !include.checked) return;
                     const gi     = groupEl.getAttribute('data-mgf-group');
                     const keepEl = overlay.querySelector(`input[name="mgf-keep-${gi}"]:checked`);
                     if (!keepEl) return;
-                    const keep   = keepEl.value;
-                    const drops  = Array.from(groupEl.querySelectorAll(`input[name="mgf-keep-${gi}"]`))
-                                        .map(r => r.value)
-                                        .filter(w => w !== keep);
-                    if (drops.length === 0) return;
-                    const res = window.DB.mergeInflections(keep, drops);
-                    if (res && res.merged) { totalMerged += res.merged; groupsMerged++; }
+                    const keepIndex   = parseInt(keepEl.value, 10);
+                    const dropIndices = Array.from(groupEl.querySelectorAll(`input[name="mgf-keep-${gi}"]`))
+                                             .map(r => parseInt(r.value, 10))
+                                             .filter(idx => idx !== keepIndex && !Number.isNaN(idx));
+                    if (Number.isNaN(keepIndex) || dropIndices.length === 0) return;
+                    operations.push({ keepIndex, dropIndices });
                 });
 
                 close();
-                if (totalMerged > 0) {
+                const res = (operations.length && window.DB.mergeGroups)
+                    ? window.DB.mergeGroups(operations)
+                    : { merged: 0, groups: 0 };
+                if (res && res.merged > 0) {
                     updateNotebookBadge();
                     window.MyWords?.refreshStudyList?.();
                     window.MyWords?.render?.();
-                    showToast(`Merged ${totalMerged} form${totalMerged === 1 ? '' : 's'} into ${groupsMerged} word${groupsMerged === 1 ? '' : 's'}.`);
+                    showToast(`Merged ${res.merged} entr${res.merged === 1 ? 'y' : 'ies'} into ${res.groups} word${res.groups === 1 ? '' : 's'}.`);
                 } else {
                     showToast('Nothing merged.');
                 }

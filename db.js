@@ -811,7 +811,13 @@
                 const members = idxs
                     .slice()
                     .sort((a, b) => words[a].localeCompare(words[b]))
-                    .map(i => ({ word: words[i], complete: isComplete(nb[i]), isBase: i === baseIdx }));
+                    .map(i => ({
+                        index    : i,
+                        word     : words[i],
+                        complete : isComplete(nb[i]),
+                        isBase   : i === baseIdx,
+                        hint     : String((nb[i] && (nb[i].meaning || nb[i].enDef)) || '').slice(0, 48)
+                    }));
 
                 groups.push({ base: words[baseIdx], members });
             });
@@ -822,50 +828,61 @@
         },
 
         /**
-         * Merge inflected forms into one kept entry. `keepWord` is retained;
-         * every word in `dropWords` is folded into it and then removed. The
-         * kept entry's own non-empty fields win; its blanks are filled from
-         * the dropped entries; array fields (focus tags, ...) are unioned;
-         * the earliest addedAt is preserved. Case-insensitive on the word
-         * key. Returns { merged } — the number of entries removed.
+         * Merge groups of notebook entries by INDEX, in one atomic pass.
+         * Keying on indices (not word strings) is essential: a group can hold
+         * two entries with the identical word (a true duplicate), which a
+         * string key cannot tell apart. All operations run against a single
+         * snapshot, so indices stay valid; the notebook is saved once.
+         *
+         *   operations: [{ keepIndex, dropIndices: [..] }, ...]
+         *
+         * For each op, every drop entry is folded into its keep entry — the
+         * keep entry's own non-empty fields win, its blanks are filled from
+         * the drops, array fields (focus tags, ...) are unioned, the earliest
+         * addedAt is preserved — then the drops are removed.
+         * Returns { merged, groups }: entries removed, and groups affected.
          */
-        mergeInflections: function(keepWord, dropWords) {
-            const nb      = this.loadNotebook();
-            const keepLow = String(keepWord || '').trim().toLowerCase();
-            const dropSet = new Set((dropWords || []).map(w => String(w || '').trim().toLowerCase()).filter(Boolean));
-            dropSet.delete(keepLow);
-            if (!keepLow || dropSet.size === 0) return { merged: 0 };
+        mergeGroups: function(operations) {
+            const nb     = this.loadNotebook();
+            const remove = new Set();
+            let merged = 0, groups = 0;
 
-            const keep = nb.find(w => String((w && w.word) || '').trim().toLowerCase() === keepLow);
-            if (!keep) return { merged: 0 };
+            (operations || []).forEach(op => {
+                const keepIndex = (op && Number.isInteger(op.keepIndex)) ? op.keepIndex : -1;
+                const drops     = (op && Array.isArray(op.dropIndices)) ? op.dropIndices : [];
+                const keep      = nb[keepIndex];
+                if (!keep) return;
 
-            let merged = 0;
-            nb.forEach(w => {
-                const wl = String((w && w.word) || '').trim().toLowerCase();
-                if (wl === keepLow || !dropSet.has(wl)) return;
-                Object.keys(w).forEach(k => {
-                    if (k === 'word' || k === 'addedAt') return;
-                    if (Array.isArray(w[k])) {
-                        const base = Array.isArray(keep[k]) ? keep[k] : [];
-                        const seen = new Set(base);
-                        w[k].forEach(v => { if (!seen.has(v)) { base.push(v); seen.add(v); } });
-                        keep[k] = base;
-                        return;
-                    }
-                    const empty = keep[k] === undefined || keep[k] === null || keep[k] === '';
-                    if (empty && w[k] !== undefined && w[k] !== null && w[k] !== '') keep[k] = w[k];
+                let any = false;
+                drops.forEach(di => {
+                    if (di === keepIndex || remove.has(di)) return;
+                    const w = nb[di];
+                    if (!w) return;
+                    Object.keys(w).forEach(k => {
+                        if (k === 'word' || k === 'addedAt') return;
+                        if (Array.isArray(w[k])) {
+                            const base = Array.isArray(keep[k]) ? keep[k] : [];
+                            const seen = new Set(base);
+                            w[k].forEach(v => { if (!seen.has(v)) { base.push(v); seen.add(v); } });
+                            keep[k] = base;
+                            return;
+                        }
+                        const empty = keep[k] === undefined || keep[k] === null || keep[k] === '';
+                        if (empty && w[k] !== undefined && w[k] !== null && w[k] !== '') keep[k] = w[k];
+                    });
+                    if (w.addedAt && (!keep.addedAt || w.addedAt < keep.addedAt)) keep.addedAt = w.addedAt;
+                    remove.add(di);
+                    merged++;
+                    any = true;
                 });
-                if (w.addedAt && (!keep.addedAt || w.addedAt < keep.addedAt)) keep.addedAt = w.addedAt;
-                merged++;
+                if (any) groups++;
             });
 
-            const next = nb.filter(w => {
-                const wl = String((w && w.word) || '').trim().toLowerCase();
-                return wl === keepLow || !dropSet.has(wl);
-            });
+            if (remove.size === 0) return { merged: 0, groups: 0 };
+            const next = nb.filter((_, i) => !remove.has(i));
             this.saveNotebook(next);
-            console.log(`[DB] mergeInflections: kept "${keepWord}", merged ${merged} form(s).`);
-            return { merged };
+            console.log(`[DB] mergeGroups: removed ${remove.size} entr${remove.size === 1 ? 'y' : 'ies'} across ${groups} group(s).`);
+            return { merged, groups };
         }
     };
 })();
