@@ -1,10 +1,10 @@
 # EMPro audio pack - word list
-# Exported 2026-06-01 from the app.
+# Exported 2026-06-15 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: ash, fable, nova, shimmer
-# (no range set - building all 508 words; add e.g.  "# range: 1-50"  to build one batch)
-# 507 word(s), 3538 item(s)
+# (no range set - building all 533 words; add e.g.  "# range: 1-50"  to build one batch)
+# 532 word(s), 3713 item(s)
 
 #@1 wax apple
 wax apple
@@ -3633,14 +3633,6 @@ take fingerprints
 digital fingerprint
 spectral fingerprint
 device fingerprinting
-#@455 obsolete
-obsolete
-no longer in use or no longer useful because something newer or better has replaced it; describing technology, methods, parts, or ideas that have been superseded.
-the old modis-based product is now largely obsolete since sentinel-2 provides much higher spatial resolution.
-become obsolete
-technologically obsolete
-obsolete equipment
-render obsolete
 #@456 preamble
 preamble
 an introductory section or statement that comes before the main content of a document, speech, or response, providing context or framing.
@@ -3713,6 +3705,14 @@ right after lunch
 right after that
 right after the meeting
 right after class
+#@465 obsolete
+obsolete
+no longer in use or no longer useful because something newer or better has replaced it; describing technology, methods, parts, or ideas that have been superseded.
+the old modis-based product is now largely obsolete since sentinel-2 provides much higher spatial resolution.
+become obsolete
+technologically obsolete
+obsolete equipment
+render obsolete
 #@466 schema
 schema
 a structured framework or formal description of how something is organized; in databases, the formal definition of tables, fields, and relationships; in psychology, a mental structure for organizing knowledge.
@@ -4051,3 +4051,203 @@ encode as
 one-hot encode
 #@508 recurring
 recurring
+happening repeatedly, often at regular intervals or in similar form each time; describing problems, themes, payments, or events that come back.
+cloud contamination is a recurring problem when we work with optical imagery in tropical regions.
+a recurring theme
+recurring problem
+recurring payment
+recurring dream
+#@509 effusive
+effusive
+expressing feelings of approval, gratitude, or pleasure in an unrestrained or excessive manner; pouring out emotion lavishly, sometimes to the point of seeming insincere.
+the reviewer's report was unusually effusive, calling the manuscript "a landmark contribution" in the first sentence.
+effusive praise
+effusive welcome
+effusive thanks
+overly effusive
+#@510 terse
+terse
+expressed in few words; brief and direct, sometimes to the point of seeming abrupt, rude, or unfriendly.
+the editor sent a terse one-line reply: "revise and resubmit within 30 days."
+a terse reply
+terse comment
+terse and direct
+sound terse
+#@511 interactive
+interactive
+involving direct two-way communication or response between people, or between a user and a computer system, so that each side influences the other.
+we built an interactive map in gee so users can click any pixel to see its full classification history.
+interactive map
+interactive widget
+interactive tutorial
+highly interactive
+#@512 arithmetically
+arithmetically
+in a manner relating to arithmetic operations such as addition, subtraction, multiplication, or division; growing by adding a constant amount each step, as in an arithmetic progression.
+population grew arithmetically while food supply grew geometrically, which malthus argued would inevitably lead to scarcity.
+grow arithmetically
+arithmetically average
+arithmetically compute
+arithmetically vs geometrically
+#@513 work through
+work through
+to deal with a problem, situation, or set of materials carefully and completely by going through them step by step.
+let's work through the reviewer comments together so we can decide which require new experiments.
+work through the problem
+work through the comments
+work through the math
+work through the night
+#@514 indigenous
+indigenous
+originating naturally in a particular place or environment; also describing the original inhabitants of a region, their cultures, languages, and traditional knowledge.
+several rubber-tree pests indigenous to the amazon basin pose a major biosecurity risk to southeast asian plantations.
+indigenous species
+indigenous peoples
+indigenous knowledge
+indigenous to
+#@515 factsheet
+factsheet
+a short document — usually one or two pages — that presents key facts, figures, and summary information about a topic, product, or organization in a clear, scannable format.
+we prepared a one-page factsheet on hainan's rubber industry for visiting policy delegations.
+a one-page factsheet
+download the factsheet
+country factsheet
+update the factsheet
+#@516 history
+history
+the study of past events; the recorded series of events in someone's or something's past; in computing, the record of past actions such as commands entered or pages visited.
+i scrolled through my shell history to find the exact gdal command i used last week.
+medical history
+browser history
+go down in history
+ancient history
+#@517 survey
+survey
+a general examination, assessment, or overview of a subject; a set of questions used to gather data from people; in geography, the measurement and mapping of land; in academia, a review article surveying the literature.
+we conducted a field survey in 50 randomly selected plots to validate the classification map.
+conduct a survey
+field survey
+literature survey
+survey paper
+#@518 wiring
+wiring
+the system of wires used to carry electrical current through a building or device; figuratively, the underlying connections in a system, network, or even the brain.
+the bug came from incorrect wiring between the data loader and the inference module, not from the model itself.
+electrical wiring
+faulty wiring
+neural wiring
+the wiring of
+#@519 enthusiastic
+enthusiastic
+showing great excitement, interest, or eagerness about something; feeling or expressing strong positive engagement with a topic, activity, or person.
+the pi was enthusiastic about the new collaboration and offered to fund a joint workshop next year.
+highly enthusiastic
+enthusiastic about
+less than enthusiastic
+enthusiastic response
+#@520 mock
+mock
+as an adjective, simulated or imitation, not real; as a verb, to ridicule by imitation, or in software testing, to replace a real component with a fake one that simulates its behavior for testing purposes.
+we mock the external api in our unit tests so the test suite doesn't depend on network availability.
+mock interview
+mock data
+mock the api
+mock object
+#@521 helmet
+helmet
+a hard protective covering for the head, worn during sports, military service, construction work, or activities like cycling and motorcycling to prevent head injuries.
+always wear a helmet when riding the field motorbike, even on short trips between plots.
+wear a helmet
+safety helmet
+bike helmet
+helmet law
+#@522 ratoon
+ratoon
+a new shoot or sprout that grows from the root or base of a previously harvested crop, especially in sugarcane, banana, and pineapple cultivation; also, the practice of cultivating such regrowth for additional harvests.
+the yield of the first ratoon crop is typically lower than that of the plant crop, but ratooning saves substantial planting costs.
+ratoon crop
+sugarcane ratoon
+ratoon cycle
+first ratoon
+#@523 orchestrator
+orchestrator
+a person who plans and coordinates a complex set of actions or events; in computing, a software component or system that manages and coordinates the execution of multiple services, tasks, or workflows.
+airflow serves as the orchestrator for our entire data pipeline, scheduling tasks and handling retries automatically.
+workflow orchestrator
+the orchestrator of
+container orchestrator
+master orchestrator
+#@524 reciprocity
+reciprocity
+the mutual exchange of benefits, privileges, or actions between two parties, where each gives to and receives from the other in a balanced way; central to trade agreements, social norms, and many ecological relationships.
+the collaboration is built on reciprocity — both teams share data, code, and authorship credit on resulting publications.
+principle of reciprocity
+diplomatic reciprocity
+reciprocity in trade
+expect reciprocity
+#@525 workaround
+workaround
+a method of bypassing or temporarily solving a problem when a proper fix is not yet available, often involving a less elegant or unofficial approach.
+until the gee bug is fixed, the official workaround is to retry the export with a smaller tile size.
+a temporary workaround
+find a workaround
+suggest a workaround
+ugly workaround
+#@526 trough
+trough
+a long, narrow open container for animal feed or water; in waves, signals, and economic cycles, the lowest point between successive peaks; figuratively, a period of low activity, performance, or morale.
+the ndvi time series shows a clear trough in february when most rubber trees have shed their leaves.
+peaks and troughs
+economic trough
+feed trough
+trough of the wave
+#@527 zigzag
+zigzag
+a pattern or path consisting of a series of sharp turns, alternating between two directions; as a verb, to move along such a path; as an adjective, having such a pattern.
+the hiking trail zigzags up the mountainside to keep the gradient manageable.
+zigzag pattern
+zigzag line
+zigzag through
+in a zigzag
+#@528 standalone
+standalone
+operating independently without needing to be connected to or supported by other systems, products, or components; describing software, devices, or documents that are complete in themselves.
+we packaged the classifier as a standalone executable so users can run it without installing the full python environment.
+standalone application
+standalone script
+standalone version
+run standalone
+#@529 migrate
+migrate
+to move from one place, environment, or system to another; in biology, to travel seasonally between regions; in computing, to move data, applications, or services from one platform or version to another.
+we migrated all of our processing scripts from earth engine's legacy code editor to the new app-based platform.
+migrate to the cloud
+migrate data
+birds migrate
+migrate from a to b
+#@530 meticulous
+meticulous
+showing great attention to detail and care in performing a task, often combined with persistence and precision; very careful and thorough.
+the first author's meticulous record-keeping of every field measurement made the reviewer's questions easy to answer.
+meticulous attention to detail
+meticulous record-keeping
+meticulously prepared
+meticulous research
+#@531 primitive
+primitive
+relating to an early or simple stage of development; in programming, a basic data type or operation that the language provides directly and that cannot be broken down further (e.g., integer, boolean, string).
+javascript's primitive types — string, number, boolean, null, undefined, symbol, and bigint — are immutable.
+primitive type
+primitive society
+graphics primitive
+build from primitives
+#@532 mutate
+mutate
+in biology, to undergo a change in genetic structure resulting in a new variant; in programming, to modify the internal state of an object or data structure in place, rather than creating a new one.
+avoid functions that mutate their input arguments; instead, return a new object so the caller's data stays unchanged.
+mutate the array
+mutate state
+genes mutate
+mutate in place
+#@533 sumtra
+sumtra
