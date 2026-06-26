@@ -1,10 +1,10 @@
 # EMPro audio pack - word list
-# Exported 2026-06-15 from the app.
+# Exported 2026-06-26 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: ash, fable, nova, shimmer
-# (no range set - building all 533 words; add e.g.  "# range: 1-50"  to build one batch)
-# 532 word(s), 3713 item(s)
+# (no range set - building all 543 words; add e.g.  "# range: 1-50"  to build one batch)
+# 542 word(s), 3789 item(s)
 
 #@1 wax apple
 wax apple
@@ -4249,5 +4249,91 @@ mutate the array
 mutate state
 genes mutate
 mutate in place
-#@533 sumtra
-sumtra
+#@533 sumatra
+sumatra
+the largest island entirely within indonesia, located in western indonesia, known for its tropical rainforests, volcanic landscape, and major plantation crops including rubber, oil palm, and coffee.
+the research team spent two weeks in sumatra surveying smallholder rubber plantations across three provinces.
+sumatra island
+northern sumatra
+sumatran tiger
+sumatran coffee
+#@534 immaterial
+immaterial
+not relevant or important to the matter at hand, or lacking physical substance and existing only in a non-material form.
+whether the error originated from the sensor or the preprocessing pipeline is immaterial — the result is the same corrupted dataset.
+wholly immaterial
+immaterial to the argument
+immaterial differences
+immaterial evidence
+#@535 doable
+doable
+capable of being done or accomplished, suggesting something is practical and within reach, though perhaps requiring effort.
+mapping all the cassava fields in the study area by next month is tight, but doable if we split the workload.
+perfectly doable
+seems doable
+a doable task
+doable within the deadline
+#@536 flank
+flank
+the side of a person, animal, building, or military formation; as a verb, to be situated on each side of something or to attack from the side.
+the main road was flanked by dense rubber plantations on both sides, stretching for nearly twenty kilometers.
+flanking maneuver
+flanked by mountains
+flanking position
+flank attack
+#@537 cohort
+cohort
+a group of people sharing a common characteristic or experience within a defined time period, widely used in statistics, medicine, and education to describe study populations or graduating classes.
+the 2020 cohort of phd students was the first to complete their fieldwork entirely during the pandemic.
+cohort study
+birth cohort
+a cohort of students
+cohort analysis
+#@538 flashy
+flashy
+ostentatiously attractive or impressive, often in a way that suggests superficiality or lack of substance.
+the visualization looked flashy with all its 3d effects, but it actually made the data harder to interpret.
+flashy car
+flashy clothes
+flashy design
+flashy but shallow
+#@539 holdout
+holdout
+a person or entity that refuses to agree or participate when others have, or in machine learning and statistics, a portion of data reserved for testing that is not used during model training.
+we reserved 20% of the labeled pixels as a holdout set to evaluate model performance on unseen data.
+holdout set
+holdout sample
+the last holdout
+holdout validation
+#@540 corroborate
+corroborate
+to confirm or provide supporting evidence for a statement, theory, or finding, making it more credible.
+field measurements from gps-tagged plots corroborated the classification results derived from sentinel-2 imagery.
+corroborate the findings
+corroborate a claim
+corroborate evidence
+independently corroborated
+#@541 uniformity
+uniformity
+the quality or state of being uniform, consistent, or the same throughout in form, manner, or degree.
+the lack of uniformity in planting density across the study area made it difficult to apply a single classification threshold.
+spatial uniformity
+uniformity of standards
+lack of uniformity
+ensure uniformity
+#@542 uneasy
+uneasy
+feeling anxious, uncomfortable, or slightly worried about a situation, or describing a state that is unstable and could deteriorate.
+she felt uneasy about submitting the manuscript without double-checking the accuracy of every cited reference.
+feel uneasy
+uneasy silence
+an uneasy truce
+uneasy about the decision
+#@543 stub
+stub
+a short remaining piece after the main part has been used or removed, such as a ticket stub or pencil stub; also to accidentally strike one's toe against something hard.
+keep your boarding pass stub — you might need it for the reimbursement claim when you get back.
+ticket stub
+pay stub
+stub your toe
+stub out a cigarette
