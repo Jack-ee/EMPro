@@ -1,10 +1,10 @@
 # EMPro audio pack - word list
-# Exported 2026-06-26 from the app.
+# Exported 2026-07-21 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
-# voices: ash, fable, nova, shimmer
-# (no range set - building all 543 words; add e.g.  "# range: 1-50"  to build one batch)
-# 542 word(s), 3789 item(s)
+# voices: ash, echo, fable, nova, shimmer
+# (no range set - building all 560 words; add e.g.  "# range: 1-50"  to build one batch)
+# 559 word(s), 3908 item(s)
 
 #@1 wax apple
 wax apple
@@ -4337,3 +4337,139 @@ ticket stub
 pay stub
 stub your toe
 stub out a cigarette
+#@544 toggleable
+toggleable
+able to be switched between two states, typically on and off, by a single control or action.
+we made dark mode a toggleable setting so users can flip it on whenever they want.
+toggleable setting
+toggleable option
+toggleable feature
+toggleable switch
+#@545 muddle
+muddle
+to confuse or mix things up so they are disordered; as a noun, a state of confusion or disorder.
+i got in a muddle with the dates and booked the flight for the wrong week.
+get in a muddle
+muddle through
+muddle up
+a complete muddle
+#@546 miniature
+miniature
+extremely small compared with the usual size of its kind; as a noun, a very small copy or model of something.
+the museum had a miniature version of the whole city, complete with tiny working streetlights.
+miniature version
+miniature model
+in miniature
+miniature painting
+#@547 wobble
+wobble
+to move unsteadily from side to side; to shake slightly because something is not firm or balanced.
+the table wobbles because one leg is shorter than the others.
+wobble on
+wobble slightly
+a slight wobble
+make something wobble
+#@548 straddle
+straddle
+to sit or stand with one leg on each side of something; figuratively, to extend across or belong to two different areas at once.
+her research straddles biology and computer science, so she works with both labs.
+straddle a fence
+straddle two worlds
+straddle the border
+straddle the line
+#@549 multiplicative
+multiplicative
+relating to or produced by multiplication; involving effects that combine by being multiplied rather than added.
+in a multiplicative model, doubling both inputs quadruples the output rather than doubling it.
+multiplicative factor
+multiplicative effect
+multiplicative model
+multiplicative inverse
+#@550 corroboration
+corroboration
+additional evidence or information that supports or confirms a statement, theory, or finding.
+the witness's account carried little weight without corroboration from other sources.
+seek corroboration
+independent corroboration
+require corroboration
+lack corroboration
+#@551 imputation
+imputation
+the act of attributing a fault or quality to someone; in statistics, the process of filling in missing data with estimated values.
+we used mean imputation to fill the gaps in the survey data before running the model.
+data imputation
+missing value imputation
+imputation of blame
+mean imputation
+#@552 yardstick
+yardstick
+a standard or measure used to judge or compare the quality, value, or success of something.
+profit alone is a poor yardstick for judging whether a company is truly healthy.
+a useful yardstick
+measure by the yardstick
+serve as a yardstick
+the ultimate yardstick
+#@553 subtlety
+subtlety
+the quality of being delicate or hard to notice; a fine distinction or nuance that is easily missed.
+non-native readers often miss the subtlety of his humor, which relies on tiny word choices.
+grasp the subtlety
+with great subtlety
+miss the subtlety
+a subtlety of meaning
+#@554 segregate
+segregate
+to separate one group or thing from others, often by force, category, or policy.
+the lab requires staff to segregate hazardous waste from ordinary rubbish.
+segregate by
+racially segregate
+segregate waste
+strictly segregate
+#@555 creep
+creep
+to move slowly, quietly, and carefully; to develop or spread gradually and almost unnoticed.
+doubt began to creep in as the deadline passed with no reply.
+creep up on
+creep in
+creep along
+creep forward
+#@556 incur
+incur
+to become subject to something unwelcome, such as a cost, loss, or penalty, as a result of one's own actions.
+if you cancel late, you will incur a fee equal to one night's stay.
+incur costs
+incur a penalty
+incur debt
+incur the risk
+#@557 garble
+garble
+to distort or confuse a message, sound, or account so that it becomes unclear or wrong.
+the signal was so weak that his voice came through completely garbled.
+garble a message
+garbled transmission
+garbled text
+badly garbled
+#@558 loud
+loud
+producing or making a great amount of sound; strong and easily heard.
+the loudest cheer of the night came when the local team scored.
+loud noise
+loud and clear
+out loud
+a loud voice
+#@559 crux
+crux
+the central, most important, or most difficult point of a problem, argument, or issue.
+the crux of the matter is whether we can afford the new hires before revenue picks up.
+the crux of the matter
+the crux of the problem
+the crux of the argument
+lie at the crux
+#@560 centrepiece
+centrepiece
+the most important or prominent feature of something; also a decorative object placed at the centre of a table.
+tax reform was the centrepiece of the government's economic plan.
+the centrepiece of
+form the centrepiece
+a table centrepiece
+the centrepiece of the plan
