@@ -20,10 +20,11 @@
          In VS Code: Ctrl+H, find "?v=N" with the current N, replace
          with "?v=N+1" across this file. Then bump CACHE_NAME in
          sw.js to match (e.g. 'emp-vN+1').
-         Current version: v=96
+         Current version: v=100
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=98">
-    <link rel="stylesheet" href="expressions-coach.css?v=98">
+    <link rel="stylesheet" href="style.css?v=100">
+    <link rel="stylesheet" href="expressions-coach.css?v=100">
+    <link rel="stylesheet" href="stories.css?v=100">
 </head>
 <body>
 
@@ -53,6 +54,7 @@
         <button class="nav-tab" data-nav="vocab-drill"><span class="nav-icon">&#x1F3AF;</span><span class="nav-label">Drill</span></button>
         <button class="nav-tab" data-nav="writing-lab"><span class="nav-icon">&#x270D;&#xFE0F;</span><span class="nav-label">Writing</span></button>
         <button class="nav-tab" data-nav="reader"><span class="nav-icon">&#x1F4DA;</span><span class="nav-label">Reader</span></button>
+        <button class="nav-tab" data-nav="stories"><span class="nav-icon">&#x1F4DD;</span><span class="nav-label">Stories</span></button>
     </nav>
 
     <!-- ===== MY WORDS (primary) ===== -->
@@ -179,6 +181,89 @@
                 </div>
             </div>
             <div class="rd-results" id="rd-results"></div>
+        </div>
+    </div>
+
+    <!-- ===== STORIES (reading material from the word bank) ===== -->
+    <div class="app-view" id="view-stories">
+        <div class="sy-container">
+
+            <div id="sy-main">
+                <div class="sy-panel">
+                    <div class="sy-row">
+                        <label class="sy-field"><span class="sy-label">Words this run</span>
+                            <input type="number" id="sy-count" class="sy-input sy-num" min="1" step="10" value="100"></label>
+                        <label class="sy-field"><span class="sy-label">Words per piece</span>
+                            <input type="number" id="sy-group" class="sy-input sy-num" min="1" step="1" value="20"></label>
+                        <label class="sy-field"><span class="sy-label">Form</span>
+                            <select id="sy-type" class="sy-select">
+                                <option value="story" selected>Story</option>
+                                <option value="paragraph">Paragraph</option>
+                                <option value="dialogue">Dialogue</option>
+                                <option value="news">News brief</option>
+                            </select></label>
+                        <label class="sy-field"><span class="sy-label">Level</span>
+                            <select id="sy-level" class="sy-select">
+                                <option value="B2">B2</option>
+                                <option value="C1" selected>C1</option>
+                                <option value="C2">C2</option>
+                            </select></label>
+                        <label class="sy-field"><span class="sy-label">Length</span>
+                            <select id="sy-len" class="sy-select">
+                                <option value="80">~80 words</option>
+                                <option value="120" selected>~120 words</option>
+                                <option value="180">~180 words</option>
+                                <option value="250">~250 words</option>
+                            </select></label>
+                        <label class="sy-field sy-topic"><span class="sy-label">Topic (optional)</span>
+                            <input type="text" id="sy-topic" class="sy-input" placeholder="remote sensing, campus life..."></label>
+                    </div>
+                    <div class="sy-row" style="margin-top:8px">
+                        <label class="sy-check"><input type="checkbox" id="sy-skip" checked> Skip words already used</label>
+                        <label class="sy-check"><input type="checkbox" id="sy-qs"> Ask for 2 comprehension questions</label>
+                    </div>
+
+                    <div class="sy-preview" id="sy-preview"></div>
+
+                    <div class="sy-actions">
+                        <button class="wl-btn-primary" id="sy-make">&#x1F4CB; Copy prompt &amp; reserve words</button>
+                        <button class="wl-btn-secondary" id="sy-paste">&#x1F4E5; Paste back</button>
+                        <button class="wl-btn-secondary" id="sy-copy-pending" style="display:none">Copy prompt for waiting</button>
+                        <a class="wl-btn-secondary" href="https://claude.ai/new" target="_blank" rel="noopener" style="text-decoration:none">Open Claude &#x2197;</a>
+                    </div>
+
+                    <div class="sy-audio">
+                        <div class="sy-row">
+                            <button class="wl-btn-secondary" id="sy-publish">&#x2601; Publish word list</button>
+                            <button class="wl-btn-small" id="sy-download">Download only</button>
+                            <label class="sy-check"><input type="checkbox" id="sy-auto" checked> Publish automatically after paste back</label>
+                        </div>
+                        <div class="sy-row" style="margin-top:8px">
+                            <label class="sy-field"><span class="sy-label">Repo (owner/name)</span>
+                                <input type="text" id="sy-repo" class="sy-input" placeholder="jack-ee/EMPro" autocomplete="off"></label>
+                            <label class="sy-field sy-topic"><span class="sy-label">Token with write access to Contents</span>
+                                <input type="password" id="sy-token" class="sy-input" placeholder="github_pat_..." autocomplete="off"></label>
+                        </div>
+                        <div class="sy-audio-line" id="sy-audio-line"></div>
+                        <div class="sy-note">Publishing commits one wordlist.txt holding your vocabulary and every
+                            finished sentence, and the push starts the audio pack build. The build is differential:
+                            it downloads the previous pack and synthesises only clips it does not already have, so
+                            republishing an unchanged list costs nothing and existing word and sentence audio is
+                            never remade. Adding a voice only synthesises that voice. There is no build range to
+                            set or clear. The token is stored on this device only and never enters the sync payload
+                            &mdash; a fine-grained token limited to Contents on this one repo is enough.</div>
+                    </div>
+                </div>
+
+                <h3 class="sy-section-title">My material</h3>
+                <div id="sy-list"></div>
+            </div>
+
+            <div id="sy-read" class="sy-hidden">
+                <button class="wl-btn-small" id="sy-back">&#x2190; Back to material</button>
+                <div id="sy-read-body"></div>
+            </div>
+
         </div>
     </div>
 
@@ -382,25 +467,26 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=98"></script>
-<script src="db.js?v=98"></script>
-<script src="ai-engine.js?v=98"></script>
-<script src="my-words.js?v=98"></script>
-<script src="writing-lab.js?v=98"></script>
-<script src="vocab-drill.js?v=98"></script>
-<script src="reader.js?v=98"></script>
-<script src="speaking-coach.js?v=98"></script>
-<script src="expressions-data.js?v=98"></script>
-<script src="expressions-coach.js?v=98"></script>
-<script src="sentence.js?v=98"></script>
-<script src="sentence-drill.js?v=98"></script>
-<script src="sync.js?v=98"></script>
-<script src="tts-pack.js?v=98"></script>
-<script src="app.js?v=98"></script>
+<script src="config.js?v=100"></script>
+<script src="db.js?v=100"></script>
+<script src="ai-engine.js?v=100"></script>
+<script src="my-words.js?v=100"></script>
+<script src="writing-lab.js?v=100"></script>
+<script src="vocab-drill.js?v=100"></script>
+<script src="reader.js?v=100"></script>
+<script src="stories.js?v=100"></script>
+<script src="speaking-coach.js?v=100"></script>
+<script src="expressions-data.js?v=100"></script>
+<script src="expressions-coach.js?v=100"></script>
+<script src="sentence.js?v=100"></script>
+<script src="sentence-drill.js?v=100"></script>
+<script src="sync.js?v=100"></script>
+<script src="tts-pack.js?v=100"></script>
+<script src="app.js?v=100"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=98"></script>
+<script src="debug-panel.js?v=100"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.

@@ -681,6 +681,30 @@
                 });
             }
           });
+
+        // v99: reading-material blocks (see stories.js). A story's block
+        // index is offset by Stories.PACK_BASE (10000), so it can never
+        // collide with a word's packIndex and "# range: 10001-10999"
+        // builds story audio alone. Sentences already in the list — a
+        // word's example that a story reuses — are dropped by the shared
+        // `seen` set, and the pack key is the text itself, so playback
+        // still finds the clip.
+        (window.Stories?.speechBlocks?.() || []).forEach(b => {
+            const entries = [];
+            (b.entries || []).forEach(s => {
+                const n = _normSpeak(s);
+                if (!n || /[\u4e00-\u9fff]/.test(n) || seen.has(n)) return;
+                seen.add(n);
+                entries.push(n);
+            });
+            if (entries.length) {
+                blocks.push({
+                    index   : Number(b.index) || 0,
+                    word    : String(b.word || 'story'),
+                    entries : entries
+                });
+            }
+        });
         return blocks;
     }
 
@@ -702,6 +726,8 @@
             add(it.context);
             (it.collo || '').split(/\s*·\s*/).forEach(add);
         });
+        // v99: story sentences count toward coverage too.
+        (window.Stories?.speechList?.() || []).forEach(add);
         return out;
     }
 
@@ -724,9 +750,13 @@
     // A \"# range:\" header (set in Settings) tells the build to do only
     // one batch of word indices, e.g. 1-50, so a large pack can be built
     // across several runs.
-    function exportWordList() {
+    // v100: the text half of exportWordList, so the Stories module can
+    // commit the very same bytes straight to the repo instead of routing a
+    // download through the file system. Returns '' when there is nothing
+    // to write.
+    function buildWordListText() {
         const blocks = notebookSpeechBlocks();
-        if (!blocks.length) { showToast('No words to export.'); return; }
+        if (!blocks.length) return '';
 
         const itemCount = blocks.reduce((n, b) => n + b.entries.length, 0);
         const idxMax    = blocks.reduce((m, b) => Math.max(m, b.index), 0);
@@ -746,7 +776,12 @@
             header.push('# (no range set - building all ' + idxMax + ' words; '
                         + 'add e.g.  "# range: 1-50"  to build one batch)');
         }
-        header.push('# ' + blocks.length + ' word(s), ' + itemCount + ' item(s)');
+        // v99: story blocks sit above PACK_BASE, so they are counted apart
+        // from the vocabulary in the header line.
+        const packBase = (window.Stories && window.Stories.PACK_BASE) || 10000;
+        const stCount  = blocks.filter(b => b.index >= packBase).length;
+        header.push('# ' + (blocks.length - stCount) + ' word(s), '
+                    + stCount + ' story block(s), ' + itemCount + ' item(s)');
         header.push('');
 
         const lines = [];
@@ -755,8 +790,18 @@
             b.entries.forEach(e => lines.push(e));
         });
 
-        const blob = new Blob([header.concat(lines).join('\n') + '\n'],
-                              { type: 'text/plain' });
+        return header.concat(lines).join('\n') + '\n';
+    }
+
+    function exportWordList() {
+        const text = buildWordListText();
+        if (!text) { showToast('No words to export.'); return; }
+
+        const blocks    = notebookSpeechBlocks();
+        const itemCount = blocks.reduce((n, b) => n + b.entries.length, 0);
+        const range     = getPackRange();
+
+        const blob = new Blob([text], { type: 'text/plain' });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
         a.href     = url;
@@ -1394,7 +1439,7 @@
 
     // ─── Tab navigation ─────────────────────────────────────
     // Tab IDs in markup: my-words | speaking-coach | vocab-drill |
-    // writing-lab | reader. Each maps to #view-<id>.
+    // writing-lab | reader | stories. Each maps to #view-<id>.
     function bindTabs() {
         const tabs   = document.querySelectorAll('.nav-tab[data-nav]');
         const views  = document.querySelectorAll('.app-view');
@@ -1426,6 +1471,7 @@
             stopSpeak();
             window.MyWords?.stopAutoplay?.();
             window.SentenceDrill?.stopListen?.();
+            window.Stories?.stopPlay?.();
         }));
     }
 
@@ -1641,7 +1687,13 @@
         endSession,
         isStudySessionActive,
         // v75: shared swipe-to-navigate helper for card-based UIs
-        bindSwipe
+        bindSwipe,
+        // v99: the Stories module exports the same word list and presets
+        // the build range to its own block indices.
+        exportWordList,
+        buildWordListText,
+        getPackRange,
+        setPackRange
     };
 
     // ─── Profile name ───────────────────────────────────────
@@ -1726,6 +1778,7 @@
             safeCall('WritingLab',      () => window.WritingLab?.init?.());
             safeCall('VocabDrill',      () => window.VocabDrill?.init?.());
             safeCall('Reader',          () => window.Reader?.init?.());
+            safeCall('Stories',         () => window.Stories?.init?.());
             safeCall('SpeakingCoach',   () => window.SpeakingCoach?.init?.());
             safeCall('ExpressionCoach', () => {
                 const el = document.getElementById('sc-panel-drill');

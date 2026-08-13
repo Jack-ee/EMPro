@@ -126,13 +126,42 @@
 //        after an older copy was accidentally republished; cache bumped so
 //        the corrected files refresh cleanly on every device.
 
-const CACHE_NAME = 'emp-v98';
+// v100 — reading material from the word bank (new module stories.js):
+//   • Stories tab: takes N unused notebook words, splits them into
+//     groups of M, and reserves each group as a "pending" piece the
+//     moment its prompt is copied — so the next run always works on
+//     the words that have not been used yet. Deleting a piece releases
+//     its words back into the pool.
+//   • paste the AI's JSON reply back and each piece is matched by its
+//     seq number: title, sentences, per-sentence Chinese. Target words
+//     are highlighted through the notebook's inflection matcher, so
+//     "proved" lights up for "prove".
+//   • audio: a piece's wordlist.txt block index is 10000 + seq, above
+//     every word's packIndex. The export writes words AND sentences in
+//     one file — the generator prunes clips missing from the WHOLE list,
+//     so a stories-only file would have deleted every word clip.
+//   • publishing is automatic: the app commits tools/wordlist.txt through
+//     the contents API and the push starts the build. It compares the git
+//     blob sha first, so an unchanged list is never pushed and never
+//     builds. No build range is set and none has to be cleared — the
+//     build is differential by (text, voice), so nothing is ever remade
+//     and adding a voice synthesises only that voice.
+//   • app.js: notebookSpeechBlocks / notebookSpeechList feed the story
+//     sentences into the existing export and coverage readout;
+//     exportWordList, buildWordListText, getPackRange, setPackRange are
+//     now on window.App.
+//   • FIX (same-origin isolation): the activate handler deleted every
+//     cache whose name was not CACHE_NAME, which wiped VocabPeak's hsv-*
+//     caches on this shared origin. It now only deletes emp- caches.
+
+const CACHE_NAME = 'emp-v100';
 const ASSETS = [
     './',
     './index.html',
     './manifest.json',
     './style.css',
     './expressions-coach.css',
+    './stories.css',
     './config.js',
     './db.js',
     './ai-engine.js',
@@ -140,6 +169,7 @@ const ASSETS = [
     './writing-lab.js',
     './vocab-drill.js',
     './reader.js',
+    './stories.js',
     './speaking-coach.js',
     './expressions-data.js',
     './expressions-coach.js',
@@ -180,8 +210,14 @@ self.addEventListener('install', (e) => {
 // Activate — clean old caches, take control immediately
 self.addEventListener('activate', (e) => {
     e.waitUntil((async () => {
+        // Only ever delete THIS app's own old caches. jack-ee.github.io also
+        // serves VocabPeak (hsv-*), and a blanket "delete everything that is
+        // not CACHE_NAME" wiped its offline copy on every EMPro deploy.
+        // Same-origin isolation is a hard rule: touch the emp- prefix only.
         const names = await caches.keys();
-        await Promise.all(names.filter(n => n !== CACHE_NAME).map(n => caches.delete(n)));
+        await Promise.all(names
+            .filter(n => n.startsWith('emp-') && n !== CACHE_NAME)
+            .map(n => caches.delete(n)));
         await self.clients.claim();
     })());
 });
