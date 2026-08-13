@@ -1,0 +1,10 @@
+# Build output. The audio pack is published as GitHub Release assets, never
+# committed: the parts are ~180 MB each, which is past what git should carry,
+# and a committed stub would be picked up by the workflow's
+# tools/dist/*.empack glob and published as if the build had made it.
+tools/dist/
+
+# Local test deps
+node_modules/
+__pycache__/
+*.pyc

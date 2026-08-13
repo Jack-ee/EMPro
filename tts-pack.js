@@ -19,6 +19,16 @@
  *   asset server-side and adds the CORS header. The Worker URL is the
  *   'tts_proxy_url' preference set in Settings, Voice.
  *
+ * Split packs (manifest v2)
+ *   The pack is published as several parts, each cut on word-block
+ *   boundaries, plus a small manifest listing every part with its
+ *   sha256. Only the parts whose hash differs from this device's copy
+ *   are downloaded, each is verified against its hash, and each is
+ *   recorded as soon as it is imported - so an interrupted download
+ *   resumes at the next part instead of starting the 1.4 GB again.
+ *   A v1 manifest (one monolithic asset) still works, so a device is
+ *   never stranded by a release that has not been rebuilt yet.
+ *
  * Pack format
  *   8-byte magic "EMPACK1\0", uint32 LE manifest length, JSON manifest,
  *   then every clip's MP3 bytes concatenated. See tools/README.md.
@@ -41,7 +51,7 @@ window.TTSPack = (function () {
     'use strict';
 
     // Release asset names proxied through the Worker.
-    const FULL_ASSET     = 'empro-audio-pack.empack';
+    const FULL_ASSET     = 'empro-audio-pack.empack';        // pre-split (v1)
     const MANIFEST_ASSET = 'empro-audio-pack.manifest.json';
 
     const DB_NAME        = 'emp-tts-pack';   // separate DB, never evicted
@@ -191,7 +201,147 @@ window.TTSPack = (function () {
         return out;
     }
 
+    // --- Integrity ---------------------------------------------------
+
+    function toHex(buf) {
+        const b = new Uint8Array(buf);
+        let out = '';
+        for (let i = 0; i < b.length; i++) out += b[i].toString(16).padStart(2, '0');
+        return out;
+    }
+
+    // Verifies a downloaded part against the sha256 in the manifest.
+    // Returns true when it matches, false when it does not, and null when the
+    // device cannot hash at all — an insecure context or an old WebView with
+    // no SubtleCrypto. A null is treated as "accept and log": refusing would
+    // leave those devices with no audio whatsoever, which is worse than
+    // trusting a transfer that has already survived TLS and Content-Length.
+    async function verifySha256(bytes, expected) {
+        if (!expected || !self.crypto || !self.crypto.subtle) return null;
+        try {
+            const digest = await crypto.subtle.digest('SHA-256', bytes);
+            return toHex(digest) === String(expected).toLowerCase();
+        } catch (e) {
+            console.warn('[pack] cannot hash on this device:', e && e.message);
+            return null;
+        }
+    }
+
+    // The manifest must never come from a cache. The Worker sends it
+    // no-store, and the timestamp defeats any intermediate that ignores
+    // that: a stale manifest means the app decides it is up to date and a
+    // real update is skipped, which is silent and lasts until the next
+    // change.
+    async function fetchManifest(base) {
+        const url  = assetUrl(base, MANIFEST_ASSET) + '&t=' + Date.now();
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (!resp.ok) throw new Error('manifest HTTP ' + resp.status);
+        return resp.json();
+    }
+
     // --- Public: download -------------------------------------------
+
+    // Split-pack download (manifest v2). Only the parts whose sha256 differs
+    // from the copy on this device are fetched, and each one is recorded the
+    // moment it is imported — so a download interrupted at part 5 of 8 keeps
+    // the first four and resumes at the fifth. On a 1.4 GB pack over a
+    // domestic mobile connection that difference is the whole feature.
+    async function downloadParts(base, manifest, say) {
+        const parts = (manifest.parts || []).filter(p => p && p.name);
+        if (!parts.length) throw new Error('manifest v2 lists no parts');
+
+        const meta = (await idbGet(META_KEY)) || {};
+        const have = Object.assign({}, meta.parts || {});
+        const todo = parts.filter(p => have[p.name] !== p.sha256);
+
+        const writeMeta = (extra) => idbPutMany([Object.assign({
+            k         : META_KEY,
+            generation: manifest.generation,
+            voices    : manifest.voices || [],
+            clipCount : manifest.clipCount || 0,
+            partBlocks: manifest.partBlocks || 0,
+            parts     : have,
+            importedAt: Date.now(),
+        }, extra || {})]);
+
+        if (!todo.length) {
+            await writeMeta();
+            say('Already up to date \u2014 generation ' + manifest.generation
+                + ', ' + parts.length + ' part(s), '
+                + (manifest.clipCount || 0) + ' clip(s).');
+            return { upToDate: true, generation: manifest.generation };
+        }
+
+        const totalMb = todo.reduce((n, p) => n + (p.bytes || 0), 0) / 1048576;
+        say(todo.length + ' of ' + parts.length + ' part(s) changed \u2014 '
+            + totalMb.toFixed(0) + ' MB to fetch.');
+
+        let imported = 0;
+        let done     = 0;
+        for (const p of todo) {
+            done++;
+            const label = 'Part ' + done + '/' + todo.length;
+            // The sha in the URL makes a part's address content-addressed, so
+            // the edge can cache it safely and a changed part is never served
+            // from a stale entry.
+            const url = assetUrl(base, p.name) + '&v=' + String(p.sha256).slice(0, 16);
+            const raw = await fetchWithProgress(url, (recv, total) => {
+                const pct = total ? Math.floor(recv / total * 100)
+                                  : Math.floor(recv / (p.bytes || 1) * 100);
+                say(label + ' \u2014 ' + Math.min(99, pct) + '%');
+            });
+
+            const okHash = await verifySha256(raw, p.sha256);
+            if (okHash === false) {
+                throw new Error(p.name + ' failed its checksum \u2014 the '
+                              + 'download was corrupted or the release changed '
+                              + 'mid-download. Nothing was saved from it; try '
+                              + 'again.');
+            }
+            if (okHash === null) {
+                console.log('[pack] ' + p.name + ' not verified (no SubtleCrypto)');
+            }
+
+            say(label + ' \u2014 unpacking\u2026');
+            const parsed   = parsePack(raw.buffer);
+            const existing = new Set(await idbAllKeys());
+            const fresh    = parsed.clips
+                .filter(c => !existing.has(clipKey(c.word, c.voice)))
+                .map(c => ({ k: clipKey(c.word, c.voice), blob: c.blob }));
+
+            try {
+                for (let i = 0; i < fresh.length; i += IMPORT_CHUNK) {
+                    await idbPutMany(fresh.slice(i, i + IMPORT_CHUNK));
+                }
+            } catch (e) {
+                // Out of quota is the realistic failure on a tablet. Say which
+                // part stopped it and keep everything already imported: the
+                // parts recorded so far stay valid and a retry resumes here.
+                await writeMeta();
+                throw new Error('Ran out of storage while saving ' + p.name
+                              + ' (' + (e && e.message || 'quota exceeded')
+                              + '). ' + imported + ' part(s) were saved and '
+                              + 'will not be downloaded again.');
+            }
+            imported += 1;
+
+            // Recorded per part, immediately. This is what makes the download
+            // resumable rather than all-or-nothing.
+            have[p.name] = p.sha256;
+            await writeMeta();
+        }
+
+        await writeMeta();
+        say('Done \u2014 generation ' + manifest.generation + ', '
+            + imported + ' part(s) updated, ' + (manifest.clipCount || 0)
+            + ' clip(s) in the pack.');
+        return {
+            generation: manifest.generation,
+            clipCount : manifest.clipCount || 0,
+            parts     : parts.length,
+            updated   : imported,
+        };
+    }
 
     async function download(onStatus) {
         const say  = (m) => { if (typeof onStatus === 'function') onStatus(m); };
@@ -201,28 +351,33 @@ window.TTSPack = (function () {
                           + 'the TTS proxy URL in the Neural voice section.');
         }
 
-        // 1. Manifest check - skip the large download if already current.
+        // 1. Read the manifest. For a v2 (split) pack this is not an
+        //    optimisation but the index the whole download turns on, so a
+        //    failure here is reported rather than swallowed.
+        let remote = null;
         try {
             say('Checking for updates\u2026');
-            const mResp = await fetch(assetUrl(base, MANIFEST_ASSET));
-            if (mResp.ok) {
-                const remote = await mResp.json();
-                const meta   = await idbGet(META_KEY);
-                if (meta && meta.generation === remote.generation) {
-                    say('Already up to date \u2014 generation '
-                        + remote.generation + ', '
-                        + meta.clipCount + ' clip(s).');
-                    return { upToDate: true, generation: remote.generation };
-                }
-            }
+            remote = await fetchManifest(base);
         } catch (e) {
-            // The manifest is only an optimisation; on any failure just
-            // fall through and download the full pack.
-            console.warn('[pack] manifest check skipped:', e && e.message);
+            console.warn('[pack] manifest read failed:', e && e.message);
         }
 
-        // 2. Download the full pack.
-        say('Downloading\u2026');
+        if (remote && remote.version >= 2 && Array.isArray(remote.parts)) {
+            return downloadParts(base, remote, say);
+        }
+
+        // 2. Pre-split pack (v1): one asset, all or nothing. Kept so a device
+        //    still works against a release that has not been rebuilt yet.
+        if (remote) {
+            const meta = await idbGet(META_KEY);
+            if (meta && meta.generation === remote.generation && !meta.parts) {
+                say('Already up to date \u2014 generation '
+                    + remote.generation + ', ' + meta.clipCount + ' clip(s).');
+                return { upToDate: true, generation: remote.generation };
+            }
+        }
+
+        say('Downloading the whole pack (pre-split release)\u2026');
         const raw = await fetchWithProgress(
             assetUrl(base, FULL_ASSET),
             (recv, total) => {
@@ -404,10 +559,13 @@ window.TTSPack = (function () {
     async function status() {
         const meta = await idbGet(META_KEY);
         if (!meta) return null;
+        const parts = meta.parts && typeof meta.parts === 'object'
+                      ? Object.keys(meta.parts).length : 0;
         return {
             generation: meta.generation,
             clipCount : meta.clipCount,
             voices    : meta.voices || [],
+            parts     : parts,
             importedAt: meta.importedAt,
         };
     }

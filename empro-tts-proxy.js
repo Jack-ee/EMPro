@@ -29,6 +29,12 @@
  *   the same URL also serves the audio pack.
  *
  * If the audio pack lives in a different repo, edit PACK_REPO below.
+ *
+ * Split packs
+ *   The pack is published as several part assets plus a small manifest.
+ *   PACK_ASSET_RE already covers the part names. What matters here is
+ *   the cache policy: the manifest must be no-store, while a part
+ *   requested with its ?v=<sha256> is immutable. See handlePackRequest.
  * ============================================================
  */
 
@@ -96,7 +102,27 @@ async function handlePackRequest(request, origin) {
     const cl = upstream.headers.get('Content-Length');
     if (ct) headers['Content-Type']   = ct;
     if (cl) headers['Content-Length'] = cl;
-    headers['Cache-Control'] = 'public, max-age=300';
+
+    // Caching, by asset kind:
+    //
+    //   manifest (.json)  no-store. The manifest is how the app decides
+    //     whether anything changed, so serving a cached copy makes it decide
+    //     "up to date" when it is not. That failure is silent and lasts until
+    //     the next build, which is the worst shape a bug can have here.
+    //
+    //   part (?v=<sha>)   cache hard. The URL carries the part's own sha256,
+    //     so an address maps to exactly one set of bytes forever. A changed
+    //     part arrives under a new address and can never be served stale.
+    //
+    //   anything else     short, conservative window.
+    const url = new URL(request.url);
+    if (/\.json$/i.test(asset)) {
+        headers['Cache-Control'] = 'no-store';
+    } else if (url.searchParams.get('v')) {
+        headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+    } else {
+        headers['Cache-Control'] = 'public, max-age=300';
+    }
     return new Response(upstream.body, { status: 200, headers });
 }
 

@@ -1,7 +1,7 @@
 /**
- * test/test-stories-dom-v100.js — Stories UI flow (stories.js + index.html)
+ * test/test-stories-dom-v102.js — Stories UI flow (stories.js + index.html)
  * ============================================================
- * Run:  npm install jsdom  &&  node test/test-stories-dom-v100.js
+ * Run:  npm install jsdom  &&  node test/test-stories-dom-v102.js
  *
  * Loads the real index.html in jsdom, evaluates stories.js against it, and
  * clicks through one full cycle: preview -> reserve -> paste back -> read ->

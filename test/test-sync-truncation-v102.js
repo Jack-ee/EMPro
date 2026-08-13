@@ -1,7 +1,7 @@
 /**
- * test/test-sync-truncation-v101.js — Gist truncation handling (sync.js)
+ * test/test-sync-truncation-v102.js — Gist truncation handling (sync.js)
  * ============================================================
- * Run:  node test/test-sync-truncation-v101.js
+ * Run:  node test/test-sync-truncation-v102.js
  *
  * The bug this guards is silent, which is why it needs a test rather than a
  * careful read. Past roughly 1 MB — and far below that for Chinese, because

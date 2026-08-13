@@ -126,6 +126,45 @@
 //        after an older copy was accidentally republished; cache bumped so
 //        the corrected files refresh cleanly on every device.
 
+// v102 — split audio pack (parts model), end to end:
+//   • generator: the pack is published as several parts plus a small
+//     manifest listing each part's sha256. Parts are cut on word-block
+//     boundaries by pure index arithmetic — block b belongs to the part
+//     covering [k*stride+1 .. (k+1)*stride], k = (b-1)//stride — because a
+//     size-greedy split would cascade: one early edit would push blocks
+//     across every later boundary and re-download the whole pack.
+//   • generator: part bytes are built with stamp=False, so they depend only
+//     on the clips. With a timestamp inside, every part's sha256 would
+//     change every run and the split would buy nothing. Each part also
+//     records keysSha256 of what it ACTUALLY holds, so a part left
+//     incomplete by the time budget comes back as "changed" next run
+//     instead of being mistaken for finished.
+//   • generator: a run now reads the published manifest and rebuilds only
+//     the parts whose clip set changed. An unchanged part is not
+//     downloaded, not rebuilt, and not re-uploaded — adding twenty words
+//     moves one part instead of 1.4 GB.
+//   • generator: the first v2 run finds the old single-file pack and
+//     re-emits it as parts, synthesising nothing.
+//   • generator: futures that finished while the run was stopping are now
+//     harvested instead of discarded — stopping on a budget was throwing
+//     away up to MAX_WORKERS clips that had already been paid for.
+//   • generator: _budget_start clears the abort flag, so a second build in
+//     one process cannot inherit the first one's abort and silently skip
+//     every part. Also guards the entry point behind __main__ so the module
+//     can be imported by a test without starting a real build.
+//   • client: only parts whose sha256 differs are fetched, each is verified
+//     against that hash, and each is recorded the moment it imports — so an
+//     interrupted download resumes at the next part instead of restarting.
+//     A quota failure names the part that stopped it and keeps the rest.
+//     A v1 manifest still works, so no device is stranded mid-migration.
+//   • worker: the manifest is served no-store (a cached manifest makes the
+//     app decide "up to date" when it is not, silently, until the next
+//     build), while a part requested with its ?v=<sha256> is immutable.
+//   • workflow: publishes tools/dist/*.empack, then deletes release assets
+//     not named in keep-assets.txt, which is how parts for deleted words and
+//     the pre-split pack get cleaned up. Skipped when no manifest was
+//     produced, so a failed run can never delete a working pack.
+//
 // v101 — audio build: no run can lose its work; sentence audio is pinned:
 //   • generator: TIME_BUDGET_MINUTES (env) stops the run before the runner
 //     kills it, writes the partial pack, and exits [INCOMPLETE] with
@@ -179,7 +218,7 @@
 //     cache whose name was not CACHE_NAME, which wiped VocabPeak's hsv-*
 //     caches on this shared origin. It now only deletes emp- caches.
 
-const CACHE_NAME = 'emp-v101';
+const CACHE_NAME = 'emp-v102';
 const ASSETS = [
     './',
     './index.html',

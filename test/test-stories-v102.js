@@ -1,7 +1,7 @@
 /**
- * test/test-stories-v101.js — Stories module (stories.js)
+ * test/test-stories-v102.js — Stories module (stories.js)
  * ============================================================
- * Run:  node test/test-stories-v101.js
+ * Run:  node test/test-stories-v102.js
  *
  * stories.js is a browser IIFE that assigns window.Stories, so the harness
  * builds the globals it touches — window, localStorage, DB, App — and then

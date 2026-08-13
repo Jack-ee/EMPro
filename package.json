@@ -1,0 +1,18 @@
+{
+  "name"       : "empro",
+  "version"    : "1.102.0",
+  "private"    : true,
+  "description": "EMPro (English Master Pro) - a vanilla-JS PWA. This file exists only so the test suites' two dependencies install with one command; the app itself has no build step and loads no npm package at runtime.",
+  "scripts"    : {
+    "test"      : "npm run test:stories && npm run test:sync && npm run test:pack && npm run test:dom",
+    "test:stories": "node test/test-stories-v102.js",
+    "test:sync"   : "node test/test-sync-truncation-v102.js",
+    "test:pack"   : "node test/test-pack-parts-v102.js",
+    "test:dom"    : "node test/test-stories-dom-v102.js",
+    "test:py"     : "python tools/generate_audio_pack.py --selftest && python test/test_audio_parts_v102.py"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "jsdom"         : "^30.0.1"
+  }
+}
