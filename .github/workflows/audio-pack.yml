@@ -62,6 +62,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Free, offline, and seconds long, so it runs before anything can cost
+      # money. The self-test covers the pack format and the split-pack
+      # determinism the client's "same hash, skip it" logic depends on; the
+      # parts test drives a whole incremental build against fake GitHub and
+      # OpenAI. A regression in either would otherwise show up as a wrong or
+      # needlessly re-synthesised pack, after the API bill.
+      - name: Test the generator
+        timeout-minutes: 5
+        run: |
+          python tools/generate_audio_pack.py --selftest
+          python test/test_audio_parts_v103.py
+
       # Three nested limits, innermost first:
       #
       #   TIME_BUDGET_MINUTES  320  the generator's own budget. It stops

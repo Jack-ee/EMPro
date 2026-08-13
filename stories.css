@@ -255,7 +255,42 @@
     color       : var(--text-tertiary);
     margin-top  : 2px;
 }
-.sy-hide-zh .sy-zh { display : none; }
+.sy-hide-zh .sy-zh,
+.sy-hide-zh .sy-zh-block { display : none; }
+
+/* --- Prose view ------------------------------------------ */
+
+.sy-para {
+    font-size   : 17px;
+    line-height : 1.8;
+    color       : var(--text-primary);
+    margin      : 0 0 14px;
+    text-align  : left;
+}
+
+/* An inline sentence. It has to stay tappable and highlightable without
+   breaking the line flow, so no display change and no padding that would
+   shift the text - only the background moves. */
+.sy-s {
+    cursor     : pointer;
+    border-radius : 3px;
+    transition : background 0.15s;
+}
+.sy-s:hover   { background : var(--bg-hover); }
+.sy-s.sy-playing {
+    background   : var(--accent-bg);
+    box-shadow   : 0 0 0 2px var(--accent-bg);
+}
+
+.sy-zh-block {
+    font-size   : 13px;
+    line-height : 1.8;
+    color       : var(--text-tertiary);
+    margin      : -8px 0 16px;
+    padding-left: 10px;
+    border-left : 2px solid var(--border);
+}
+.sy-zh-block:empty { display : none; }
 
 .sy-hit {
     background    : var(--accent-bg);
@@ -322,10 +357,12 @@
     .sy-select       { font-size : 16px; }   /* stops iOS zoom-on-focus */
     .sy-read-title   { font-size : 20px; }
     .sy-en           { font-size : 16px; }
+    .sy-para         { font-size : 16px; line-height : 1.75; }
     .sy-gw           { min-width : 76px; }
     .sy-title        { font-size : 14px; }
 }
 
 @media (prefers-reduced-motion : reduce) {
-    .sy-sent { transition : none; }
+    .sy-sent,
+    .sy-s { transition : none; }
 }

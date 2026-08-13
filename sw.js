@@ -126,6 +126,43 @@
 //        after an older copy was accidentally republished; cache bumped so
 //        the corrected files refresh cleanly on every device.
 
+// v104 — FIX: autoplay stopped after the first card.
+//   Autoplay is a chain: a segment advances the session only when its
+//   onEnd fires. speakNative could finish without firing anything at all,
+//   which did not lose one segment, it silently ended the session. Three
+//   causes, all now handled:
+//     1. speak() was issued in the same tick as cancel(). The cancel is
+//        still settling, the utterance is dropped, and NEITHER onend nor
+//        onerror fires. The speak is now deferred by 60 ms.
+//     2. the utterance was a local variable, so once speak() returned the
+//        page held no reference and Chrome could collect it mid-speech,
+//        taking its events with it. A module-level reference now holds it.
+//     3. Chrome stops long utterances at about 15 seconds with no event.
+//        A resume() tick every 8 seconds keeps them going.
+//   A watchdog covers anything left: if nothing has fired within the time
+//   the text could plausibly take (Chinese budgeted per character at three
+//   times the Latin rate, and scaled by speech rate), onEnd fires anyway.
+//   Ending a segment early costs little; ending the session costs the
+//   whole feature. stopSpeak now also cancels a deferred speak, so a stop
+//   during those 60 ms cannot advance the chain afterwards.
+//
+// v103 — reading material reads as prose, and at a workable density:
+//   • the reader now renders a piece as continuous paragraphs by default,
+//     with each sentence an inline span. Sentences remain the audio pack's
+//     unit and stay individually playable and highlightable, they just no
+//     longer LOOK like a list. A toggle switches to the old
+//     sentence-per-row layout, which is still better for checking a
+//     translation.
+//   • "br": true on a sentence starts a new paragraph. Absent on anything
+//     written before v103, which renders as one paragraph as before.
+//   • density: the length control was a fixed list topping out at 250
+//     words, and defaulted to 120. With 20 target words that is one
+//     target every six words, which no narrative can absorb - the model
+//     had no option but to write one sentence per word. Length is now a
+//     number that follows the words-per-piece (about 18 words of prose per
+//     target word), the preview states the density it implies and warns
+//     below 8, and the prompt names both the figure and the failure mode.
+//
 // v102 — split audio pack (parts model), end to end:
 //   • generator: the pack is published as several parts plus a small
 //     manifest listing each part's sha256. Parts are cut on word-block
@@ -218,7 +255,7 @@
 //     cache whose name was not CACHE_NAME, which wiped VocabPeak's hsv-*
 //     caches on this shared origin. It now only deletes emp- caches.
 
-const CACHE_NAME = 'emp-v102';
+const CACHE_NAME = 'emp-v104';
 const ASSETS = [
     './',
     './index.html',

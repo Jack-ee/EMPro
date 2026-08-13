@@ -39,6 +39,8 @@ jobs:
       # test-stories       vocabulary batching, prompt, paste-back, publishing
       # test-sync          Gist truncation and the raw_url refetch
       # test-pack-parts    split-pack client: only-changed, verified, resumable
+      # test-speech-chain  device speech always reports back, so autoplay
+      #                    cannot stall on a browser that fires no event
       # test-stories-dom   the Stories UI driven through the real index.html
       - name: Run the JavaScript suites
         run: npm test
@@ -63,4 +65,4 @@ jobs:
         run: python tools/generate_audio_pack.py --selftest
 
       - name: Split-pack build behaviour
-        run: python test/test_audio_parts_v102.py
+        run: python test/test_audio_parts_v103.py

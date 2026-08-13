@@ -102,38 +102,121 @@
     //   the available voices list; on Android where getVoices()==[], we
     //   still set utterance.lang so the system default TTS picks the
     //   right engine.
+    // --- Device speech (Web Speech API) ------------------------------
+    //
+    // Autoplay is a chain: each segment advances only when its onEnd fires.
+    // So a device-speech path that can finish WITHOUT firing anything does
+    // not merely lose one segment, it silently ends the session. This engine
+    // has three well-known ways of doing exactly that, and all three are
+    // handled below:
+    //
+    //   1. speak() issued in the same tick as cancel(). The cancel is still
+    //      settling, the new utterance is dropped, and neither onend nor
+    //      onerror ever fires. Deferring the speak by a tick avoids the race.
+    //   2. The utterance object being garbage collected mid-speech. Once
+    //      speak() returns, a local variable is the only reference the page
+    //      holds; Chrome has long collected these and the events die with
+    //      them. A module-level reference keeps it alive.
+    //   3. Chrome stopping long utterances at roughly 15 seconds with no
+    //      event at all. A periodic resume() keeps it going.
+    //
+    // A watchdog covers whatever is left: if nothing has fired by the time
+    // the text could plausibly have been read, onEnd is called anyway. Ending
+    // a segment early is a small cost; ending the session is not.
+    let _nativeUtter = null;    // keeps the utterance from being collected
+    let _nativeGuard = null;    // watchdog timer
+    let _nativeTick  = null;    // resume() ticker for the 15-second cap
+    let _nativeStart = null;    // pending deferred speak
+    let _nativeToken = 0;       // invalidates a deferred speak after a stop
+
+    function clearNativeTimers() {
+        if (_nativeGuard) { clearTimeout(_nativeGuard);  _nativeGuard = null; }
+        if (_nativeTick)  { clearInterval(_nativeTick);  _nativeTick  = null; }
+        if (_nativeStart) { clearTimeout(_nativeStart);  _nativeStart = null; }
+    }
+
+    // How long the text could plausibly take to read, generously. Chinese
+    // characters carry far more sound per character than Latin letters, so
+    // the two are budgeted differently.
+    function speechBudgetMs(text, rate) {
+        const t   = String(text || '');
+        const r   = Number(rate) || 1;
+        const zh  = (t.match(/[\u4e00-\u9fff]/g) || []).length;
+        const per = zh > t.length / 3 ? 380 : 120;
+        return Math.min(120000, 4000 + (t.length * per) / Math.max(0.5, r));
+    }
+
     function speakNative(text, rate, onEnd, opts) {
-        if (!text || !('speechSynthesis' in window)) {
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            clearNativeTimers();
+            _nativeUtter = null;
             if (typeof onEnd === 'function') onEnd();
-            return;
-        }
+        };
+
+        if (!text || !('speechSynthesis' in window)) { finish(); return; }
+
         const wantLang = (opts && opts.lang) || '';
+        const effRate  = Number(rate)
+                       || parseFloat(window.DB?.getPref?.('speech_speed', '0.9')) || 0.9;
+        const myToken  = ++_nativeToken;
+
         try {
+            clearNativeTimers();
             window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(String(text));
 
-            // Voice / lang selection
-            if (wantLang) {
-                // Caller specified a language — find a voice matching it
-                const voices = refreshVoices();
-                const match  = voices.find(v => (v.lang || '').toLowerCase().startsWith(wantLang.toLowerCase().split('-')[0]));
-                if (match) u.voice = match;
-                u.lang = wantLang;
-            } else {
-                const v = resolveVoice();
-                if (v) u.voice = v;
-                u.lang = (v && v.lang) || 'en-US';
-            }
+            // (1) The deferral. 60 ms is far below anything audible and well
+            // clear of the race.
+            _nativeStart = setTimeout(() => {
+                _nativeStart = null;
+                if (myToken !== _nativeToken) return;   // stopped meanwhile
+                try {
+                    const u = new SpeechSynthesisUtterance(String(text));
 
-            u.rate    = Number(rate) || parseFloat(window.DB?.getPref?.('speech_speed', '0.9')) || 0.9;
-            u.pitch   = 1.05;   // slight lift helps voices like Google US English sound less flat
-            u.volume  = 1;
-            u.onend   = () => { if (typeof onEnd === 'function') onEnd(); };
-            u.onerror = () => { if (typeof onEnd === 'function') onEnd(); };
-            window.speechSynthesis.speak(u);
+                    if (wantLang) {
+                        const voices = refreshVoices();
+                        const match  = voices.find(v => (v.lang || '').toLowerCase()
+                                          .startsWith(wantLang.toLowerCase().split('-')[0]));
+                        if (match) u.voice = match;
+                        u.lang = wantLang;
+                    } else {
+                        const v = resolveVoice();
+                        if (v) u.voice = v;
+                        u.lang = (v && v.lang) || 'en-US';
+                    }
+
+                    u.rate    = effRate;
+                    u.pitch   = 1.05;   // a slight lift keeps flat voices from sounding dead
+                    u.volume  = 1;
+                    u.onend   = finish;
+                    u.onerror = finish;
+
+                    _nativeUtter = u;                  // (2) hold a reference
+                    window.speechSynthesis.speak(u);
+
+                    // (3) keep long utterances alive
+                    _nativeTick = setInterval(() => {
+                        try {
+                            if (window.speechSynthesis.speaking) window.speechSynthesis.resume();
+                            else clearInterval(_nativeTick);
+                        } catch (e) {}
+                    }, 8000);
+
+                    // Watchdog: the chain must never be able to stall here.
+                    _nativeGuard = setTimeout(() => {
+                        console.warn('[speak] no end event within budget; advancing anyway');
+                        finish();
+                    }, speechBudgetMs(text, effRate));
+                } catch (e) {
+                    console.warn('[speak] failed:', e);
+                    finish();
+                }
+            }, 60);
         } catch (e) {
             console.warn('[speak] failed:', e);
-            if (typeof onEnd === 'function') onEnd();
+            finish();
         }
     }
 
@@ -840,6 +923,11 @@
     }
 
     function stopSpeak() {
+        // Bump the token first: a deferred speak still waiting on its timer
+        // must not fire after a stop.
+        _nativeToken++;
+        try { clearNativeTimers(); } catch {}
+        _nativeUtter = null;
         try { window.speechSynthesis?.cancel?.(); } catch {}
         try { if (_neuralAbort) { _neuralAbort.abort(); _neuralAbort = null; } } catch {}
         try {

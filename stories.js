@@ -228,18 +228,26 @@ window.Stories = (function () {
         L.push('');
         L.push('Write ' + list.length + ' separate piece' + (list.length > 1 ? 's' : '') + '. Each piece has its own seq number and its own target words.');
         L.push('');
+        const wordsPer = list[0] && (o.length || 0)
+                       ? Math.round((o.length || 0) / Math.max(1, list[0].words.length))
+                       : 0;
         L.push('FORM      ' + form);
         L.push('LEVEL     CEFR ' + (o.level || 'C1'));
-        L.push('LENGTH    about ' + (Number(o.length) || 120) + ' words per piece');
+        L.push('LENGTH    about ' + (Number(o.length) || 360) + ' words per piece'
+             + (wordsPer ? ' (roughly ' + wordsPer + ' words of prose per target word, '
+                         + 'so there is room for the writing to breathe)' : ''));
         if (o.topic) L.push('TOPIC     ' + o.topic);
         L.push('');
         L.push('RULES');
         L.push('1. Use every target word of a piece at least once in that piece. Inflected forms count (plural, past tense, -ing, comparative).');
+        L.push('1a. Write ONE continuous piece, not a set of example sentences. Every sentence must follow from the one before it through the same characters, the same situation, and ordinary connective devices: pronouns referring back, time moving forward, cause and effect. A reader must not be able to reorder the sentences without the piece breaking.');
+        L.push('1b. Do NOT give each target word its own sentence. Most sentences should carry no target word at all, and some should carry two. The target words have to disappear into the prose.');
         L.push('2. A Chinese gloss in brackets after a word is the sense to use. Do not switch to a rare secondary sense.');
         L.push('3. Give each target word enough context that a reader could infer its meaning without a dictionary.');
         L.push('4. Write the natural, idiomatic English an educated native writer would produce. No textbook filler and no word-list feel.');
         L.push('5. Do not use another piece\u2019s target words unless it is unavoidable.');
-        L.push('6. Split each piece into sentences, one object per sentence, in reading order. Keep every sentence under 30 words so it reads aloud well.');
+        L.push('6. Split each piece into sentences, one object per sentence, in reading order. Keep every sentence under 30 words so it reads aloud well. The split is for audio and study only, so write the piece as prose first and cut it into sentences afterwards.');
+        L.push('6a. Add "br": true to the first sentence of each new paragraph. Aim for a paragraph every 4 to 6 sentences.');
         L.push('7. "zh" is a faithful, natural Chinese translation of that one sentence, not a word-for-word gloss.');
         L.push('8. Copy each seq exactly as given. The app matches your reply back to the right piece by seq.');
         if (o.questions) L.push('9. Add 2 comprehension questions per piece, with short answers.');
@@ -257,7 +265,7 @@ window.Stories = (function () {
         L.push('OUTPUT');
         L.push('Return only this JSON. No markdown fences, no commentary before or after it.');
         L.push('{"stories":[{"seq":<number>,"title":"<2-6 words>","level":"<CEFR>",'
-             + '"sentences":[{"en":"<one sentence>","zh":"<Chinese translation>"}],'
+             + '"sentences":[{"en":"<one sentence>","zh":"<Chinese translation>","br":<true on the first sentence of a paragraph, otherwise omit>}],'
              + '"words_used":[{"word":"<target word exactly as given>","form":"<the form used in the text>"}]'
              + (o.questions ? ',"questions":[{"q":"<question>","a":"<short answer>"}]' : '')
              + '}]}');
@@ -331,7 +339,12 @@ window.Stories = (function () {
             if (!item || typeof item !== 'object') return;
             const en = clean(item.en || item.english || item.text || item.sentence);
             const zh = clean(item.zh || item.cn || item.chinese || item.translation);
-            if (en) out.push({ en: en, zh: zh });
+            // br marks the first sentence of a new paragraph. Absent on
+            // everything written before v103, which then renders as one
+            // paragraph - the old behaviour, unchanged.
+            const br = item.br === true || item.paragraph === true
+                    || item.newParagraph === true;
+            if (en) out.push(br ? { en: en, zh: zh, br: true } : { en: en, zh: zh });
         });
         return out;
     }
@@ -730,13 +743,43 @@ window.Stories = (function () {
 
     // ─── UI: generator panel ─────────────────────────────────
 
+    // Words of prose per target word. Below about 8 there is no room for a
+    // narrative between the target words, and the model has no choice but to
+    // write one sentence per word - which is what made early pieces read like
+    // a list of examples rather than a story. 18 leaves room to breathe.
+    const DENSITY_COMFORTABLE = 18;
+    const DENSITY_TIGHT       = 13;
+    const DENSITY_TOO_DENSE   = 8;
+
+    function suggestedLength(groupSize) {
+        const n = Math.round(groupSize * DENSITY_COMFORTABLE / 20) * 20;
+        return Math.max(80, Math.min(900, n));
+    }
+
+    function densityNote(groupSize, length) {
+        const per = length / Math.max(1, groupSize);
+        if (per < DENSITY_TOO_DENSE) {
+            return { cls : 'sy-warn', text : 'one target word every '
+                   + per.toFixed(1) + ' words \u2014 too dense for prose, '
+                   + 'expect a list of examples. Try '
+                   + suggestedLength(groupSize) + '.' };
+        }
+        if (per < DENSITY_TIGHT) {
+            return { cls : 'sy-dim', text : 'one target word every '
+                   + per.toFixed(1) + ' words \u2014 tight. '
+                   + suggestedLength(groupSize) + ' reads better.' };
+        }
+        return { cls : 'sy-dim', text : 'one target word every '
+               + per.toFixed(1) + ' words \u2014 comfortable.' };
+    }
+
     function readOpts() {
         return {
             count     : Math.max(1, parseInt(document.getElementById('sy-count')?.value, 10) || 100),
             groupSize : Math.max(1, parseInt(document.getElementById('sy-group')?.value, 10) || 20),
             type      : document.getElementById('sy-type')?.value  || 'story',
             level     : document.getElementById('sy-level')?.value || 'C1',
-            length    : parseInt(document.getElementById('sy-len')?.value, 10) || 120,
+            length    : parseInt(document.getElementById('sy-len')?.value, 10) || 0,
             topic     : (document.getElementById('sy-topic')?.value || '').trim(),
             skipUsed  : document.getElementById('sy-skip')?.checked !== false,
             questions : document.getElementById('sy-qs')?.checked === true
@@ -797,7 +840,8 @@ window.Stories = (function () {
         set('sy-group', pref('group', '20'));
         set('sy-type',  pref('type',  'story'));
         set('sy-level', pref('level', 'C1'));
-        set('sy-len',   pref('len',   '120'));
+        const gs = parseInt(pref('group', '20'), 10) || 20;
+        set('sy-len',   pref('len', String(suggestedLength(gs))));
         set('sy-topic', pref('topic', ''));
         const skip = document.getElementById('sy-skip');
         if (skip) skip.checked = pref('skip', '1') !== '0';
@@ -824,13 +868,15 @@ window.Stories = (function () {
             return;
         }
         const sizes = plan.groups.map(g => g.length).join(' + ');
+        const dens  = densityNote(o.groupSize, o.length || suggestedLength(o.groupSize));
         el.innerHTML = '<strong>' + plan.groups.length + ' piece'
                      + (plan.groups.length > 1 ? 's' : '') + '</strong> \u00b7 '
                      + plan.taken + ' words (' + sizes + ') \u00b7 '
                      + plan.remaining + ' unused word' + (plan.remaining === 1 ? '' : 's')
                      + ' left after this run'
                      + (plan.capped ? ' \u00b7 <span class="sy-warn">capped at ' + MAX_GROUPS
-                                    + ' pieces per run</span>' : '');
+                                    + ' pieces per run</span>' : '')
+                     + '<br><span class="' + dens.cls + '">' + esc(dens.text) + '</span>';
     }
 
     function pendingStories() {
@@ -1032,12 +1078,8 @@ window.Stories = (function () {
 
         const nb    = notebookMap();
         const words = (s.words || []);
-        const rows  = (s.sents || []).map((x, i) =>
-            '<div class="sy-sent" data-i="' + i + '">'
-          + '<button class="sy-play" data-i="' + i + '" title="Read this sentence">\u25b6</button>'
-          + '<div class="sy-sent-body"><div class="sy-en">' + highlight(x.en, words) + '</div>'
-          + (x.zh ? '<div class="sy-zh">' + esc(x.zh) + '</div>' : '')
-          + '</div></div>').join('');
+        const prose = pref('view', 'prose') !== 'rows';
+        const rows  = prose ? renderProse(s, words) : renderRows(s, words);
 
         const qs = (s.qs || []).length
             ? '<div class="sy-qs"><h4 class="sy-h4">Check yourself</h4>'
@@ -1065,8 +1107,11 @@ window.Stories = (function () {
               + '<button class="wl-btn-small" id="sy-play-all">\u25b6 Play all</button>'
               + '<button class="wl-btn-small" id="sy-stop">\u25a0 Stop</button>'
               + '<button class="wl-btn-small" id="sy-toggle-zh">\u4e2d Chinese</button>'
+              + '<button class="wl-btn-small" id="sy-toggle-view">'
+              + (prose ? '\u2261 Sentence by sentence' : '\u00b6 Read as prose') + '</button>'
               + '</div>'
-              + '<div class="sy-sents" id="sy-sents">' + rows + '</div>'
+              + '<div class="sy-sents' + (prose ? ' sy-prose' : '') + '" id="sy-sents">'
+              + rows + '</div>'
               + qs
               + '<div class="sy-glossary"><h4 class="sy-h4">Target words</h4>' + glossary + '</div>';
         }
@@ -1075,6 +1120,44 @@ window.Stories = (function () {
         document.getElementById('sy-read')?.classList.remove('sy-hidden');
         applyZhVisibility();
         scrollTop();
+    }
+
+    // Prose view. The piece reads as continuous paragraphs, which is what a
+    // story is, while every sentence stays an addressable unit: each one is
+    // its own inline span carrying data-i, so tapping still plays that
+    // sentence and Play all still highlights its way through. Sentences are
+    // the audio pack's unit and cannot stop being separate underneath - but
+    // they no longer have to LOOK separate, which was the whole complaint.
+    function renderProse(s, words) {
+        const sents = s.sents || [];
+        const paras = [];
+        let cur     = [];
+        sents.forEach((x, i) => {
+            if (x.br && cur.length) { paras.push(cur); cur = []; }
+            cur.push({ x : x, i : i });
+        });
+        if (cur.length) paras.push(cur);
+
+        return paras.map(para =>
+            '<p class="sy-para">'
+          + para.map(o => '<span class="sy-s" data-i="' + o.i + '">'
+                        + highlight(o.x.en, words) + '</span>').join(' ')
+          + '</p>'
+          + '<p class="sy-zh-block">'
+          + para.map(o => esc(o.x.zh || '')).filter(Boolean).join('') + '</p>'
+        ).join('');
+    }
+
+    // Sentence-by-sentence view: one row each, English above its own Chinese,
+    // with a play button. Better for study and for checking a translation,
+    // worse for reading, which is why it is no longer the default.
+    function renderRows(s, words) {
+        return (s.sents || []).map((x, i) =>
+            '<div class="sy-sent" data-i="' + i + '">'
+          + '<button class="sy-play" data-i="' + i + '" title="Read this sentence">\u25b6</button>'
+          + '<div class="sy-sent-body"><div class="sy-en">' + highlight(x.en, words) + '</div>'
+          + (x.zh ? '<div class="sy-zh">' + esc(x.zh) + '</div>' : '')
+          + '</div></div>').join('');
     }
 
     function closeReader() {
@@ -1088,6 +1171,8 @@ window.Stories = (function () {
     function applyZhVisibility() {
         const on = pref('zh', '1') !== '0';
         document.getElementById('sy-sents')?.classList.toggle('sy-hide-zh', !on);
+        // In prose view the translation is a paragraph of its own, so it is
+        // hidden by the same class through a different selector (see the CSS).
         const btn = document.getElementById('sy-toggle-zh');
         if (btn) btn.classList.toggle('active', on);
     }
@@ -1105,7 +1190,7 @@ window.Stories = (function () {
     // and older ones lack scrollIntoView entirely. A throw here would have
     // stopped sequential playback dead, so both calls are best-effort.
     function scrollRowIntoView(i) {
-        const row = document.querySelector('#sy-sents .sy-sent[data-i="' + i + '"]');
+        const row = document.querySelector('#sy-sents [data-i="' + i + '"]:not(button)');
         if (!row || typeof row.scrollIntoView !== 'function') return;
         try { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
         catch (e) { try { row.scrollIntoView(); } catch (e2) { /* give up quietly */ } }
@@ -1116,8 +1201,11 @@ window.Stories = (function () {
         catch (e) { try { window.scrollTo(0, 0); } catch (e2) { /* give up quietly */ } }
     }
 
+    // Both views tag their sentence containers with data-i, so one selector
+    // covers a row and an inline span alike.
     function markPlaying(i) {
-        document.querySelectorAll('#sy-sents .sy-sent').forEach(el => {
+        document.querySelectorAll('#sy-sents [data-i]').forEach(el => {
+            if (el.tagName === 'BUTTON') return;      // the row's play button
             el.classList.toggle('sy-playing', Number(el.dataset.i) === i);
         });
     }
@@ -1157,6 +1245,21 @@ window.Stories = (function () {
                 el?.addEventListener('change', () => { saveOpts(readOpts()); renderPreview(); });
                 el?.addEventListener('input',  renderPreview);
             });
+        // Changing the words-per-piece moves the length that suits it, unless
+        // the length was set by hand. Leaving a fixed length behind is what
+        // produced pieces with a target word every six words.
+        document.getElementById('sy-group')?.addEventListener('change', () => {
+            const gs  = parseInt(document.getElementById('sy-group')?.value, 10) || 20;
+            const len = document.getElementById('sy-len');
+            if (len && !len.dataset.touched) {
+                len.value = suggestedLength(gs);
+                saveOpts(readOpts());
+                renderPreview();
+            }
+        });
+        document.getElementById('sy-len')?.addEventListener('input', (e) => {
+            e.target.dataset.touched = '1';
+        });
         document.getElementById('sy-qs')?.addEventListener('change', () => saveOpts(readOpts()));
 
         document.getElementById('sy-make')?.addEventListener('click', handleMake);
@@ -1217,6 +1320,12 @@ window.Stories = (function () {
                 applyZhVisibility();
                 return;
             }
+            if (e.target.closest('#sy-toggle-view')) {
+                setPref('view', pref('view', 'prose') === 'rows' ? 'prose' : 'rows');
+                const at = openId;
+                openReader(at);
+                return;
+            }
             const ans = e.target.closest('.sy-a');
             if (ans) {
                 const t = document.getElementById('sy-a-' + ans.dataset.a);
@@ -1233,6 +1342,8 @@ window.Stories = (function () {
             }
             const play = e.target.closest('.sy-play');
             if (play) { speakSentence(Number(play.dataset.i)); return; }
+            const span = e.target.closest('.sy-s');
+            if (span) { speakSentence(Number(span.dataset.i)); return; }
             const row = e.target.closest('.sy-sent');
             if (row) speakSentence(Number(row.dataset.i));
         });
