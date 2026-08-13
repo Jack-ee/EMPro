@@ -1,0 +1,66 @@
+# Runs every test suite on push, so the JavaScript suites that need npm and
+# the Python suites that need a Python on PATH are both covered without either
+# being installed locally. Free on Actions and takes about a minute.
+#
+# This is separate from audio-pack.yml on purpose. That workflow runs only when
+# tools/wordlist.txt changes and gates the expensive synthesis step; this one
+# runs on every commit, so a regression in the client or the sync layer is
+# caught even on a commit that touches no word list.
+
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  javascript:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # lts/* rather than a fixed major: the suites only need Node >=18,
+          # and jsdom is pinned to a major that agrees, so there is nothing to
+          # keep in step here.
+          node-version: 'lts/*'
+
+      # `npm install`, not `npm ci`: package-lock.json is deliberately not
+      # committed for two dev-only test dependencies, and npm ci requires one.
+      - name: Install test dependencies
+        run: npm install
+
+      # test-stories       vocabulary batching, prompt, paste-back, publishing
+      # test-sync          Gist truncation and the raw_url refetch
+      # test-pack-parts    split-pack client: only-changed, verified, resumable
+      # test-stories-dom   the Stories UI driven through the real index.html
+      - name: Run the JavaScript suites
+        run: npm test
+
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Both are offline and need no API key: the self-test covers the pack
+      # binary format and the split-pack determinism the client's
+      # "same hash, skip it" logic depends on, and the parts test drives a
+      # whole incremental build against a fake release and a fake OpenAI.
+      - name: Pack format self-test
+        run: python tools/generate_audio_pack.py --selftest
+
+      - name: Split-pack build behaviour
+        run: python test/test_audio_parts_v102.py
