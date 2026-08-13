@@ -149,6 +149,33 @@ window.SyncManager = (function() {
     }
 
     // ─── Gist I/O ────────────────────────────────────────────
+
+    // v101: the Gist API stops inlining a file's content somewhere around
+    // 1 MB and sets `truncated` instead. A Chinese payload trips this well
+    // below that — roughly 600 KB — because the notebook's meanings,
+    // examples and translations are multi-byte. Reading `content` without
+    // checking the flag therefore does not fail loudly: it silently returns
+    // a cut-off document, and a whole-snapshot merge writes that back as if
+    // it were the truth. So the flag is checked, and the full text comes
+    // from raw_url instead.
+    //
+    // raw_url must be fetched with NO Authorization header. The header turns
+    // the request into a CORS preflight that the raw host refuses, so the
+    // browser blocks it. The URL carries its own secret token and is
+    // readable unauthenticated, secret gists included — passing credentials
+    // is both unnecessary and the thing that breaks it.
+    async function readGistFile(file) {
+        if (!file) return null;
+        if (file.truncated && file.raw_url) {
+            console.log('[Sync] Payload truncated by the API — refetching in full '
+                      + `(${file.size || '?'} bytes).`);
+            const raw = await fetch(file.raw_url);   // no headers, deliberately
+            if (!raw.ok) throw new Error(`Gist raw read failed: ${raw.status}`);
+            return raw.text();
+        }
+        return file.content || null;
+    }
+
     async function readGist() {
         const token = getToken(), gistId = getGistId();
         if (!token || !gistId) return null;
@@ -160,10 +187,31 @@ window.SyncManager = (function() {
             throw new Error(`Gist read failed: ${resp.status}`);
         }
         const gist = await resp.json();
-        const file = gist.files?.[gistFile()];
-        if (!file?.content) return null;
-        try { return JSON.parse(file.content); }
-        catch { return null; }
+        const text = await readGistFile(gist.files?.[gistFile()]);
+        if (!text) return null;
+        try { return JSON.parse(text); }
+        catch (e) {
+            // A parse failure on a refetched body means the document really
+            // is damaged. Throwing keeps the caller from treating "no data"
+            // as "the remote is empty", which a whole-snapshot merge would
+            // turn into a deletion.
+            console.error('[Sync] Payload did not parse:', e && e.message);
+            throw new Error('Gist payload is not valid JSON');
+        }
+    }
+
+    // v101: warn on the real size before it becomes a truncation. json.length
+    // counts UTF-16 code units; the API counts UTF-8 bytes, and a Chinese
+    // character is one unit but three bytes. How far apart they run depends
+    // on the mix: this notebook is mostly English, so json.length
+    // under-reports by only about 12%, but story translations and course
+    // text are nearly all Chinese, where it under-reports by up to 3x.
+    // TextEncoder gives the number the API actually applies its limit to.
+    const PAYLOAD_WARN_BYTES = 600 * 1024;
+
+    function payloadBytes(json) {
+        try { return new TextEncoder().encode(json).length; }
+        catch (e) { return json.length; }        // no TextEncoder: rough is fine
     }
 
     async function writeGist(data) {
@@ -172,6 +220,14 @@ window.SyncManager = (function() {
         const json   = JSON.stringify(data);
         let gistId   = getGistId();
         const body   = { files: { [gistFile()]: { content: json } } };
+
+        const bytes = payloadBytes(json);
+        if (bytes > PAYLOAD_WARN_BYTES) {
+            console.warn('[Sync] Payload is ' + (bytes / 1024).toFixed(0)
+                + ' KB. Reads are refetched in full when the API truncates, '
+                + 'but this is the point to move bulk content (stories, '
+                + 'course text) out of the snapshot into its own Gist file.');
+        }
 
         try {
             let resp;

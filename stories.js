@@ -754,6 +754,20 @@ window.Stories = (function () {
         setPref('qs',    o.questions ? '1' : '0');
     }
 
+    // The voice that reads sentences. Pinned deliberately, because the
+    // generator's fallback is "the first selected word voice" and that moves
+    // whenever the word voice selection changes, re-synthesising every
+    // sentence in the pack.
+    function renderSentenceVoice() {
+        const sel = document.getElementById('sy-svoice');
+        if (!sel) return;
+        const list = window.App?.packVoiceList || ['nova'];
+        const cur  = window.App?.getPackSentenceVoice?.() || 'nova';
+        sel.innerHTML = list.map(v =>
+            '<option value="' + escA(v) + '"' + (v === cur ? ' selected' : '') + '>'
+            + esc(v.charAt(0).toUpperCase() + v.slice(1)) + '</option>').join('');
+    }
+
     function hydrateCloud() {
         const r = document.getElementById('sy-repo');
         const t = document.getElementById('sy-token');
@@ -1148,6 +1162,12 @@ window.Stories = (function () {
         document.getElementById('sy-make')?.addEventListener('click', handleMake);
         document.getElementById('sy-copy-pending')?.addEventListener('click', handleCopyPending);
         document.getElementById('sy-paste')?.addEventListener('click', openPasteModal);
+        document.getElementById('sy-svoice')?.addEventListener('change', (e) => {
+            const v = window.App?.setPackSentenceVoice?.(e.target.value);
+            toast('Sentences will be read by ' + (v || 'nova')
+                + '. Clips already built in another voice stay in the pack \u2014 '
+                + 'a build with \u201cprune voices\u201d on reclaims that space.', 7000);
+        });
         document.getElementById('sy-publish')?.addEventListener('click', () => publishWordList());
         document.getElementById('sy-download')?.addEventListener('click', downloadOnly);
         ['sy-repo', 'sy-token'].forEach(id =>
@@ -1222,6 +1242,7 @@ window.Stories = (function () {
         if (!document.getElementById('view-stories')) return;
         hydrateOpts();
         hydrateCloud();
+        renderSentenceVoice();
         bind();
         renderAll();
     }

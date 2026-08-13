@@ -546,6 +546,27 @@
         return chosen.length ? chosen : PACK_VOICE_DEFAULT.slice();
     }
 
+    // v101: which voice reads the long entries (example sentences,
+    // definitions, story sentences). Without this the generator falls back
+    // to the FIRST of the selected word voices, which is alphabetical - so
+    // un-ticking whichever voice sorts first moves every sentence to the
+    // next voice and re-synthesises thousands of clips at full price, while
+    // the old ones stay in the pack forever. Pinning it here breaks that
+    // link: word voices can change freely and no sentence is touched.
+    function getPackSentenceVoice() {
+        const v = String(window.DB?.getPref?.('pack_sentence_voice', '') || '')
+                    .trim().toLowerCase();
+        if (PACK_VOICE_LIST.indexOf(v) >= 0) return v;
+        return 'nova';
+    }
+
+    function setPackSentenceVoice(v) {
+        const clean = String(v || '').trim().toLowerCase();
+        if (PACK_VOICE_LIST.indexOf(clean) < 0) return getPackSentenceVoice();
+        window.DB?.setPref?.('pack_sentence_voice', clean);
+        return clean;
+    }
+
     function setPackVoices(voices) {
         const set    = new Set((voices || []).map(v => String(v).toLowerCase()));
         const chosen = PACK_VOICE_LIST.filter(v => set.has(v));
@@ -767,7 +788,10 @@
             '# Exported ' + new Date().toISOString().slice(0, 10) + ' from the app.',
             '# Replace tools/wordlist.txt with this file, then commit it.',
             '# Each block is tagged  #@<index> <word>  with a stable index.',
-            '# voices: ' + getPackVoices().join(', ')
+            '# voices: ' + getPackVoices().join(', '),
+            '# sentence_voice: ' + getPackSentenceVoice()
+                + '   (long entries use this voice only, so changing the '
+                + 'voices above never re-synthesises a sentence)'
         ];
         if (range) {
             header.push('# range: ' + range
@@ -1693,7 +1717,11 @@
         exportWordList,
         buildWordListText,
         getPackRange,
-        setPackRange
+        setPackRange,
+        // v101: the sentence voice is chosen in the Stories panel
+        packVoiceList : PACK_VOICE_LIST.slice(),
+        getPackSentenceVoice,
+        setPackSentenceVoice
     };
 
     // ─── Profile name ───────────────────────────────────────

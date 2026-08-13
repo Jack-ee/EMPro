@@ -126,6 +126,31 @@
 //        after an older copy was accidentally republished; cache bumped so
 //        the corrected files refresh cleanly on every device.
 
+// v101 — audio build: no run can lose its work; sentence audio is pinned:
+//   • generator: TIME_BUDGET_MINUTES (env) stops the run before the runner
+//     kills it, writes the partial pack, and exits [INCOMPLETE] with
+//     re-run advice. The workflow publishes it anyway (publish is
+//     if: always()), so the next run continues from it and no clip is ever
+//     paid for twice. Three nested limits, 320 / 330 / 350, each leaving
+//     10 minutes for the next layer to hand over.
+//   • generator: "# sentence_voice:" pins the voice that reads long
+//     entries. Without it a long entry used voices[0] — the FIRST of the
+//     selected voices, alphabetically — so un-ticking "alloy" moved every
+//     sentence to "ash" and re-synthesised thousands of clips, while the
+//     alloy ones stayed in the pack forever. The manifest now carries the
+//     union of word and sentence voices, because the client only looks up
+//     clips in voices listed there.
+//   • generator: --prune-voices (opt-in) drops clips whose voice is no
+//     longer used and reports the space reclaimed; without it the run just
+//     names the idle voices. The old prune matched on text alone, so
+//     de-selected voices accumulated forever.
+//   • sync: the Gist API truncates a file near 1 MB (well under that for
+//     Chinese) and sets `truncated`. Reads now refetch from raw_url —
+//     with NO Authorization header, which would trigger a CORS preflight
+//     the raw host refuses. Before this, a truncated read was silently
+//     treated as the whole document. Pushes warn above 600 KB of real
+//     UTF-8 bytes, not UTF-16 code units.
+//
 // v100 — reading material from the word bank (new module stories.js):
 //   • Stories tab: takes N unused notebook words, splits them into
 //     groups of M, and reserves each group as a "pending" piece the
@@ -154,7 +179,7 @@
 //     cache whose name was not CACHE_NAME, which wiped VocabPeak's hsv-*
 //     caches on this shared origin. It now only deletes emp- caches.
 
-const CACHE_NAME = 'emp-v100';
+const CACHE_NAME = 'emp-v101';
 const ASSETS = [
     './',
     './index.html',
