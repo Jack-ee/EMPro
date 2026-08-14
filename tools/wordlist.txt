@@ -1,10 +1,11 @@
 # EMPro audio pack - word list
-# Exported 2026-08-09 from the app.
+# Exported 2026-08-14 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse
-# (no range set - building all 562 words; add e.g.  "# range: 1-50"  to build one batch)
-# 561 word(s), 3910 item(s)
+# sentence_voice: nova   (long entries use this voice only, so changing the voices above never re-synthesises a sentence)
+# (no range set - building all 10002 words; add e.g.  "# range: 1-50"  to build one batch)
+# 561 word(s), 2 story block(s), 3939 item(s)
 
 #@1 wax apple
 wax apple
@@ -4477,3 +4478,34 @@ the centrepiece of the plan
 platinum
 #@562 candour
 candour
+#@10001 story 1: Nuance on a Fruit Plate
+mei brought wax apples, hoping their crisp sweetness would soften whatever came next.
+her supervisor peeled a longkong fruit, its translucent flesh slipping free, and studied her figures.
+for a year the chapter had been her testbed for every editing rule she trusted.
+she had scrubbed away the chart junk, the shaded boxes and glossy borders decorating nothing.
+her line-by-line audits had also cut a dissenting study whose results refused a monotonic rise.
+"the damage does not manifest sentence by sentence, but in what you deleted," he said.
+a nuanced argument cannot survive a draft that bypasses every inconvenient finding.
+her funnel structure narrowed so fast that readers never glimpsed the field's real disagreement.
+writing this over-polished flatters its author and denies the reader any payoff.
+two graphs sat orphaned, mentioned by no sentence and interpreted by nobody.
+conciseness, he added, had been purchased at the cost of argument strength.
+mei agreed to restore the stubborn study and accept the detour its nuance demanded.
+she would tackle the discussion once more and trim only what genuinely repeated itself.
+the chapter grew by four hundred words, and at last it argued something.
+#@10002 story 2: The Whiteboard Wins
+registration closed early, since demand for dr. han's writing workshop had outstripped its forty seats.
+she opened with a caveat that her advice was never a prescription to follow blindly.
+her pedagogical tool used semantic search to sort thousands of student sentences into recurring archetypes.
+the error scores showed wide dispersion, yet a pareto pattern held.
+roughly a fifth of the habits, led by redundancy, caused most confusion.
+then the hotel's intermittent wi-fi collapsed, and the live demonstration died on the screen.
+housekeeping knocked at that exact moment, whispering apologies.
+so han abandoned the software and worked one paragraph on the whiteboard by hand.
+she showed how a comment contextualizes an error inside the writer's real purpose.
+tightening sentences mattered far less than reframing the claim they were meant to defend.
+nothing, the room agreed, replaces the holistic judgement of a patient reader.
+afterwards she praised the amenities and the complimentary tea left in her room.
+at checkout the folio listed incidentals she could not remember approving.
+her institute processes financial reimbursement only against itemised receipts.
+she sorted them for an hour, and the reimbursement arrived three weeks later.
