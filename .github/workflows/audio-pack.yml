@@ -72,7 +72,7 @@ jobs:
         timeout-minutes: 5
         run: |
           python tools/generate_audio_pack.py --selftest
-          python test/test_audio_parts_v103.py
+          python test/test_audio_parts_v105.py
 
       # Three nested limits, innermost first:
       #

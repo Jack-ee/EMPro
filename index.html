@@ -20,11 +20,11 @@
          In VS Code: Ctrl+H, find "?v=N" with the current N, replace
          with "?v=N+1" across this file. Then bump CACHE_NAME in
          sw.js to match (e.g. 'emp-vN+1').
-         Current version: v=104
+         Current version: v=105
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=104">
-    <link rel="stylesheet" href="expressions-coach.css?v=104">
-    <link rel="stylesheet" href="stories.css?v=104">
+    <link rel="stylesheet" href="style.css?v=105">
+    <link rel="stylesheet" href="expressions-coach.css?v=105">
+    <link rel="stylesheet" href="stories.css?v=105">
 </head>
 <body>
 
@@ -185,10 +185,26 @@
     </div>
 
     <!-- ===== STORIES (reading material from the word bank) ===== -->
+    <!-- Three screens, one at a time. The library is what gets opened daily,
+         so it comes first and holds nothing but the material; generating is
+         occasional and cloud setup is once, so both live behind a button. -->
     <div class="app-view" id="view-stories">
         <div class="sy-container">
 
-            <div id="sy-main">
+            <!-- Screen 1: the library -->
+            <div id="sy-library">
+                <div class="sy-lib-head">
+                    <div class="sy-lib-count" id="sy-lib-count"></div>
+                    <button class="wl-btn-primary" id="sy-new">&#x2795; New pieces</button>
+                </div>
+                <div class="sy-pending sy-hidden" id="sy-pending"></div>
+                <div id="sy-list"></div>
+            </div>
+
+            <!-- Screen 2: generating -->
+            <div id="sy-gen" class="sy-hidden">
+                <button class="wl-btn-small sy-screen-back" id="sy-gen-back">&#x2190; My material</button>
+
                 <div class="sy-panel">
                     <div class="sy-row">
                         <label class="sy-field"><span class="sy-label">Words this run</span>
@@ -226,8 +242,12 @@
                         <button class="wl-btn-secondary" id="sy-copy-pending" style="display:none">Copy prompt for waiting</button>
                         <a class="wl-btn-secondary" href="https://claude.ai/new" target="_blank" rel="noopener" style="text-decoration:none">Open Claude &#x2197;</a>
                     </div>
+                </div>
 
-                    <div class="sy-audio">
+                <!-- Set once and then forgotten, so it stays folded away. -->
+                <details class="sy-cloud">
+                    <summary>Audio and cloud build</summary>
+                    <div class="sy-panel sy-cloud-body">
                         <div class="sy-row">
                             <button class="wl-btn-secondary" id="sy-publish">&#x2601; Publish word list</button>
                             <button class="wl-btn-small" id="sy-download">Download only</button>
@@ -246,18 +266,16 @@
                             finished sentence, and the push starts the audio pack build. The build is differential:
                             it downloads the previous pack and synthesises only clips it does not already have, so
                             republishing an unchanged list costs nothing and existing word and sentence audio is
-                            never remade. Adding a voice only synthesises that voice. There is no build range to
-                            set or clear. The token is stored on this device only and never enters the sync payload
-                            &mdash; a fine-grained token limited to Contents on this one repo is enough.</div>
+                            never remade. Adding a voice only synthesises that voice. The token is stored on this
+                            device only and never enters the sync payload &mdash; a fine-grained token limited to
+                            Contents on this one repo is enough.</div>
                     </div>
-                </div>
-
-                <h3 class="sy-section-title">My material</h3>
-                <div id="sy-list"></div>
+                </details>
             </div>
 
+            <!-- Screen 3: reading -->
             <div id="sy-read" class="sy-hidden">
-                <button class="wl-btn-small" id="sy-back">&#x2190; Back to material</button>
+                <button class="wl-btn-small sy-screen-back" id="sy-back">&#x2190; My material</button>
                 <div id="sy-read-body"></div>
             </div>
 
@@ -464,26 +482,26 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=104"></script>
-<script src="db.js?v=104"></script>
-<script src="ai-engine.js?v=104"></script>
-<script src="my-words.js?v=104"></script>
-<script src="writing-lab.js?v=104"></script>
-<script src="vocab-drill.js?v=104"></script>
-<script src="reader.js?v=104"></script>
-<script src="stories.js?v=104"></script>
-<script src="speaking-coach.js?v=104"></script>
-<script src="expressions-data.js?v=104"></script>
-<script src="expressions-coach.js?v=104"></script>
-<script src="sentence.js?v=104"></script>
-<script src="sentence-drill.js?v=104"></script>
-<script src="sync.js?v=104"></script>
-<script src="tts-pack.js?v=104"></script>
-<script src="app.js?v=104"></script>
+<script src="config.js?v=105"></script>
+<script src="db.js?v=105"></script>
+<script src="ai-engine.js?v=105"></script>
+<script src="my-words.js?v=105"></script>
+<script src="writing-lab.js?v=105"></script>
+<script src="vocab-drill.js?v=105"></script>
+<script src="reader.js?v=105"></script>
+<script src="stories.js?v=105"></script>
+<script src="speaking-coach.js?v=105"></script>
+<script src="expressions-data.js?v=105"></script>
+<script src="expressions-coach.js?v=105"></script>
+<script src="sentence.js?v=105"></script>
+<script src="sentence-drill.js?v=105"></script>
+<script src="sync.js?v=105"></script>
+<script src="tts-pack.js?v=105"></script>
+<script src="app.js?v=105"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=104"></script>
+<script src="debug-panel.js?v=105"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.

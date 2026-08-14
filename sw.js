@@ -126,6 +126,23 @@
 //        after an older copy was accidentally republished; cache bumped so
 //        the corrected files refresh cleanly on every device.
 
+// v105 — the Stories tab is a library first, machinery second.
+//   Opening the tab used to mean meeting six inputs, two checkboxes, four
+//   buttons and a repo/token form before reaching a single piece of
+//   reading. The order was backwards: reading happens daily, generating
+//   occasionally, cloud setup once. The tab now holds three screens and
+//   shows one at a time.
+//     • Library (default): the material, and nothing else. A header line
+//       counts what there is to read, and a banner appears only when
+//       pieces are waiting for text.
+//     • Generate: parameters and the prompt, behind "New pieces". The
+//       cloud build settings are folded into a <details> inside it, since
+//       they are set once and then forgotten.
+//     • Read: unchanged.
+//   Paste back sits on the LIBRARY banner as well as in the generator: the
+//   loop is copy a prompt, leave for the AI, come back later, and that
+//   return trip usually starts a fresh session.
+//
 // v104 — FIX: autoplay stopped after the first card.
 //   Autoplay is a chain: a segment advances the session only when its
 //   onEnd fires. speakNative could finish without firing anything at all,
@@ -255,7 +272,7 @@
 //     cache whose name was not CACHE_NAME, which wiped VocabPeak's hsv-*
 //     caches on this shared origin. It now only deletes emp- caches.
 
-const CACHE_NAME = 'emp-v104';
+const CACHE_NAME = 'emp-v105';
 const ASSETS = [
     './',
     './index.html',

@@ -918,7 +918,9 @@ window.Stories = (function () {
         if (!batch) { toast('Could not reserve those words.'); return; }
         copyPrompt(batch.stories, o,
             'Reserved ' + batch.plan.taken + ' words in ' + batch.stories.length
-          + ' piece(s) and copied the prompt. Paste it into Claude, then use \u201cPaste back\u201d.');
+          + ' piece(s) and copied the prompt. Paste it into Claude, then come '
+          + 'back and use \u201cPaste back\u201d.');
+        showScreen('library');
         renderAll();
     }
 
@@ -1004,8 +1006,9 @@ window.Stories = (function () {
         const arr = load().sort((a, b) => (Number(a.seq) || 0) - (Number(b.seq) || 0));
 
         if (!arr.length) {
-            box.innerHTML = '<div class="sy-empty">No material yet. Set the two numbers above, '
-                          + 'copy the prompt, and paste the reply back.</div>';
+            box.innerHTML = '<div class="sy-empty">Nothing here yet.<br>'
+                          + '\u201cNew pieces\u201d turns the words in your notebook into '
+                          + 'short readings.</div>';
             return;
         }
 
@@ -1056,10 +1059,41 @@ window.Stories = (function () {
                      + ' \u00b7 <span class="sy-dim">' + esc(state) + '</span>';
     }
 
+    function renderLibHead() {
+        const el = document.getElementById('sy-lib-count');
+        if (!el) return;
+        const all   = load();
+        const ready = all.filter(x => x.status === 'ready');
+        const done  = ready.filter(x => x.done).length;
+        el.innerHTML = all.length
+            ? '<strong>' + ready.length + '</strong> piece'
+              + (ready.length === 1 ? '' : 's') + ' to read'
+              + (done ? ' \u00b7 <span class="sy-dim">' + done + ' done</span>' : '')
+            : '<span class="sy-dim">No material yet</span>';
+    }
+
+    // The loop is: copy a prompt, leave for the AI, come back and paste. That
+    // return trip often happens in a new session, so the way to finish it has
+    // to be on the library screen, not buried in the generator.
+    function renderPending() {
+        const el = document.getElementById('sy-pending');
+        if (!el) return;
+        const n = pendingStories().length;
+        el.classList.toggle('sy-hidden', !n);
+        if (!n) return;
+        el.innerHTML = '<span class="sy-pending-text">' + n + ' piece'
+                     + (n === 1 ? '' : 's') + ' waiting for text</span>'
+                     + '<button class="wl-btn-small" id="sy-pending-copy">Copy prompt</button>'
+                     + '<button class="wl-btn-primary sy-pending-paste" id="sy-pending-paste">'
+                     + '\u{1F4E5} Paste back</button>';
+    }
+
     function renderAll() {
         renderPreview();
         renderList();
         renderAudioLine();
+        renderLibHead();
+        renderPending();
         const btn = document.getElementById('sy-copy-pending');
         if (btn) {
             const n = pendingStories().length;
@@ -1069,6 +1103,23 @@ window.Stories = (function () {
     }
 
     // ─── UI: reader ──────────────────────────────────────────
+
+    // ─── Screens ─────────────────────────────────────────────
+    //
+    // The tab holds three screens and shows one at a time: the library, the
+    // generator, and the reader. The library is what gets opened daily, so it
+    // is the default and carries nothing but the material. Generating is
+    // occasional and cloud setup is a one-time thing, so both sit behind a
+    // button rather than in front of the content.
+    const SCREENS = { library : 'sy-library', gen : 'sy-gen', read : 'sy-read' };
+
+    function showScreen(name) {
+        Object.keys(SCREENS).forEach(k => {
+            document.getElementById(SCREENS[k])?.classList.toggle('sy-hidden', k !== name);
+        });
+        if (name !== 'read') stopPlay();
+        scrollTop();
+    }
 
     function openReader(id) {
         const s = byId(id);
@@ -1116,10 +1167,8 @@ window.Stories = (function () {
               + '<div class="sy-glossary"><h4 class="sy-h4">Target words</h4>' + glossary + '</div>';
         }
 
-        document.getElementById('sy-main')?.classList.add('sy-hidden');
-        document.getElementById('sy-read')?.classList.remove('sy-hidden');
+        showScreen('read');
         applyZhVisibility();
-        scrollTop();
     }
 
     // Prose view. The piece reads as continuous paragraphs, which is what a
@@ -1163,8 +1212,7 @@ window.Stories = (function () {
     function closeReader() {
         stopPlay();
         openId = null;
-        document.getElementById('sy-read')?.classList.add('sy-hidden');
-        document.getElementById('sy-main')?.classList.remove('sy-hidden');
+        showScreen('library');
         renderAll();
     }
 
@@ -1262,6 +1310,18 @@ window.Stories = (function () {
         });
         document.getElementById('sy-qs')?.addEventListener('change', () => saveOpts(readOpts()));
 
+        document.getElementById('sy-new')?.addEventListener('click', () => {
+            showScreen('gen');
+            renderPreview();
+        });
+        document.getElementById('sy-gen-back')?.addEventListener('click', () => {
+            showScreen('library');
+            renderAll();
+        });
+        document.getElementById('sy-pending')?.addEventListener('click', (e) => {
+            if (e.target.closest('#sy-pending-paste')) { openPasteModal(); return; }
+            if (e.target.closest('#sy-pending-copy'))  { handleCopyPending(); }
+        });
         document.getElementById('sy-make')?.addEventListener('click', handleMake);
         document.getElementById('sy-copy-pending')?.addEventListener('click', handleCopyPending);
         document.getElementById('sy-paste')?.addEventListener('click', openPasteModal);
@@ -1356,6 +1416,7 @@ window.Stories = (function () {
         renderSentenceVoice();
         bind();
         renderAll();
+        showScreen('library');
     }
 
     return {

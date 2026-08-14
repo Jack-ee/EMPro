@@ -65,4 +65,4 @@ jobs:
         run: python tools/generate_audio_pack.py --selftest
 
       - name: Split-pack build behaviour
-        run: python test/test_audio_parts_v103.py
+        run: python test/test_audio_parts_v105.py

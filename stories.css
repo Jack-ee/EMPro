@@ -107,6 +107,66 @@
     line-height : 1.5;
 }
 
+/* --- Library screen -------------------------------------- */
+
+.sy-lib-head {
+    display       : flex;
+    align-items   : center;
+    gap           : 10px;
+    margin-bottom : 10px;
+}
+.sy-lib-count {
+    flex        : 1;
+    font-size   : 14px;
+    color       : var(--text-secondary);
+}
+.sy-lib-count strong {
+    font-size : 20px;
+    color     : var(--text-primary);
+}
+
+/* The return leg of the loop: a prompt was copied, the AI answered, and the
+   reply has to come back. That often happens in a later session, so the way
+   to finish sits on the library rather than inside the generator. */
+.sy-pending {
+    display       : flex;
+    align-items   : center;
+    flex-wrap     : wrap;
+    gap           : 8px;
+    padding       : 10px 12px;
+    margin-bottom : 10px;
+    background    : var(--warn-bg);
+    border        : 1px solid var(--warn);
+    border-radius : var(--radius-md);
+}
+.sy-pending-text {
+    flex        : 1;
+    font-size   : 13px;
+    font-weight : 500;
+    color       : var(--warn);
+}
+.sy-pending-paste { padding : 6px 12px; font-size : 13px; }
+
+.sy-screen-back { margin-bottom : 10px; }
+
+/* --- Generator: cloud setup is folded away ---------------- */
+
+.sy-cloud {
+    margin-top : 10px;
+}
+.sy-cloud > summary {
+    cursor         : pointer;
+    font-size      : 12px;
+    font-weight    : 600;
+    text-transform : uppercase;
+    letter-spacing : 0.06em;
+    color          : var(--text-tertiary);
+    padding        : 8px 2px;
+    list-style     : revert;
+}
+.sy-cloud > summary:hover { color : var(--text-secondary); }
+.sy-cloud-body { margin-top : 6px; }
+
 /* --- Material list --------------------------------------- */
 
 .sy-section-title {
@@ -360,6 +420,8 @@
     .sy-para         { font-size : 16px; line-height : 1.75; }
     .sy-gw           { min-width : 76px; }
     .sy-title        { font-size : 14px; }
+    .sy-lib-count strong { font-size : 18px; }
+    .sy-pending      { padding : 8px 10px; }
 }
 
 @media (prefers-reduced-motion : reduce) {

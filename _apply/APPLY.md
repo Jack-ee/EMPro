@@ -1,47 +1,38 @@
-# EMPro v104 — autoplay stopping after the first card
+# EMPro v105 — the Stories tab is a library first
 
-Six files. Extract into `EMPro-main/` with 7-Zip or Expand-Archive, not
+Thirteen files. Extract into `EMPro-main/` with 7-Zip or Expand-Archive, not
 Explorer, so `.github` is not skipped.
 
+Delete the older test generations afterwards — same suites, renamed:
+
+```powershell
+Remove-Item test\test-stories-v103.js, test\test-stories-dom-v103.js,
+            test\test-sync-truncation-v103.js, test\test-pack-parts-v103.js,
+            test\test_audio_parts_v103.py, test\test-speech-chain-v104.js
 ```
-app.js
-sw.js
-index.html
-package.json
-.github/workflows/tests.yml
-test/test-speech-chain-v104.js
-```
 
-## The bug
+## What changed
 
-Autoplay is a chain: a segment advances the session only when its onEnd
-callback fires. `speakNative` could finish without firing anything at all, and
-that does not lose one segment — it silently ends the session. The Chinese
-meaning of a card always goes through this path, which is why playback stopped
-right after the word and its explanation.
+Opening the tab meant meeting six inputs, two checkboxes, four buttons and a
+repo/token form before reaching a single piece of reading. That order was
+backwards: reading happens daily, generating occasionally, cloud setup once.
 
-Three causes, all handled now:
+The tab now holds three screens and shows one at a time.
 
-1. `speak()` was called in the same tick as `cancel()`. The cancel is still
-   settling, the new utterance is dropped, and neither `onend` nor `onerror`
-   ever fires. The speak is deferred by 60 ms, well below anything audible.
-2. The utterance was a local variable. Once `speak()` returned, the page held
-   no reference and Chrome could collect it mid-speech, taking its events with
-   it. A module-level reference now holds it until it finishes.
-3. Chrome stops long utterances at roughly 15 seconds with no event. A
-   `resume()` every 8 seconds keeps them going.
+**Library** is where you land. A header line counts what there is to read, then
+the material. Nothing else. One button, "New pieces", leads to the generator.
 
-A watchdog covers whatever is left: if nothing has fired within the time the
-text could plausibly take, onEnd fires anyway. Chinese is budgeted at about
-three times the per-character time of Latin text, and the budget scales with
-the speech rate. Ending one segment early costs little; ending the session
-costs the feature.
+**Generate** holds the parameters, the preview, and the prompt buttons. The
+cloud build settings — repo, token, sentence voice, publish — are folded into a
+collapsed section inside it, because they are set once and then forgotten.
 
-`stopSpeak` also cancels a deferred speak, so pressing stop inside those 60 ms
-cannot let a segment advance the chain afterwards.
+**Read** is unchanged.
 
-Nothing in the autoplay code itself changed — my-words.js is untouched. This
-was a latent race in the speech layer that a change in timing exposed.
+Paste back appears on the library too, in a banner that shows only while pieces
+are waiting for text. The loop is: copy a prompt, leave for the AI, come back
+and paste — and that return trip usually starts a fresh session, so the way to
+finish it has to be on the first screen rather than two taps inside the
+generator. Reserving a batch now returns to the library for the same reason.
 
 ## Verify and test
 
@@ -58,16 +49,8 @@ Remove-Item -Recurse -Force _apply
 npm.cmd test
 ```
 
-Expect 101 / 9 / 24 / 16 passed and "all DOM checks passed". The new suite
-drives a fake speech engine through every silent-failure mode and asserts that
-onEnd fires exactly once each time — twice would be as damaging as never, since
-it would skip a card.
+Expect 101 / 9 / 24 / 16 passed and "all DOM checks passed" (42 assertions, up
+from 32: the new ones drive the three screens through the real markup).
 
-Reload the app twice for the new service worker, then run autoplay through a
-group of several words.
-
-## If it still stops
-
-Open DevTools while it runs and watch the console. `[speak] no end event within
-budget; advancing anyway` means the watchdog is doing its job and the engine is
-the problem, which is useful to know. Anything else, send me the message.
+Nothing in the audio pipeline changed, so no rebuild is needed. Reload twice for
+the service worker.
