@@ -1,40 +1,69 @@
-# EMPro v105 — the Stories tab is a library first
+# EMPro v106 — the story sentences had no clips yet
 
-Thirteen files. Extract into `EMPro-main/` with 7-Zip or Expand-Archive, not
-Explorer, so `.github` is not skipped.
+Five files. This one is on top of v105; if v105 is not applied yet, apply it
+first.
 
-Delete the older test generations afterwards — same suites, renamed:
-
-```powershell
-Remove-Item test\test-stories-v103.js, test\test-stories-dom-v103.js,
-            test\test-sync-truncation-v103.js, test\test-pack-parts-v103.js,
-            test\test_audio_parts_v103.py, test\test-speech-chain-v104.js
+```
+app.js
+sw.js
+index.html
+tools/generate_audio_pack.py
+test/test_audio_parts_v105.py
 ```
 
-## What changed
+## What actually happened
 
-Opening the tab meant meeting six inputs, two checkboxes, four buttons and a
-repo/token form before reaching a single piece of reading. That order was
-backwards: reading happens daily, generating occasionally, cloud setup once.
+The word list was correct: no range, `sentence_voice: nova`, 561 word blocks
+and 2 story blocks. The lookup was correct too — export, playback and generator
+all normalise text the same way.
 
-The tab now holds three screens and shows one at a time.
+The clips simply did not exist yet.
 
-**Library** is where you land. A header line counts what there is to read, then
-the material. Nothing else. One button, "New pieces", leads to the generator.
+That word list was the first to carry `# sentence_voice:`. Before it, long
+entries used `voices[0]`, which for a full selection is **alloy**. Naming nova
+therefore moved all 1118 long entries in the word blocks to a voice they had
+never been built in: about 134,000 characters, roughly $2, and far more than
+one run's time budget. The build re-synthesised its way through the first part,
+spent the budget, published a partial pack and exited INCOMPLETE — which is the
+checkpoint design working, not a failure. The Actions run for it will be red
+with `time budget` in the log.
 
-**Generate** holds the parameters, the preview, and the prompt buttons. The
-cloud build settings — repo, token, sentence voice, publish — are folded into a
-collapsed section inside it, because they are set once and then forgotten.
+Story blocks are indexed 10001 and up, so their part sorts **last**. It was
+never reached. Their sentences had no clips, so playback fell back to the
+device voice. "Part 1/1" was the first word part, not the story part.
 
-**Read** is unchanged.
+## Two fixes
 
-Paste back appears on the library too, in a banner that shows only while pieces
-are waiting for text. The loop is: copy a prompt, leave for the AI, come back
-and paste — and that return trip usually starts a fresh session, so the way to
-finish it has to be on the first screen rather than two taps inside the
-generator. Reserving a batch now returns to the library for the same reason.
+**The sentence voice now defaults to the first selected voice, not to nova.**
+Pinning should be a no-op at the moment it is first pinned; it exists to stop
+the word-voice selection from dragging sentence audio around later, not to
+move it now. A fixed default did the exact thing the feature was meant to
+prevent.
 
-## Verify and test
+**Brand-new parts are built before parts that only changed.** New material
+sorts last by index, so a run with re-synthesis to do would spend its whole
+budget on old content and never reach what you are waiting to hear.
+
+## What to do
+
+1. Apply these files, reload the app twice.
+2. Stories, New pieces, open "Audio and cloud build", set **Sentence voice** to
+   **alloy**. That matches what your pack already holds, so nothing gets
+   re-synthesised.
+3. Publish the word list again (or export and commit it).
+4. Run the workflow. It now has only the 29 story sentences to synthesise —
+   one short run, a few cents.
+5. Download the pack on the device and play a story sentence.
+
+The nova clips already synthesised stay in the pack as dead weight. They are
+harmless; a build with `prune_voices` ticked reclaims the space whenever you
+feel like it.
+
+If you would rather have nova read the sentences, that is a legitimate choice —
+it just costs the $2 and needs the workflow re-run several times until it stops
+reporting INCOMPLETE. Nothing is paid for twice across those runs.
+
+## Verify
 
 ```powershell
 Get-Content _apply\CHECKSUMS.txt | ForEach-Object {
@@ -45,12 +74,15 @@ Get-Content _apply\CHECKSUMS.txt | ForEach-Object {
     } else { "MISSING  $path" }
 }
 Remove-Item -Recurse -Force _apply
-
-npm.cmd test
 ```
 
-Expect 101 / 9 / 24 / 16 passed and "all DOM checks passed" (42 assertions, up
-from 32: the new ones drive the three screens through the real markup).
+## If a sentence still plays in the device voice
 
-Nothing in the audio pipeline changed, so no rebuild is needed. Reload twice for
-the service worker.
+Open DevTools while it plays. `tts-pack.js` logs every lookup:
+
+```
+[pack] HIT  "she pried the crate open."  — voice alloy (cached: alloy)
+[pack] MISS "she pried the crate open."  — pack has 31234 clip(s) but not this word
+```
+
+A MISS with the exact text is the answer — send me that line.

@@ -928,8 +928,17 @@ def run_build(dry_run=False, limit=0, cli_range=None, prune_voices=False):
         else:
             to_build.append((span, keys))
 
-    print("[plan] %d part(s) unchanged, %d to build"
-          % (len(reused), len(to_build)))
+    # Brand-new parts first, parts that merely changed after. A run that
+    # stops on its time budget then leaves the NEW material finished rather
+    # than untouched: story blocks sort last by index, so under the plain
+    # index order a run that also had to re-synthesise existing entries would
+    # spend its whole budget on them and never reach the new stories - which
+    # are exactly what the user is waiting to hear.
+    to_build.sort(key=lambda t: (part_name(t[0]) in prev_part, t[0]))
+    fresh_n = sum(1 for sp, _ in to_build if part_name(sp) not in prev_part)
+
+    print("[plan] %d part(s) unchanged, %d to build (%d new, %d changed)"
+          % (len(reused), len(to_build), fresh_n, len(to_build) - fresh_n))
     if sel_range:
         print("[range] limited to block %d..%d" % sel_range)
 

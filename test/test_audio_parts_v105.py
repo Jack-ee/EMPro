@@ -265,6 +265,33 @@ eq(names, ["empro-audio-pack.p00001-00003.empack"],
 eq(rel.manifest()["clipCount"], 6, "and the manifest shrinks to match")
 
 # ============================================================
+print("\n7b. New parts are built before parts that only changed")
+rel.reset_counters()
+# Blocks 1-3 already exist. Change one of them AND add a new part's worth of
+# blocks, then cut the budget short: the new part must be the one that got
+# finished, because that is the material the user is waiting for. Under plain
+# index order the changed part sorts first and would eat the whole budget.
+write_list(g, [(1, ["alpha"]), (2, ["bravo AGAIN"]), (3, ["charlie"]),
+               (4, ["delta"]), (5, ["echo"]), (6, ["foxtrot"])])
+g.TIME_BUDGET_MINUTES = 320
+rel.spend_after = 2               # enough for the new part, not for both
+build(g)
+rel.publish(g)
+man7 = rel.manifest()
+p456 = next((p for p in man7["parts"] if p["from"] == 4), None)
+ok(p456 is not None and p456["clipCount"] > 0,
+   "the brand-new part is the one that got worked on")
+ok(all(w in ("delta", "echo", "foxtrot") for w, _ in rel.synth),
+   "every clip the budget paid for belongs to the new part, not to "
+   "re-synthesising the old one")
+ok(not any(w == "bravo again" for w, _ in rel.synth),
+   "the changed part waits its turn")
+g.TIME_BUDGET_MINUTES = 0.0
+rel.spend_after = 0
+rel.reset_counters()
+build(g); rel.publish(g)          # finish the changed part on the next run
+
+# ============================================================
 print("\n8. Migrating from the pre-split pack synthesises nothing")
 work2 = tempfile.mkdtemp()
 g2    = load_gen(work2)

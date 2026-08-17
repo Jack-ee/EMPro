@@ -126,6 +126,22 @@
 //        after an older copy was accidentally republished; cache bumped so
 //        the corrected files refresh cleanly on every device.
 
+// v106 — FIX: pinning the sentence voice re-synthesised a whole pack.
+//   The sentence voice added in v101 defaulted to 'nova'. Every long entry
+//   in an existing pack had been built with voices[0] instead, which for a
+//   full selection is 'alloy' - so the first export carrying the pin moved
+//   1118 long entries to a voice they were not built in. Roughly $2 of
+//   synthesis and several budget-capped runs, to change nothing anyone
+//   asked to change, and the new story part (sorted last by index) never
+//   got built at all: its sentences fell back to the device voice, which
+//   is how this surfaced. The default is now the first SELECTED voice, so
+//   pinning is a no-op at the moment it is first pinned and only takes
+//   effect when deliberately changed.
+//   generator: brand-new parts are built before parts that merely changed.
+//   Story blocks sort last by index, so a run that also had re-synthesis to
+//   do would spend its whole budget on old material and never reach the
+//   material the user is actually waiting to hear.
+//
 // v105 — the Stories tab is a library first, machinery second.
 //   Opening the tab used to mean meeting six inputs, two checkboxes, four
 //   buttons and a repo/token form before reaching a single piece of
@@ -272,7 +288,7 @@
 //     cache whose name was not CACHE_NAME, which wiped VocabPeak's hsv-*
 //     caches on this shared origin. It now only deletes emp- caches.
 
-const CACHE_NAME = 'emp-v105';
+const CACHE_NAME = 'emp-v106';
 const ASSETS = [
     './',
     './index.html',

@@ -640,7 +640,14 @@
         const v = String(window.DB?.getPref?.('pack_sentence_voice', '') || '')
                     .trim().toLowerCase();
         if (PACK_VOICE_LIST.indexOf(v) >= 0) return v;
-        return 'nova';
+        // Unset, fall back to the voice the generator would have used anyway:
+        // the first of the selected voices. Pinning is then a no-op at the
+        // moment it is first pinned, which matters more than it sounds. A
+        // fixed default (this was 'nova') moves every long entry in an
+        // existing pack to a voice it was not built in, and a 560-word pack
+        // has over a thousand of them - a couple of dollars of synthesis and
+        // several runs, to change nothing the listener asked to change.
+        return getPackVoices()[0] || 'nova';
     }
 
     function setPackSentenceVoice(v) {
