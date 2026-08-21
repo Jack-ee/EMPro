@@ -1,11 +1,11 @@
 # EMPro audio pack - word list
-# Exported 2026-08-14 from the app.
+# Exported 2026-08-21 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse
-# sentence_voice: nova   (long entries use this voice only, so changing the voices above never re-synthesises a sentence)
+# sentence_voice: alloy   (long entries use this voice only, so changing the voices above never re-synthesises a sentence)
 # (no range set - building all 10002 words; add e.g.  "# range: 1-50"  to build one batch)
-# 561 word(s), 2 story block(s), 3939 item(s)
+# 573 word(s), 2 story block(s), 4023 item(s)
 
 #@1 wax apple
 wax apple
@@ -4476,8 +4476,104 @@ a table centrepiece
 the centrepiece of the plan
 #@561 platinum
 platinum
+a precious silvery-white metal used in jewellery and industry; used figuratively to describe the highest tier of quality or achievement.
+her second album went platinum within three months of release.
+platinum ring
+platinum card
+go platinum
+platinum blonde
 #@562 candour
 candour
+the quality of being open and honest in speech, especially when the truth is uncomfortable.
+he spoke with unusual candour about the mistakes that led to the layoffs.
+with candour
+refreshing candour
+speak with candour
+brutal candour
+#@563 bespoke
+bespoke
+made to order for a particular customer or purpose rather than produced in a standard form.
+the firm builds bespoke software for hospitals rather than selling one product to everyone.
+bespoke suit
+bespoke software
+bespoke service
+bespoke solution
+#@564 defect
+defect
+a fault or imperfection that stops something from being perfect or working properly; as a verb, to abandon one's country or party for a rival.
+the recall was triggered by a defect in the battery casing.
+a manufacturing defect
+birth defect
+defect rate
+defect to the enemy
+#@565 amber
+amber
+a hard yellow-orange fossilized tree resin used in jewellery; also the golden-orange colour of that material, notably the middle traffic light.
+the traffic light turned amber just as we reached the junction.
+amber light
+amber necklace
+amber warning
+trapped in amber
+#@566 watertight
+watertight
+sealed so tightly that no water can pass through; figuratively, so well constructed that no fault or loophole can be found.
+the prosecution thought it had a watertight case until the new footage appeared.
+watertight seal
+a watertight alibi
+watertight case
+watertight argument
+#@567 fathom
+fathom
+to understand something difficult or puzzling after careful thought; as a noun, a unit of water depth equal to six feet.
+i still can't fathom why she turned down the offer.
+can't fathom
+fathom out
+hard to fathom
+fathom why
+#@568 withhold
+withhold
+to refuse to give something that is due, wanted, or expected, or to deliberately keep information back.
+the company was fined for withholding key safety data from regulators.
+withhold information
+withhold payment
+withhold consent
+withhold judgement
+#@569 tabulate
+tabulate
+to arrange facts, figures, or results in the form of a table so they can be compared systematically.
+we tabulated the survey responses by age group before running any statistics.
+tabulate the results
+tabulate data
+tabulate responses
+neatly tabulated
+#@570 substance
+substance
+a particular kind of material with definite properties; also the essential meaning or real content of something as opposed to its appearance.
+the speech was polished but lacked substance, offering no concrete proposals.
+chemical substance
+substance abuse
+in substance
+lack substance
+#@571 replication
+replication
+the act of repeating a study or experiment to check whether the same results occur; more broadly, the process of making an exact copy.
+the finding held up under independent replication by two other labs.
+replication study
+replication crisis
+dna replication
+independent replication
+#@572 mull
+mull
+to think about something carefully and at length before deciding, usually used with "over."
+she's still mulling over whether to take the job in shenzhen.
+mull over
+mull it over
+mull the idea
+still mulling
+#@573 honing
+honing
+#@574 tenure
+tenure
 #@10001 story 1: Nuance on a Fruit Plate
 mei brought wax apples, hoping their crisp sweetness would soften whatever came next.
 her supervisor peeled a longkong fruit, its translucent flesh slipping free, and studied her figures.
