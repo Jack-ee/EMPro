@@ -171,9 +171,12 @@ async function handleMediaRequest(request, origin) {
             status: 400, headers: corsHeaders(origin),
         });
     }
-    const fwd   = {};
+    // Headers instance rather than a plain object: the dashboard
+    // editor's type checker rejects dynamically-built object literals
+    // as HeadersInit, and an error there greys out the Deploy button.
+    const fwd   = new Headers();
     const range = request.headers.get('Range');
-    if (range) fwd['Range'] = range;
+    if (range) fwd.set('Range', range);
     let upstream;
     try {
         upstream = await fetch(target, { redirect: 'follow', headers: fwd });
