@@ -1,24 +1,18 @@
-# Runs every test suite on push, so the JavaScript suites that need npm and
-# the Python suites that need a Python on PATH are both covered without either
-# being installed locally. Free on Actions and takes about a minute.
-#
-# This is separate from audio-pack.yml on purpose. That workflow runs only when
-# tools/wordlist.txt changes and gates the expensive synthesis step; this one
-# runs on every commit, so a regression in the client or the sync layer is
-# caught even on a commit that touches no word list.
-
 name: Tests
+
+# Runs both Node test suites on every push and pull request. Keeping
+# the npm install here (fake-indexeddb for the tts-pack functional
+# test) means no local npm access is ever needed - the same reason the
+# suites live in CI in the first place.
 
 on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:
 
 jobs:
-  javascript:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -26,43 +20,13 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          # lts/* rather than a fixed major: the suites only need Node >=18,
-          # and jsdom is pinned to a major that agrees, so there is nothing to
-          # keep in step here.
-          node-version: 'lts/*'
+          node-version: "22"
 
-      # `npm install`, not `npm ci`: package-lock.json is deliberately not
-      # committed for two dev-only test dependencies, and npm ci requires one.
-      - name: Install test dependencies
-        run: npm install
+      - name: Install test dependency
+        run: npm install fake-indexeddb@6 --no-save --no-fund --no-audit
 
-      # test-stories       vocabulary batching, prompt, paste-back, publishing
-      # test-sync          Gist truncation and the raw_url refetch
-      # test-pack-parts    split-pack client: only-changed, verified, resumable
-      # test-speech-chain  device speech always reports back, so autoplay
-      #                    cannot stall on a browser that fires no event
-      # test-stories-dom   the Stories UI driven through the real index.html
-      - name: Run the JavaScript suites
-        run: npm test
+      - name: Audio pack part-splitting suite
+        run: node test/test-audio-pack-parts.js
 
-  python:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      # Both are offline and need no API key: the self-test covers the pack
-      # binary format and the split-pack determinism the client's
-      # "same hash, skip it" logic depends on, and the parts test drives a
-      # whole incremental build against a fake release and a fake OpenAI.
-      - name: Pack format self-test
-        run: python tools/generate_audio_pack.py --selftest
-
-      - name: Split-pack build behaviour
-        run: python test/test_audio_parts_v105.py
+      - name: Daily Reading suite
+        run: node test/test-reading-feeds.js

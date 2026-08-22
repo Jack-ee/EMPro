@@ -102,121 +102,38 @@
     //   the available voices list; on Android where getVoices()==[], we
     //   still set utterance.lang so the system default TTS picks the
     //   right engine.
-    // --- Device speech (Web Speech API) ------------------------------
-    //
-    // Autoplay is a chain: each segment advances only when its onEnd fires.
-    // So a device-speech path that can finish WITHOUT firing anything does
-    // not merely lose one segment, it silently ends the session. This engine
-    // has three well-known ways of doing exactly that, and all three are
-    // handled below:
-    //
-    //   1. speak() issued in the same tick as cancel(). The cancel is still
-    //      settling, the new utterance is dropped, and neither onend nor
-    //      onerror ever fires. Deferring the speak by a tick avoids the race.
-    //   2. The utterance object being garbage collected mid-speech. Once
-    //      speak() returns, a local variable is the only reference the page
-    //      holds; Chrome has long collected these and the events die with
-    //      them. A module-level reference keeps it alive.
-    //   3. Chrome stopping long utterances at roughly 15 seconds with no
-    //      event at all. A periodic resume() keeps it going.
-    //
-    // A watchdog covers whatever is left: if nothing has fired by the time
-    // the text could plausibly have been read, onEnd is called anyway. Ending
-    // a segment early is a small cost; ending the session is not.
-    let _nativeUtter = null;    // keeps the utterance from being collected
-    let _nativeGuard = null;    // watchdog timer
-    let _nativeTick  = null;    // resume() ticker for the 15-second cap
-    let _nativeStart = null;    // pending deferred speak
-    let _nativeToken = 0;       // invalidates a deferred speak after a stop
-
-    function clearNativeTimers() {
-        if (_nativeGuard) { clearTimeout(_nativeGuard);  _nativeGuard = null; }
-        if (_nativeTick)  { clearInterval(_nativeTick);  _nativeTick  = null; }
-        if (_nativeStart) { clearTimeout(_nativeStart);  _nativeStart = null; }
-    }
-
-    // How long the text could plausibly take to read, generously. Chinese
-    // characters carry far more sound per character than Latin letters, so
-    // the two are budgeted differently.
-    function speechBudgetMs(text, rate) {
-        const t   = String(text || '');
-        const r   = Number(rate) || 1;
-        const zh  = (t.match(/[\u4e00-\u9fff]/g) || []).length;
-        const per = zh > t.length / 3 ? 380 : 120;
-        return Math.min(120000, 4000 + (t.length * per) / Math.max(0.5, r));
-    }
-
     function speakNative(text, rate, onEnd, opts) {
-        let done = false;
-        const finish = () => {
-            if (done) return;
-            done = true;
-            clearNativeTimers();
-            _nativeUtter = null;
+        if (!text || !('speechSynthesis' in window)) {
             if (typeof onEnd === 'function') onEnd();
-        };
-
-        if (!text || !('speechSynthesis' in window)) { finish(); return; }
-
+            return;
+        }
         const wantLang = (opts && opts.lang) || '';
-        const effRate  = Number(rate)
-                       || parseFloat(window.DB?.getPref?.('speech_speed', '0.9')) || 0.9;
-        const myToken  = ++_nativeToken;
-
         try {
-            clearNativeTimers();
             window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(String(text));
 
-            // (1) The deferral. 60 ms is far below anything audible and well
-            // clear of the race.
-            _nativeStart = setTimeout(() => {
-                _nativeStart = null;
-                if (myToken !== _nativeToken) return;   // stopped meanwhile
-                try {
-                    const u = new SpeechSynthesisUtterance(String(text));
+            // Voice / lang selection
+            if (wantLang) {
+                // Caller specified a language — find a voice matching it
+                const voices = refreshVoices();
+                const match  = voices.find(v => (v.lang || '').toLowerCase().startsWith(wantLang.toLowerCase().split('-')[0]));
+                if (match) u.voice = match;
+                u.lang = wantLang;
+            } else {
+                const v = resolveVoice();
+                if (v) u.voice = v;
+                u.lang = (v && v.lang) || 'en-US';
+            }
 
-                    if (wantLang) {
-                        const voices = refreshVoices();
-                        const match  = voices.find(v => (v.lang || '').toLowerCase()
-                                          .startsWith(wantLang.toLowerCase().split('-')[0]));
-                        if (match) u.voice = match;
-                        u.lang = wantLang;
-                    } else {
-                        const v = resolveVoice();
-                        if (v) u.voice = v;
-                        u.lang = (v && v.lang) || 'en-US';
-                    }
-
-                    u.rate    = effRate;
-                    u.pitch   = 1.05;   // a slight lift keeps flat voices from sounding dead
-                    u.volume  = 1;
-                    u.onend   = finish;
-                    u.onerror = finish;
-
-                    _nativeUtter = u;                  // (2) hold a reference
-                    window.speechSynthesis.speak(u);
-
-                    // (3) keep long utterances alive
-                    _nativeTick = setInterval(() => {
-                        try {
-                            if (window.speechSynthesis.speaking) window.speechSynthesis.resume();
-                            else clearInterval(_nativeTick);
-                        } catch (e) {}
-                    }, 8000);
-
-                    // Watchdog: the chain must never be able to stall here.
-                    _nativeGuard = setTimeout(() => {
-                        console.warn('[speak] no end event within budget; advancing anyway');
-                        finish();
-                    }, speechBudgetMs(text, effRate));
-                } catch (e) {
-                    console.warn('[speak] failed:', e);
-                    finish();
-                }
-            }, 60);
+            u.rate    = Number(rate) || parseFloat(window.DB?.getPref?.('speech_speed', '0.9')) || 0.9;
+            u.pitch   = 1.05;   // slight lift helps voices like Google US English sound less flat
+            u.volume  = 1;
+            u.onend   = () => { if (typeof onEnd === 'function') onEnd(); };
+            u.onerror = () => { if (typeof onEnd === 'function') onEnd(); };
+            window.speechSynthesis.speak(u);
         } catch (e) {
             console.warn('[speak] failed:', e);
-            finish();
+            if (typeof onEnd === 'function') onEnd();
         }
     }
 
@@ -629,34 +546,6 @@
         return chosen.length ? chosen : PACK_VOICE_DEFAULT.slice();
     }
 
-    // v101: which voice reads the long entries (example sentences,
-    // definitions, story sentences). Without this the generator falls back
-    // to the FIRST of the selected word voices, which is alphabetical - so
-    // un-ticking whichever voice sorts first moves every sentence to the
-    // next voice and re-synthesises thousands of clips at full price, while
-    // the old ones stay in the pack forever. Pinning it here breaks that
-    // link: word voices can change freely and no sentence is touched.
-    function getPackSentenceVoice() {
-        const v = String(window.DB?.getPref?.('pack_sentence_voice', '') || '')
-                    .trim().toLowerCase();
-        if (PACK_VOICE_LIST.indexOf(v) >= 0) return v;
-        // Unset, fall back to the voice the generator would have used anyway:
-        // the first of the selected voices. Pinning is then a no-op at the
-        // moment it is first pinned, which matters more than it sounds. A
-        // fixed default (this was 'nova') moves every long entry in an
-        // existing pack to a voice it was not built in, and a 560-word pack
-        // has over a thousand of them - a couple of dollars of synthesis and
-        // several runs, to change nothing the listener asked to change.
-        return getPackVoices()[0] || 'nova';
-    }
-
-    function setPackSentenceVoice(v) {
-        const clean = String(v || '').trim().toLowerCase();
-        if (PACK_VOICE_LIST.indexOf(clean) < 0) return getPackSentenceVoice();
-        window.DB?.setPref?.('pack_sentence_voice', clean);
-        return clean;
-    }
-
     function setPackVoices(voices) {
         const set    = new Set((voices || []).map(v => String(v).toLowerCase()));
         const chosen = PACK_VOICE_LIST.filter(v => set.has(v));
@@ -792,30 +681,6 @@
                 });
             }
           });
-
-        // v99: reading-material blocks (see stories.js). A story's block
-        // index is offset by Stories.PACK_BASE (10000), so it can never
-        // collide with a word's packIndex and "# range: 10001-10999"
-        // builds story audio alone. Sentences already in the list — a
-        // word's example that a story reuses — are dropped by the shared
-        // `seen` set, and the pack key is the text itself, so playback
-        // still finds the clip.
-        (window.Stories?.speechBlocks?.() || []).forEach(b => {
-            const entries = [];
-            (b.entries || []).forEach(s => {
-                const n = _normSpeak(s);
-                if (!n || /[\u4e00-\u9fff]/.test(n) || seen.has(n)) return;
-                seen.add(n);
-                entries.push(n);
-            });
-            if (entries.length) {
-                blocks.push({
-                    index   : Number(b.index) || 0,
-                    word    : String(b.word || 'story'),
-                    entries : entries
-                });
-            }
-        });
         return blocks;
     }
 
@@ -837,8 +702,6 @@
             add(it.context);
             (it.collo || '').split(/\s*·\s*/).forEach(add);
         });
-        // v99: story sentences count toward coverage too.
-        (window.Stories?.speechList?.() || []).forEach(add);
         return out;
     }
 
@@ -861,13 +724,9 @@
     // A \"# range:\" header (set in Settings) tells the build to do only
     // one batch of word indices, e.g. 1-50, so a large pack can be built
     // across several runs.
-    // v100: the text half of exportWordList, so the Stories module can
-    // commit the very same bytes straight to the repo instead of routing a
-    // download through the file system. Returns '' when there is nothing
-    // to write.
-    function buildWordListText() {
+    function exportWordList() {
         const blocks = notebookSpeechBlocks();
-        if (!blocks.length) return '';
+        if (!blocks.length) { showToast('No words to export.'); return; }
 
         const itemCount = blocks.reduce((n, b) => n + b.entries.length, 0);
         const idxMax    = blocks.reduce((m, b) => Math.max(m, b.index), 0);
@@ -878,10 +737,7 @@
             '# Exported ' + new Date().toISOString().slice(0, 10) + ' from the app.',
             '# Replace tools/wordlist.txt with this file, then commit it.',
             '# Each block is tagged  #@<index> <word>  with a stable index.',
-            '# voices: ' + getPackVoices().join(', '),
-            '# sentence_voice: ' + getPackSentenceVoice()
-                + '   (long entries use this voice only, so changing the '
-                + 'voices above never re-synthesises a sentence)'
+            '# voices: ' + getPackVoices().join(', ')
         ];
         if (range) {
             header.push('# range: ' + range
@@ -890,12 +746,7 @@
             header.push('# (no range set - building all ' + idxMax + ' words; '
                         + 'add e.g.  "# range: 1-50"  to build one batch)');
         }
-        // v99: story blocks sit above PACK_BASE, so they are counted apart
-        // from the vocabulary in the header line.
-        const packBase = (window.Stories && window.Stories.PACK_BASE) || 10000;
-        const stCount  = blocks.filter(b => b.index >= packBase).length;
-        header.push('# ' + (blocks.length - stCount) + ' word(s), '
-                    + stCount + ' story block(s), ' + itemCount + ' item(s)');
+        header.push('# ' + blocks.length + ' word(s), ' + itemCount + ' item(s)');
         header.push('');
 
         const lines = [];
@@ -904,18 +755,8 @@
             b.entries.forEach(e => lines.push(e));
         });
 
-        return header.concat(lines).join('\n') + '\n';
-    }
-
-    function exportWordList() {
-        const text = buildWordListText();
-        if (!text) { showToast('No words to export.'); return; }
-
-        const blocks    = notebookSpeechBlocks();
-        const itemCount = blocks.reduce((n, b) => n + b.entries.length, 0);
-        const range     = getPackRange();
-
-        const blob = new Blob([text], { type: 'text/plain' });
+        const blob = new Blob([header.concat(lines).join('\n') + '\n'],
+                              { type: 'text/plain' });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
         a.href     = url;
@@ -930,11 +771,6 @@
     }
 
     function stopSpeak() {
-        // Bump the token first: a deferred speak still waiting on its timer
-        // must not fire after a stop.
-        _nativeToken++;
-        try { clearNativeTimers(); } catch {}
-        _nativeUtter = null;
         try { window.speechSynthesis?.cancel?.(); } catch {}
         try { if (_neuralAbort) { _neuralAbort.abort(); _neuralAbort = null; } } catch {}
         try {
@@ -1558,7 +1394,7 @@
 
     // ─── Tab navigation ─────────────────────────────────────
     // Tab IDs in markup: my-words | speaking-coach | vocab-drill |
-    // writing-lab | reader | stories. Each maps to #view-<id>.
+    // writing-lab | reader. Each maps to #view-<id>.
     function bindTabs() {
         const tabs   = document.querySelectorAll('.nav-tab[data-nav]');
         const views  = document.querySelectorAll('.app-view');
@@ -1590,7 +1426,6 @@
             stopSpeak();
             window.MyWords?.stopAutoplay?.();
             window.SentenceDrill?.stopListen?.();
-            window.Stories?.stopPlay?.();
         }));
     }
 
@@ -1806,17 +1641,7 @@
         endSession,
         isStudySessionActive,
         // v75: shared swipe-to-navigate helper for card-based UIs
-        bindSwipe,
-        // v99: the Stories module exports the same word list and presets
-        // the build range to its own block indices.
-        exportWordList,
-        buildWordListText,
-        getPackRange,
-        setPackRange,
-        // v101: the sentence voice is chosen in the Stories panel
-        packVoiceList : PACK_VOICE_LIST.slice(),
-        getPackSentenceVoice,
-        setPackSentenceVoice
+        bindSwipe
     };
 
     // ─── Profile name ───────────────────────────────────────
@@ -1901,7 +1726,7 @@
             safeCall('WritingLab',      () => window.WritingLab?.init?.());
             safeCall('VocabDrill',      () => window.VocabDrill?.init?.());
             safeCall('Reader',          () => window.Reader?.init?.());
-            safeCall('Stories',         () => window.Stories?.init?.());
+            safeCall('ReadingFeeds',    () => window.ReadingFeeds?.init?.());
             safeCall('SpeakingCoach',   () => window.SpeakingCoach?.init?.());
             safeCall('ExpressionCoach', () => {
                 const el = document.getElementById('sc-panel-drill');

@@ -9,18 +9,29 @@
  *      so a browser page cannot call it. The Worker forwards the
  *      request and adds the missing CORS header.
  *
- *   2. Audio pack proxy (GET). The pronunciation pack is a GitHub
- *      Release asset. Release asset downloads 302-redirect to a CDN
- *      blob that sends no CORS header, so a browser fetch is blocked.
- *      The Worker fetches the asset server-side - where CORS does not
- *      apply - and relays it with the header added.
+ *   2. Audio pack proxy (GET ?asset=). The pronunciation pack is a
+ *      GitHub Release asset. Release asset downloads 302-redirect to a
+ *      CDN blob that sends no CORS header, so a browser fetch is
+ *      blocked. The Worker fetches the asset server-side - where CORS
+ *      does not apply - and relays it with the header added.
+ *
+ *   3. Reading feeds (GET ?fetch= / ?media= / ?guardian=). The Daily
+ *      Reading module pulls VOA RSS feeds and Guardian articles, none
+ *      of which are directly reachable from the app (CORS and, for
+ *      some networks, plain reachability). ?fetch relays an RSS feed
+ *      or article page from a whitelisted host; ?media relays audio
+ *      with Range passthrough so the player can seek; ?guardian calls
+ *      the Guardian content API, attaching the API key held in the
+ *      Worker environment.
  *
  * Security
- *   This Worker holds NO secret. For TTS the browser sends its own
- *   OpenAI key and the Worker only forwards it. The pack route can
- *   only reach a fixed repository and a whitelisted set of asset
- *   names, so it cannot be used as an open proxy. Both routes are
- *   restricted by Origin.
+ *   The only secret this Worker can hold is GUARDIAN_API_KEY, set as
+ *   an environment variable (Settings -> Variables and Secrets) and
+ *   never sent to the browser. For TTS the browser sends its own
+ *   OpenAI key and the Worker only forwards it. Every GET route is
+ *   limited to fixed hosts or a fixed repository plus whitelisted
+ *   asset names, so the Worker cannot be used as an open proxy. All
+ *   routes are restricted by Origin.
  *
  * Deploy (paste this whole file into the Worker, then Deploy)
  *   Dashboard -> Workers & Pages -> your Worker -> Edit code ->
@@ -29,12 +40,6 @@
  *   the same URL also serves the audio pack.
  *
  * If the audio pack lives in a different repo, edit PACK_REPO below.
- *
- * Split packs
- *   The pack is published as several part assets plus a small manifest.
- *   PACK_ASSET_RE already covers the part names. What matters here is
- *   the cache policy: the manifest must be no-store, while a part
- *   requested with its ?v=<sha256> is immutable. See handlePackRequest.
  * ============================================================
  */
 
@@ -52,13 +57,28 @@ const PACK_REPO     = 'Jack-ee/EMPro';
 const PACK_TAG      = 'audio-pack';
 const PACK_ASSET_RE = /^empro-audio-pack[A-Za-z0-9._-]*$/;
 
+// Reading feeds: only these hosts may be relayed. Covers the VOA main
+// site and Learning English (feeds + article pages) and their audio
+// CDN. Add a host here before adding a source that lives elsewhere.
+const FEED_HOSTS = [
+    'www.voanews.com',
+    'voanews.com',
+    'learningenglish.voanews.com',
+];
+const MEDIA_HOSTS = [
+    'av.voanews.com',
+    'www.voanews.com',
+    'learningenglish.voanews.com',
+];
+const GUARDIAN_API = 'https://content.guardianapis.com/';
+
 function corsHeaders(origin) {
     const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
     return {
         'Access-Control-Allow-Origin'  : allow,
         'Access-Control-Allow-Methods' : 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers' : 'Content-Type, Authorization',
-        'Access-Control-Expose-Headers': 'Content-Length',
+        'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
         'Access-Control-Max-Age'       : '86400',
         'Vary'                         : 'Origin',
     };
@@ -102,28 +122,113 @@ async function handlePackRequest(request, origin) {
     const cl = upstream.headers.get('Content-Length');
     if (ct) headers['Content-Type']   = ct;
     if (cl) headers['Content-Length'] = cl;
-
-    // Caching, by asset kind:
-    //
-    //   manifest (.json)  no-store. The manifest is how the app decides
-    //     whether anything changed, so serving a cached copy makes it decide
-    //     "up to date" when it is not. That failure is silent and lasts until
-    //     the next build, which is the worst shape a bug can have here.
-    //
-    //   part (?v=<sha>)   cache hard. The URL carries the part's own sha256,
-    //     so an address maps to exactly one set of bytes forever. A changed
-    //     part arrives under a new address and can never be served stale.
-    //
-    //   anything else     short, conservative window.
-    const url = new URL(request.url);
-    if (/\.json$/i.test(asset)) {
-        headers['Cache-Control'] = 'no-store';
-    } else if (url.searchParams.get('v')) {
-        headers['Cache-Control'] = 'public, max-age=31536000, immutable';
-    } else {
-        headers['Cache-Control'] = 'public, max-age=300';
-    }
+    // The manifest must never be served stale - it is the app's only
+    // signal that a new build exists - while the immutable, sha256-named
+    // part content can be cached briefly without harm.
+    headers['Cache-Control'] = asset.endsWith('.json')
+        ? 'no-store'
+        : 'public, max-age=300';
     return new Response(upstream.body, { status: 200, headers });
+}
+
+// --- Reading feed routes (GET) ------------------------------------
+// ?fetch=<url>    relay an RSS feed or article page (whitelisted hosts)
+// ?media=<url>    relay audio with Range passthrough for seeking
+// ?guardian=<pq>  call the Guardian content API with the env-held key
+
+function hostAllowed(url, hosts) {
+    try { return hosts.includes(new URL(url).hostname); }
+    catch { return false; }
+}
+
+async function handleFeedRequest(request, origin) {
+    const target = new URL(request.url).searchParams.get('fetch') || '';
+    if (!hostAllowed(target, FEED_HOSTS)) {
+        return new Response('Host not allowed for ?fetch', {
+            status: 400, headers: corsHeaders(origin),
+        });
+    }
+    let upstream;
+    try {
+        upstream = await fetch(target, { redirect: 'follow' });
+    } catch (e) {
+        return new Response('Feed fetch failed: ' + e, {
+            status: 502, headers: corsHeaders(origin),
+        });
+    }
+    const headers = corsHeaders(origin);
+    const ct = upstream.headers.get('Content-Type');
+    if (ct) headers['Content-Type'] = ct;
+    // Lists must be fresh; article pages change too. Never cache.
+    headers['Cache-Control'] = 'no-store';
+    return new Response(upstream.body, { status: upstream.status, headers });
+}
+
+async function handleMediaRequest(request, origin) {
+    const target = new URL(request.url).searchParams.get('media') || '';
+    if (!hostAllowed(target, MEDIA_HOSTS)) {
+        return new Response('Host not allowed for ?media', {
+            status: 400, headers: corsHeaders(origin),
+        });
+    }
+    const fwd   = {};
+    const range = request.headers.get('Range');
+    if (range) fwd['Range'] = range;
+    let upstream;
+    try {
+        upstream = await fetch(target, { redirect: 'follow', headers: fwd });
+    } catch (e) {
+        return new Response('Media fetch failed: ' + e, {
+            status: 502, headers: corsHeaders(origin),
+        });
+    }
+    const headers = corsHeaders(origin);
+    for (const h of ['Content-Type', 'Content-Length',
+                     'Content-Range', 'Accept-Ranges']) {
+        const v = upstream.headers.get(h);
+        if (v) headers[h] = v;
+    }
+    // Published clips never change; a day of edge/browser cache saves
+    // repeat downloads without staleness risk.
+    headers['Cache-Control'] = 'public, max-age=86400';
+    return new Response(upstream.body, { status: upstream.status, headers });
+}
+
+async function handleGuardianRequest(request, origin, env) {
+    const key = (env && env.GUARDIAN_API_KEY) || '';
+    if (!key) {
+        return new Response('GUARDIAN_API_KEY is not set on the Worker. ' +
+            'Add it under Settings -> Variables and Secrets, then redeploy.', {
+            status: 500, headers: corsHeaders(origin),
+        });
+    }
+    // pq is a path plus query, e.g. "search?section=world&page-size=20"
+    // or an article id like "world/2026/aug/20/some-slug?show-fields=bodyText".
+    const pq = new URL(request.url).searchParams.get('guardian') || '';
+    if (!pq || pq.includes('..') || pq.startsWith('/') || pq.includes('api-key')) {
+        return new Response('Bad ?guardian request', {
+            status: 400, headers: corsHeaders(origin),
+        });
+    }
+    const target = GUARDIAN_API + pq + (pq.includes('?') ? '&' : '?') +
+                   'api-key=' + encodeURIComponent(key);
+    if (!target.startsWith(GUARDIAN_API)) {
+        return new Response('Bad ?guardian request', {
+            status: 400, headers: corsHeaders(origin),
+        });
+    }
+    let upstream;
+    try {
+        upstream = await fetch(target, { redirect: 'follow' });
+    } catch (e) {
+        return new Response('Guardian fetch failed: ' + e, {
+            status: 502, headers: corsHeaders(origin),
+        });
+    }
+    const headers = corsHeaders(origin);
+    headers['Content-Type']  = 'application/json; charset=utf-8';
+    headers['Cache-Control'] = 'no-store';
+    return new Response(upstream.body, { status: upstream.status, headers });
 }
 
 // --- Neural TTS route (POST) --------------------------------------
@@ -151,7 +256,7 @@ async function handleTtsRequest(request, origin) {
 }
 
 export default {
-    async fetch(request) {
+    async fetch(request, env) {
         const origin = request.headers.get('Origin') || '';
 
         // CORS preflight - sent before a POST because it carries an
@@ -168,7 +273,13 @@ export default {
             });
         }
 
-        if (request.method === 'GET')  return handlePackRequest(request, origin);
+        if (request.method === 'GET') {
+            const q = new URL(request.url).searchParams;
+            if (q.has('fetch'))    return handleFeedRequest(request, origin);
+            if (q.has('media'))    return handleMediaRequest(request, origin);
+            if (q.has('guardian')) return handleGuardianRequest(request, origin, env);
+            return handlePackRequest(request, origin);
+        }
         if (request.method === 'POST') return handleTtsRequest(request, origin);
 
         return new Response('Method not allowed', {

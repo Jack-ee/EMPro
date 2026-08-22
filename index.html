@@ -20,11 +20,10 @@
          In VS Code: Ctrl+H, find "?v=N" with the current N, replace
          with "?v=N+1" across this file. Then bump CACHE_NAME in
          sw.js to match (e.g. 'emp-vN+1').
-         Current version: v=106
+         Current version: v=96
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=106">
-    <link rel="stylesheet" href="expressions-coach.css?v=106">
-    <link rel="stylesheet" href="stories.css?v=106">
+    <link rel="stylesheet" href="style.css?v=100">
+    <link rel="stylesheet" href="expressions-coach.css?v=100">
 </head>
 <body>
 
@@ -54,7 +53,6 @@
         <button class="nav-tab" data-nav="vocab-drill"><span class="nav-icon">&#x1F3AF;</span><span class="nav-label">Drill</span></button>
         <button class="nav-tab" data-nav="writing-lab"><span class="nav-icon">&#x270D;&#xFE0F;</span><span class="nav-label">Writing</span></button>
         <button class="nav-tab" data-nav="reader"><span class="nav-icon">&#x1F4DA;</span><span class="nav-label">Reader</span></button>
-        <button class="nav-tab" data-nav="stories"><span class="nav-icon">&#x1F4DD;</span><span class="nav-label">Stories</span></button>
     </nav>
 
     <!-- ===== MY WORDS (primary) ===== -->
@@ -166,6 +164,11 @@
     <!-- ===== READER ===== -->
     <div class="app-view" id="view-reader">
         <div class="rd-container">
+            <div class="rd-subnav">
+                <button class="rd-subtab active" data-rdsub="paste">&#x1F50D; Extract</button>
+                <button class="rd-subtab" data-rdsub="feeds">&#x1F4F0; Daily Reading</button>
+            </div>
+            <div id="rd-panel-paste">
             <div class="rd-controls"><div class="rd-control-row">
                 <label class="rd-label">Level <select id="rd-level" class="rd-select"><option value="advanced" selected>Advanced</option><option value="intermediate">Intermediate</option><option value="academic">Academic</option></select></label>
                 <label class="rd-label">Focus <select id="rd-focus" class="rd-select"><option value="all" selected>All</option><option value="academic">Academic</option><option value="idioms">Idioms</option><option value="technical">Technical</option></select></label>
@@ -181,108 +184,42 @@
                 </div>
             </div>
             <div class="rd-results" id="rd-results"></div>
-        </div>
-    </div>
+            </div>
 
-    <!-- ===== STORIES (reading material from the word bank) ===== -->
-    <!-- Three screens, one at a time. The library is what gets opened daily,
-         so it comes first and holds nothing but the material; generating is
-         occasional and cloud setup is once, so both live behind a button. -->
-    <div class="app-view" id="view-stories">
-        <div class="sy-container">
-
-            <!-- Screen 1: the library -->
-            <div id="sy-library">
-                <div class="sy-lib-head">
-                    <div class="sy-lib-count" id="sy-lib-count"></div>
-                    <button class="wl-btn-primary" id="sy-new">&#x2795; New pieces</button>
+            <div id="rd-panel-feeds" style="display:none">
+                <div class="rf-toolbar">
+                    <select id="rf-source" class="rd-select"></select>
+                    <button class="wl-btn-secondary" id="rf-refresh">&#x21BB; Refresh</button>
+                    <button class="wl-btn-secondary" id="rf-downloaded">&#x1F4E5; Downloaded</button>
+                    <button class="wl-btn-secondary" id="rf-sources-edit" title="Edit sources">&#x2699;&#xFE0F;</button>
                 </div>
-                <div class="sy-pending sy-hidden" id="sy-pending"></div>
-                <div id="sy-list"></div>
-            </div>
-
-            <!-- Screen 2: generating -->
-            <div id="sy-gen" class="sy-hidden">
-                <button class="wl-btn-small sy-screen-back" id="sy-gen-back">&#x2190; My material</button>
-
-                <div class="sy-panel">
-                    <div class="sy-row">
-                        <label class="sy-field"><span class="sy-label">Words this run</span>
-                            <input type="number" id="sy-count" class="sy-input sy-num" min="1" step="10" value="100"></label>
-                        <label class="sy-field"><span class="sy-label">Words per piece</span>
-                            <input type="number" id="sy-group" class="sy-input sy-num" min="1" step="1" value="20"></label>
-                        <label class="sy-field"><span class="sy-label">Form</span>
-                            <select id="sy-type" class="sy-select">
-                                <option value="story" selected>Story</option>
-                                <option value="paragraph">Paragraph</option>
-                                <option value="dialogue">Dialogue</option>
-                                <option value="news">News brief</option>
-                            </select></label>
-                        <label class="sy-field"><span class="sy-label">Level</span>
-                            <select id="sy-level" class="sy-select">
-                                <option value="B2">B2</option>
-                                <option value="C1" selected>C1</option>
-                                <option value="C2">C2</option>
-                            </select></label>
-                        <label class="sy-field"><span class="sy-label">Length (words)</span>
-                            <input type="number" id="sy-len" class="sy-input sy-num" min="60" max="900" step="20" value="360"></label>
-                        <label class="sy-field sy-topic"><span class="sy-label">Topic (optional)</span>
-                            <input type="text" id="sy-topic" class="sy-input" placeholder="remote sensing, campus life..."></label>
-                    </div>
-                    <div class="sy-row" style="margin-top:8px">
-                        <label class="sy-check"><input type="checkbox" id="sy-skip" checked> Skip words already used</label>
-                        <label class="sy-check"><input type="checkbox" id="sy-qs"> Ask for 2 comprehension questions</label>
-                    </div>
-
-                    <div class="sy-preview" id="sy-preview"></div>
-
-                    <div class="sy-actions">
-                        <button class="wl-btn-primary" id="sy-make">&#x1F4CB; Copy prompt &amp; reserve words</button>
-                        <button class="wl-btn-secondary" id="sy-paste">&#x1F4E5; Paste back</button>
-                        <button class="wl-btn-secondary" id="sy-copy-pending" style="display:none">Copy prompt for waiting</button>
-                        <a class="wl-btn-secondary" href="https://claude.ai/new" target="_blank" rel="noopener" style="text-decoration:none">Open Claude &#x2197;</a>
-                    </div>
+                <div id="rf-sources-editor" hidden>
+                    <p class="settings-hint">One source per line: <code>Name | RSS URL</code> or <code>Name | guardian:section=world</code>. Learning English feeds: copy any RSS link from learningenglish.voanews.com/rssfeeds.</p>
+                    <textarea id="rf-sources-text" rows="7" spellcheck="false"></textarea>
+                    <button class="wl-btn-primary" id="rf-sources-save">Save sources</button>
                 </div>
-
-                <!-- Set once and then forgotten, so it stays folded away. -->
-                <details class="sy-cloud">
-                    <summary>Audio and cloud build</summary>
-                    <div class="sy-panel sy-cloud-body">
-                        <div class="sy-row">
-                            <button class="wl-btn-secondary" id="sy-publish">&#x2601; Publish word list</button>
-                            <button class="wl-btn-small" id="sy-download">Download only</button>
-                            <label class="sy-check"><input type="checkbox" id="sy-auto" checked> Publish automatically after paste back</label>
-                        </div>
-                        <div class="sy-row" style="margin-top:8px">
-                            <label class="sy-field"><span class="sy-label">Repo (owner/name)</span>
-                                <input type="text" id="sy-repo" class="sy-input" placeholder="jack-ee/EMPro" autocomplete="off"></label>
-                            <label class="sy-field sy-topic"><span class="sy-label">Token with write access to Contents</span>
-                                <input type="password" id="sy-token" class="sy-input" placeholder="github_pat_..." autocomplete="off"></label>
-                            <label class="sy-field"><span class="sy-label">Sentence voice</span>
-                                <select id="sy-svoice" class="sy-select"></select></label>
-                        </div>
-                        <div class="sy-audio-line" id="sy-audio-line"></div>
-                        <div class="sy-note">Publishing commits one wordlist.txt holding your vocabulary and every
-                            finished sentence, and the push starts the audio pack build. The build is differential:
-                            it downloads the previous pack and synthesises only clips it does not already have, so
-                            republishing an unchanged list costs nothing and existing word and sentence audio is
-                            never remade. Adding a voice only synthesises that voice. The token is stored on this
-                            device only and never enters the sync payload &mdash; a fine-grained token limited to
-                            Contents on this one repo is enough.</div>
-                    </div>
-                </details>
+                <div class="rf-status" id="rf-status"></div>
+                <div class="rf-list" id="rf-list"></div>
             </div>
-
-            <!-- Screen 3: reading -->
-            <div id="sy-read" class="sy-hidden">
-                <button class="wl-btn-small sy-screen-back" id="sy-back">&#x2190; My material</button>
-                <div id="sy-read-body"></div>
-            </div>
-
         </div>
     </div>
 
 </main>
+
+<!-- ===== DAILY READING ARTICLE OVERLAY ===== -->
+<div class="rf-article" id="rf-article">
+    <div class="rf-article-card">
+        <div class="rf-article-head">
+            <button class="modal-close" id="rf-article-close">&times;</button>
+            <h2 id="rf-article-title"></h2>
+            <div class="rf-article-meta" id="rf-article-meta"></div>
+            <audio id="rf-article-audio" controls preload="metadata" style="display:none"></audio>
+            <button class="wl-btn-primary" id="rf-article-extract">&#x2728; Extract vocabulary from this article</button>
+            <p class="settings-hint">Tap any word to save it to your notebook with its sentence.</p>
+        </div>
+        <div class="rf-article-body" id="rf-article-body"></div>
+    </div>
+</div>
 
 <!-- ===== IMPORT MODAL ===== -->
 <div class="modal-overlay" id="mw-import-modal">
@@ -482,26 +419,26 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=106"></script>
-<script src="db.js?v=106"></script>
-<script src="ai-engine.js?v=106"></script>
-<script src="my-words.js?v=106"></script>
-<script src="writing-lab.js?v=106"></script>
-<script src="vocab-drill.js?v=106"></script>
-<script src="reader.js?v=106"></script>
-<script src="stories.js?v=106"></script>
-<script src="speaking-coach.js?v=106"></script>
-<script src="expressions-data.js?v=106"></script>
-<script src="expressions-coach.js?v=106"></script>
-<script src="sentence.js?v=106"></script>
-<script src="sentence-drill.js?v=106"></script>
-<script src="sync.js?v=106"></script>
-<script src="tts-pack.js?v=106"></script>
-<script src="app.js?v=106"></script>
+<script src="config.js?v=100"></script>
+<script src="db.js?v=100"></script>
+<script src="ai-engine.js?v=100"></script>
+<script src="my-words.js?v=100"></script>
+<script src="writing-lab.js?v=100"></script>
+<script src="vocab-drill.js?v=100"></script>
+<script src="reader.js?v=100"></script>
+<script src="speaking-coach.js?v=100"></script>
+<script src="expressions-data.js?v=100"></script>
+<script src="expressions-coach.js?v=100"></script>
+<script src="sentence.js?v=100"></script>
+<script src="sentence-drill.js?v=100"></script>
+<script src="sync.js?v=100"></script>
+<script src="tts-pack.js?v=100"></script>
+<script src="reading-feeds.js?v=100"></script>
+<script src="app.js?v=100"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=106"></script>
+<script src="debug-panel.js?v=100"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.
