@@ -39,13 +39,13 @@ const appJs  = read('app.js');
 const feeds  = read('reading-feeds.js');
 const worker = read('empro-tts-proxy.js');
 
-check('sw.js CACHE_NAME is emp-v100', sw.includes("const CACHE_NAME = 'emp-v100';"));
-const vNew = (html.match(/\?v=100/g) || []).length;
-const vOld = (html.match(/\?v=9[89]"/g) || []).length;
-check('index.html has 19 x ?v=100 and no stale versions',
-      vNew === 19 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
+check('sw.js CACHE_NAME is emp-v107', sw.includes("const CACHE_NAME = 'emp-v107';"));
+const vNew = (html.match(/\?v=107/g) || []).length;
+const vOld = (html.match(/\?v=(9[89]|10[0-6])"/g) || []).length;
+check('index.html has 21 x ?v=107 and no stale versions',
+      vNew === 21 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
 check('index.html loads reading-feeds.js',
-      html.includes('<script src="reading-feeds.js?v=100"></script>'));
+      html.includes('<script src="reading-feeds.js?v=107"></script>'));
 check('index.html has the Daily Reading panel and overlay',
       html.includes('id="rd-panel-feeds"') && html.includes('id="rf-article"'));
 check('sw.js precaches reading-feeds.js', sw.includes("'./reading-feeds.js',"));
@@ -107,7 +107,28 @@ function req(url, headers) {
     calls.length = 0;
     r = await routes.fetch(req(W + '?fetch=' +
         encodeURIComponent('https://learningenglish.voanews.com/api/xyz')), {});
-    check('?fetch allows Learning English feeds', r.status === 200);
+    check('?fetch allows any voanews subdomain via suffix match', r.status === 200);
+
+    calls.length = 0;
+    r = await routes.fetch(req(W + '?fetch=' +
+        encodeURIComponent('https://feeds.npr.org/500005/podcast.xml')), {});
+    check('?fetch allows NPR feeds', r.status === 200);
+
+    calls.length = 0;
+    r = await routes.fetch(req(W + '?fetch=' +
+        encodeURIComponent('https://podcasts.files.bbci.co.uk/p02nq0gn.rss')), {});
+    check('?fetch allows BBC podcast feeds', r.status === 200);
+
+    calls.length = 0;
+    r = await routes.fetch(req(W + '?fetch=' +
+        encodeURIComponent('https://notvoanews.com/feed')), {});
+    check('?fetch suffix match cannot be spoofed by a lookalike domain',
+          r.status === 400 && calls.length === 0);
+
+    calls.length = 0;
+    r = await routes.fetch(req(W + '?media=' +
+        encodeURIComponent('https://chrt.fm/track/x/ondemand.npr.org/e.mp3')), {});
+    check('?media allows NPR enclosure redirect hosts', r.status === 200);
 
     // ?media: Range passthrough
     calls.length = 0;
@@ -190,6 +211,61 @@ function req(url, headers) {
     check('guardianListQuery works with no extra params',
           !I.guardianListQuery('').includes('&&') &&
           !I.guardianListQuery('').endsWith('&'));
+
+    // pickItemAudio against duck-typed elements mimicking a parsed
+    // <item>: media:content (localName 'content') must be recognised,
+    // audio-typed entries must beat plain mp3 fallbacks.
+    const fakeEl = (localName, attrs) => ({
+        localName, getAttribute: k => attrs[k] || null });
+    const fakeItem = els => ({ getElementsByTagName: () => els });
+
+    check('pickItemAudio reads Media-RSS media:content (VOA style)',
+          I.pickItemAudio(fakeItem([
+              fakeEl('title',   {}),
+              fakeEl('content', { url : 'https://av.voanews.com/e.mp3',
+                                  type: 'audio/mpeg' }),
+          ])) === 'https://av.voanews.com/e.mp3');
+    check('pickItemAudio still reads a plain enclosure',
+          I.pickItemAudio(fakeItem([
+              fakeEl('enclosure', { url : 'https://av.voanews.com/p.mp3',
+                                    type: 'audio/mpeg' }),
+          ])) === 'https://av.voanews.com/p.mp3');
+    check('pickItemAudio prefers audio-typed over video in media:group',
+          I.pickItemAudio(fakeItem([
+              fakeEl('content', { url : 'https://av.voanews.com/v.mp4',
+                                  type: 'video/mp4' }),
+              fakeEl('content', { url   : 'https://av.voanews.com/a.mp3',
+                                  medium: 'audio' }),
+          ])) === 'https://av.voanews.com/a.mp3');
+    check('pickItemAudio falls back to the first https mp3 url',
+          I.pickItemAudio(fakeItem([
+              fakeEl('enclosure', { url: 'https://av.voanews.com/x.mp3?a=1' }),
+          ])) === 'https://av.voanews.com/x.mp3?a=1');
+    check('pickItemAudio returns null with no media at all',
+          I.pickItemAudio(fakeItem([fakeEl('title', {})])) === null);
+    check('likelyAudio flags VOA links without declared audio only',
+          I.likelyAudio({ audio: null, link: 'https://www.voanews.com/a/1.html' })
+          === true &&
+          I.likelyAudio({ audio: 'x', link: 'https://www.voanews.com/a/1.html' })
+          === false &&
+          I.likelyAudio({ audio: null, link: 'https://theguardian.com/x' })
+          === false);
+
+    const html1 = '<div data-sources=\'[{"Src":"https://av.voanews.com/' +
+        'clips/VLE/2026/08/abc-128k.mp3?x=1&amp;y=2"}]\'></div>';
+    check('findPageAudio finds the embedded VOA mp3 and unescapes it',
+          I.findPageAudio(html1) ===
+          'https://av.voanews.com/clips/VLE/2026/08/abc-128k.mp3?x=1&y=2');
+    check('findPageAudio returns null when a page has no audio',
+          I.findPageAudio('<html><body>text only</body></html>') === null);
+    check('findPageAudio ignores non-VOA hosts',
+          I.findPageAudio('<a href="https://evil.com/x.mp3">x</a>') === null);
+    check('findPageAudio handles JSON-escaped URLs in page blobs',
+          I.findPageAudio('{"url":"https:\\/\\/av.voanews.com\\/clips\\/e.mp3"}')
+          === 'https://av.voanews.com/clips/e.mp3');
+    check('findPageAudio accepts any voanews subdomain',
+          I.findPageAudio('src="https://media.voanews.com/x/y.m4a"')
+          === 'https://media.voanews.com/x/y.m4a');
 
     const MB = 1048576;
     const rows = [

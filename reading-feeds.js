@@ -36,20 +36,20 @@ window.ReadingFeeds = (function() {
     const CACHE_MB_PREF    = 'reading_cache_mb';
     const DEFAULT_CACHE_MB = 200;
 
-    // Default sources, all native speed. The first three are VOA
-    // podcast programmes whose RSS carries an MP3 enclosure per
-    // episode, so the audio badge shows right in the list. The VOA
-    // article sections often embed a native-speed audio report on the
-    // article page (not in the RSS) — the downloader hunts for it on
-    // tap. Guardian is text-only.
+    // Default sources, all native speed. NPR and BBC podcasts update
+    // daily/hourly and carry a per-episode MP3 enclosure, so the audio
+    // badge shows right in the list. VOA has been frozen since
+    // 2025-03-15 (the USAGM shutdown) and is kept as a public-domain
+    // archive; its pages may embed audio the RSS never lists, which
+    // the downloader hunts for on tap. Guardian is text-only.
     const DEFAULT_SOURCES =
-        'VOA Podcast \u00b7 Worldwide in Five | https://www.voanews.com/api/zvgbqvl-vomx-tpeumoov\n' +
-        'VOA Podcast \u00b7 International Edition | https://www.voanews.com/api/zumgqol-vomx-tpeg--qi\n' +
-        'VOA Podcast \u00b7 Issues in the News | https://www.voanews.com/api/zvq-qvl-vomx-tpeuurot\n' +
-        'VOA \u00b7 Science & Health | https://www.voanews.com/api/ztbopl-vomx-tpekvmm\n' +
-        'VOA \u00b7 Technology | https://www.voanews.com/api/zyritl-vomx-tpettmq\n' +
+        'NPR \u00b7 News Now (5 min, hourly) | https://feeds.npr.org/500005/podcast.xml\n' +
+        'NPR \u00b7 Up First | https://feeds.npr.org/510318/podcast.xml\n' +
+        'BBC \u00b7 Global News Podcast | https://podcasts.files.bbci.co.uk/p02nq0gn.rss\n' +
         'Guardian \u00b7 World | guardian:section=world\n' +
-        'Guardian \u00b7 Science | guardian:section=science';
+        'Guardian \u00b7 Science | guardian:section=science\n' +
+        'VOA Archive \u00b7 Worldwide in Five | https://www.voanews.com/api/zvgbqvl-vomx-tpeumoov\n' +
+        'VOA Archive \u00b7 Science & Health | https://www.voanews.com/api/ztbopl-vomx-tpekvmm';
 
     let currentList    = [];      // items of the currently shown source
     let openArticleId  = null;    // guarded from eviction while open
@@ -352,7 +352,13 @@ window.ReadingFeeds = (function() {
             }
         }
         if (!text || text.split(/\s+/).length < 20) {
-            throw new Error('Could not extract the article text.');
+            if (item.audio) {
+                // A podcast episode: the description is all the text
+                // there is, and the audio is the point.
+                text = text || item.summary || item.title || '';
+            } else {
+                throw new Error('Could not extract the article text.');
+            }
         }
 
         let audioBlob = null;
@@ -402,11 +408,15 @@ window.ReadingFeeds = (function() {
         return (d.textContent || '').replace(/[ \t]+/g, ' ').trim();
     }
 
-    // First MP3 on VOA's audio CDN referenced anywhere in a page —
+    // First audio file on any VOA host referenced anywhere in a page —
     // the native-speed report embedded in most VOA news articles.
+    // Pages often carry media URLs inside JSON blobs with escaped
+    // slashes (https:\/\/av.voanews.com\/...), so those are unescaped
+    // before matching.
     function findPageAudio(pageHtml) {
-        const m = /https:\/\/av\.voanews\.com\/[^"'\s<>]+?\.mp3[^"'\s<>]*/i
-                  .exec(pageHtml || '');
+        const s = (pageHtml || '').replace(/\\\//g, '/');
+        const m = /https:\/\/[a-z0-9.-]+\.voanews\.com\/[^"'\s<>\\]+?\.(?:mp3|m4a|aac)[^"'\s<>\\]*/i
+                  .exec(s);
         return m ? m[0].replace(/&amp;/g, '&') : null;
     }
 
@@ -614,6 +624,8 @@ window.ReadingFeeds = (function() {
             player.removeAttribute('src');
             player.style.display = 'none';
         }
+        const na = el('rf-article-noaudio');
+        if (na) na.hidden = !!rec.audioBlob;
 
         // Render paragraphs with every word wrapped for tap-to-save.
         el('rf-article-body').innerHTML = rec.text.split(/\n\n+/).map(p =>

@@ -126,52 +126,187 @@
 //        after an older copy was accidentally republished; cache bumped so
 //        the corrected files refresh cleanly on every device.
 
-// v99 — audio pack split into parts:
-//   • the cloud build now emits numbered part files cut along word-index
-//     boundaries (~200 MB each) plus a top-level manifest carrying each
-//     part's sha256; unchanged parts are byte-identical across runs.
-//   • tts-pack.js downloads only the parts whose hash differs from what
-//     the device already imported, verifies each sha256, and resumes an
-//     interrupted download at the next part. A new vocabulary batch now
-//     costs one small part download instead of the whole pack.
-//   • the manifest is fetched with cache:'no-store' plus a timestamp
-//     query, closing the staleness that made a fresh build invisible.
+// v106 — FIX: pinning the sentence voice re-synthesised a whole pack.
+//   The sentence voice added in v101 defaulted to 'nova'. Every long entry
+//   in an existing pack had been built with voices[0] instead, which for a
+//   full selection is 'alloy' - so the first export carrying the pin moved
+//   1118 long entries to a voice they were not built in. Roughly $2 of
+//   synthesis and several budget-capped runs, to change nothing anyone
+//   asked to change, and the new story part (sorted last by index) never
+//   got built at all: its sentences fell back to the device voice, which
+//   is how this surfaced. The default is now the first SELECTED voice, so
+//   pinning is a no-op at the moment it is first pinned and only takes
+//   effect when deliberately changed.
+//   generator: brand-new parts are built before parts that merely changed.
+//   Story blocks sort last by index, so a run that also had re-synthesis to
+//   do would spend its whole budget on old material and never reach the
+//   material the user is actually waiting to hear.
+//
+// v105 — the Stories tab is a library first, machinery second.
+//   Opening the tab used to mean meeting six inputs, two checkboxes, four
+//   buttons and a repo/token form before reaching a single piece of
+//   reading. The order was backwards: reading happens daily, generating
+//   occasionally, cloud setup once. The tab now holds three screens and
+//   shows one at a time.
+//     • Library (default): the material, and nothing else. A header line
+//       counts what there is to read, and a banner appears only when
+//       pieces are waiting for text.
+//     • Generate: parameters and the prompt, behind "New pieces". The
+//       cloud build settings are folded into a <details> inside it, since
+//       they are set once and then forgotten.
+//     • Read: unchanged.
+//   Paste back sits on the LIBRARY banner as well as in the generator: the
+//   loop is copy a prompt, leave for the AI, come back later, and that
+//   return trip usually starts a fresh session.
+//
+// v104 — FIX: autoplay stopped after the first card.
+//   Autoplay is a chain: a segment advances the session only when its
+//   onEnd fires. speakNative could finish without firing anything at all,
+//   which did not lose one segment, it silently ended the session. Three
+//   causes, all now handled:
+//     1. speak() was issued in the same tick as cancel(). The cancel is
+//        still settling, the utterance is dropped, and NEITHER onend nor
+//        onerror fires. The speak is now deferred by 60 ms.
+//     2. the utterance was a local variable, so once speak() returned the
+//        page held no reference and Chrome could collect it mid-speech,
+//        taking its events with it. A module-level reference now holds it.
+//     3. Chrome stops long utterances at about 15 seconds with no event.
+//        A resume() tick every 8 seconds keeps them going.
+//   A watchdog covers anything left: if nothing has fired within the time
+//   the text could plausibly take (Chinese budgeted per character at three
+//   times the Latin rate, and scaled by speech rate), onEnd fires anyway.
+//   Ending a segment early costs little; ending the session costs the
+//   whole feature. stopSpeak now also cancels a deferred speak, so a stop
+//   during those 60 ms cannot advance the chain afterwards.
+//
+// v103 — reading material reads as prose, and at a workable density:
+//   • the reader now renders a piece as continuous paragraphs by default,
+//     with each sentence an inline span. Sentences remain the audio pack's
+//     unit and stay individually playable and highlightable, they just no
+//     longer LOOK like a list. A toggle switches to the old
+//     sentence-per-row layout, which is still better for checking a
+//     translation.
+//   • "br": true on a sentence starts a new paragraph. Absent on anything
+//     written before v103, which renders as one paragraph as before.
+//   • density: the length control was a fixed list topping out at 250
+//     words, and defaulted to 120. With 20 target words that is one
+//     target every six words, which no narrative can absorb - the model
+//     had no option but to write one sentence per word. Length is now a
+//     number that follows the words-per-piece (about 18 words of prose per
+//     target word), the preview states the density it implies and warns
+//     below 8, and the prompt names both the figure and the failure mode.
+//
+// v102 — split audio pack (parts model), end to end:
+//   • generator: the pack is published as several parts plus a small
+//     manifest listing each part's sha256. Parts are cut on word-block
+//     boundaries by pure index arithmetic — block b belongs to the part
+//     covering [k*stride+1 .. (k+1)*stride], k = (b-1)//stride — because a
+//     size-greedy split would cascade: one early edit would push blocks
+//     across every later boundary and re-download the whole pack.
+//   • generator: part bytes are built with stamp=False, so they depend only
+//     on the clips. With a timestamp inside, every part's sha256 would
+//     change every run and the split would buy nothing. Each part also
+//     records keysSha256 of what it ACTUALLY holds, so a part left
+//     incomplete by the time budget comes back as "changed" next run
+//     instead of being mistaken for finished.
+//   • generator: a run now reads the published manifest and rebuilds only
+//     the parts whose clip set changed. An unchanged part is not
+//     downloaded, not rebuilt, and not re-uploaded — adding twenty words
+//     moves one part instead of 1.4 GB.
+//   • generator: the first v2 run finds the old single-file pack and
+//     re-emits it as parts, synthesising nothing.
+//   • generator: futures that finished while the run was stopping are now
+//     harvested instead of discarded — stopping on a budget was throwing
+//     away up to MAX_WORKERS clips that had already been paid for.
+//   • generator: _budget_start clears the abort flag, so a second build in
+//     one process cannot inherit the first one's abort and silently skip
+//     every part. Also guards the entry point behind __main__ so the module
+//     can be imported by a test without starting a real build.
+//   • client: only parts whose sha256 differs are fetched, each is verified
+//     against that hash, and each is recorded the moment it imports — so an
+//     interrupted download resumes at the next part instead of restarting.
+//     A quota failure names the part that stopped it and keeps the rest.
+//     A v1 manifest still works, so no device is stranded mid-migration.
+//   • worker: the manifest is served no-store (a cached manifest makes the
+//     app decide "up to date" when it is not, silently, until the next
+//     build), while a part requested with its ?v=<sha256> is immutable.
+//   • workflow: publishes tools/dist/*.empack, then deletes release assets
+//     not named in keep-assets.txt, which is how parts for deleted words and
+//     the pre-split pack get cleaned up. Skipped when no manifest was
+//     produced, so a failed run can never delete a working pack.
+//
+// v101 — audio build: no run can lose its work; sentence audio is pinned:
+//   • generator: TIME_BUDGET_MINUTES (env) stops the run before the runner
+//     kills it, writes the partial pack, and exits [INCOMPLETE] with
+//     re-run advice. The workflow publishes it anyway (publish is
+//     if: always()), so the next run continues from it and no clip is ever
+//     paid for twice. Three nested limits, 320 / 330 / 350, each leaving
+//     10 minutes for the next layer to hand over.
+//   • generator: "# sentence_voice:" pins the voice that reads long
+//     entries. Without it a long entry used voices[0] — the FIRST of the
+//     selected voices, alphabetically — so un-ticking "alloy" moved every
+//     sentence to "ash" and re-synthesised thousands of clips, while the
+//     alloy ones stayed in the pack forever. The manifest now carries the
+//     union of word and sentence voices, because the client only looks up
+//     clips in voices listed there.
+//   • generator: --prune-voices (opt-in) drops clips whose voice is no
+//     longer used and reports the space reclaimed; without it the run just
+//     names the idle voices. The old prune matched on text alone, so
+//     de-selected voices accumulated forever.
+//   • sync: the Gist API truncates a file near 1 MB (well under that for
+//     Chinese) and sets `truncated`. Reads now refetch from raw_url —
+//     with NO Authorization header, which would trigger a CORS preflight
+//     the raw host refuses. Before this, a truncated read was silently
+//     treated as the whole document. Pushes warn above 600 KB of real
+//     UTF-8 bytes, not UTF-16 code units.
+//
+// v100 — reading material from the word bank (new module stories.js):
+//   • Stories tab: takes N unused notebook words, splits them into
+//     groups of M, and reserves each group as a "pending" piece the
+//     moment its prompt is copied — so the next run always works on
+//     the words that have not been used yet. Deleting a piece releases
+//     its words back into the pool.
+//   • paste the AI's JSON reply back and each piece is matched by its
+//     seq number: title, sentences, per-sentence Chinese. Target words
+//     are highlighted through the notebook's inflection matcher, so
+//     "proved" lights up for "prove".
+//   • audio: a piece's wordlist.txt block index is 10000 + seq, above
+//     every word's packIndex. The export writes words AND sentences in
+//     one file — the generator prunes clips missing from the WHOLE list,
+//     so a stories-only file would have deleted every word clip.
+//   • publishing is automatic: the app commits tools/wordlist.txt through
+//     the contents API and the push starts the build. It compares the git
+//     blob sha first, so an unchanged list is never pushed and never
+//     builds. No build range is set and none has to be cleared — the
+//     build is differential by (text, voice), so nothing is ever remade
+//     and adding a voice synthesises only that voice.
+//   • app.js: notebookSpeechBlocks / notebookSpeechList feed the story
+//     sentences into the existing export and coverage readout;
+//     exportWordList, buildWordListText, getPackRange, setPackRange are
+//     now on window.App.
+//   • FIX (same-origin isolation): the activate handler deleted every
+//     cache whose name was not CACHE_NAME, which wiped VocabPeak's hsv-*
+//     caches on this shared origin. It now only deletes emp- caches.
 
-// v100 — Daily Reading:
-//   • new reading-feeds.js: on-demand article reader in the Reader tab.
-//     The article list (VOA RSS via the Worker ?fetch route, Guardian
-//     via ?guardian with the API key held in the Worker) is fetched
-//     fresh each time; tapping an article downloads its text and MP3
-//     once into the emp-reading IndexedDB, offline afterwards, with a
-//     soft cache cap evicting least-recently-opened articles.
-//   • tap a word in an article to save it (with its sentence) to the
-//     notebook; one button hands the full text to the AI extractor.
+// v107 — Daily Reading (reading-feeds.js), restored on the v106 base:
+//   • live sources in the Reader tab: NPR News Now / Up First and the
+//     BBC Global News Podcast (native speed, per-episode MP3), the
+//     Guardian via the Worker-held API key, and two frozen VOA feeds
+//     kept as public-domain archive. List fetched fresh; an article
+//     and its audio download on tap into the emp-reading IndexedDB
+//     with a soft cache cap; tap a word to save it to the notebook.
+//   • the v100–v102 uploads had been built on a stale v98 snapshot
+//     and overwrote v99–v106 (Stories, split packs, speech chain);
+//     this release re-grafts Daily Reading onto the real v106 tree.
 
-// v101 — native-speed audio focus in Daily Reading:
-//   • default sources replaced: three VOA podcast programmes (RSS
-//     carries a native-speed MP3 per episode) ahead of the article
-//     sections; Learning English (slow-read) is not shipped.
-//   • VOA article downloads now also fetch the article page to hunt
-//     for the embedded native-speed audio report that the section RSS
-//     never lists (best-effort; text still saves if the hunt fails).
-//   • "Audio only" toggle in the feed toolbar, preference-backed.
-
-// v102 — VOA podcast audio actually detected:
-//   • the RSS parser only read <enclosure>, but VOA's CMS declares
-//     episode audio via Media-RSS <media:content> (often inside
-//     <media:group>), so every podcast item looked audio-less and the
-//     Audio-only filter emptied the list. The parser now scans all
-//     media elements regardless of namespace.
-//   • Audio-only keeps VOA items without declared audio, badged
-//     "likely" — the on-tap page hunt usually finds the report.
-
-const CACHE_NAME = 'emp-v102';
+const CACHE_NAME = 'emp-v107';
 const ASSETS = [
     './',
     './index.html',
     './manifest.json',
     './style.css',
     './expressions-coach.css',
+    './stories.css',
     './config.js',
     './db.js',
     './ai-engine.js',
@@ -179,6 +314,7 @@ const ASSETS = [
     './writing-lab.js',
     './vocab-drill.js',
     './reader.js',
+    './stories.js',
     './speaking-coach.js',
     './expressions-data.js',
     './expressions-coach.js',
@@ -220,8 +356,14 @@ self.addEventListener('install', (e) => {
 // Activate — clean old caches, take control immediately
 self.addEventListener('activate', (e) => {
     e.waitUntil((async () => {
+        // Only ever delete THIS app's own old caches. jack-ee.github.io also
+        // serves VocabPeak (hsv-*), and a blanket "delete everything that is
+        // not CACHE_NAME" wiped its offline copy on every EMPro deploy.
+        // Same-origin isolation is a hard rule: touch the emp- prefix only.
         const names = await caches.keys();
-        await Promise.all(names.filter(n => n !== CACHE_NAME).map(n => caches.delete(n)));
+        await Promise.all(names
+            .filter(n => n.startsWith('emp-') && n !== CACHE_NAME)
+            .map(n => caches.delete(n)));
         await self.clients.claim();
     })());
 });

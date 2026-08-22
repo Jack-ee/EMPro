@@ -9,29 +9,18 @@
  *      so a browser page cannot call it. The Worker forwards the
  *      request and adds the missing CORS header.
  *
- *   2. Audio pack proxy (GET ?asset=). The pronunciation pack is a
- *      GitHub Release asset. Release asset downloads 302-redirect to a
- *      CDN blob that sends no CORS header, so a browser fetch is
- *      blocked. The Worker fetches the asset server-side - where CORS
- *      does not apply - and relays it with the header added.
- *
- *   3. Reading feeds (GET ?fetch= / ?media= / ?guardian=). The Daily
- *      Reading module pulls VOA RSS feeds and Guardian articles, none
- *      of which are directly reachable from the app (CORS and, for
- *      some networks, plain reachability). ?fetch relays an RSS feed
- *      or article page from a whitelisted host; ?media relays audio
- *      with Range passthrough so the player can seek; ?guardian calls
- *      the Guardian content API, attaching the API key held in the
- *      Worker environment.
+ *   2. Audio pack proxy (GET). The pronunciation pack is a GitHub
+ *      Release asset. Release asset downloads 302-redirect to a CDN
+ *      blob that sends no CORS header, so a browser fetch is blocked.
+ *      The Worker fetches the asset server-side - where CORS does not
+ *      apply - and relays it with the header added.
  *
  * Security
- *   The only secret this Worker can hold is GUARDIAN_API_KEY, set as
- *   an environment variable (Settings -> Variables and Secrets) and
- *   never sent to the browser. For TTS the browser sends its own
- *   OpenAI key and the Worker only forwards it. Every GET route is
- *   limited to fixed hosts or a fixed repository plus whitelisted
- *   asset names, so the Worker cannot be used as an open proxy. All
- *   routes are restricted by Origin.
+ *   This Worker holds NO secret. For TTS the browser sends its own
+ *   OpenAI key and the Worker only forwards it. The pack route can
+ *   only reach a fixed repository and a whitelisted set of asset
+ *   names, so it cannot be used as an open proxy. Both routes are
+ *   restricted by Origin.
  *
  * Deploy (paste this whole file into the Worker, then Deploy)
  *   Dashboard -> Workers & Pages -> your Worker -> Edit code ->
@@ -40,6 +29,21 @@
  *   the same URL also serves the audio pack.
  *
  * If the audio pack lives in a different repo, edit PACK_REPO below.
+ *
+ * Reading feeds (GET ?fetch= / ?media= / ?guardian=)
+ *   The Daily Reading module pulls live feeds and Guardian articles,
+ *   none of which are reachable from the app directly. ?fetch relays
+ *   an RSS feed or article page from a whitelisted domain; ?media
+ *   relays audio with Range passthrough so the player can seek;
+ *   ?guardian calls the Guardian content API, attaching the
+ *   GUARDIAN_API_KEY held in the Worker environment (Settings ->
+ *   Variables and Secrets; the key never reaches the browser).
+ *
+ * Split packs
+ *   The pack is published as several part assets plus a small manifest.
+ *   PACK_ASSET_RE already covers the part names. What matters here is
+ *   the cache policy: the manifest must be no-store, while a part
+ *   requested with its ?v=<sha256> is immutable. See handlePackRequest.
  * ============================================================
  */
 
@@ -57,18 +61,27 @@ const PACK_REPO     = 'Jack-ee/EMPro';
 const PACK_TAG      = 'audio-pack';
 const PACK_ASSET_RE = /^empro-audio-pack[A-Za-z0-9._-]*$/;
 
-// Reading feeds: only these hosts may be relayed. Covers the VOA main
-// site and Learning English (feeds + article pages) and their audio
-// CDN. Add a host here before adding a source that lives elsewhere.
-const FEED_HOSTS = [
-    'www.voanews.com',
+// Reading feeds: only hosts under these domains may be relayed
+// (exact match or any subdomain). FEED covers RSS feeds and article
+// pages; MEDIA additionally covers podcast enclosure hosts — NPR
+// enclosures start on tracking redirectors (chrt.fm, podtrac), and
+// the Worker follows redirects server-side, so only the first hop
+// needs whitelisting. Add a domain before adding a source elsewhere.
+const FEED_DOMAINS = [
     'voanews.com',
-    'learningenglish.voanews.com',
+    'npr.org',
+    'bbci.co.uk',
+    'bbc.co.uk',
+    'bbc.com',
 ];
-const MEDIA_HOSTS = [
-    'av.voanews.com',
-    'www.voanews.com',
-    'learningenglish.voanews.com',
+const MEDIA_DOMAINS = [
+    'voanews.com',
+    'npr.org',
+    'podtrac.com',
+    'chrt.fm',
+    'megaphone.fm',
+    'bbci.co.uk',
+    'bbc.co.uk',
 ];
 const GUARDIAN_API = 'https://content.guardianapis.com/';
 
@@ -122,12 +135,27 @@ async function handlePackRequest(request, origin) {
     const cl = upstream.headers.get('Content-Length');
     if (ct) headers['Content-Type']   = ct;
     if (cl) headers['Content-Length'] = cl;
-    // The manifest must never be served stale - it is the app's only
-    // signal that a new build exists - while the immutable, sha256-named
-    // part content can be cached briefly without harm.
-    headers['Cache-Control'] = asset.endsWith('.json')
-        ? 'no-store'
-        : 'public, max-age=300';
+
+    // Caching, by asset kind:
+    //
+    //   manifest (.json)  no-store. The manifest is how the app decides
+    //     whether anything changed, so serving a cached copy makes it decide
+    //     "up to date" when it is not. That failure is silent and lasts until
+    //     the next build, which is the worst shape a bug can have here.
+    //
+    //   part (?v=<sha>)   cache hard. The URL carries the part's own sha256,
+    //     so an address maps to exactly one set of bytes forever. A changed
+    //     part arrives under a new address and can never be served stale.
+    //
+    //   anything else     short, conservative window.
+    const url = new URL(request.url);
+    if (/\.json$/i.test(asset)) {
+        headers['Cache-Control'] = 'no-store';
+    } else if (url.searchParams.get('v')) {
+        headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+    } else {
+        headers['Cache-Control'] = 'public, max-age=300';
+    }
     return new Response(upstream.body, { status: 200, headers });
 }
 
@@ -136,14 +164,16 @@ async function handlePackRequest(request, origin) {
 // ?media=<url>    relay audio with Range passthrough for seeking
 // ?guardian=<pq>  call the Guardian content API with the env-held key
 
-function hostAllowed(url, hosts) {
-    try { return hosts.includes(new URL(url).hostname); }
-    catch { return false; }
+function hostAllowed(url, domains) {
+    try {
+        const h = new URL(url).hostname;
+        return domains.some(d => h === d || h.endsWith('.' + d));
+    } catch { return false; }
 }
 
 async function handleFeedRequest(request, origin) {
     const target = new URL(request.url).searchParams.get('fetch') || '';
-    if (!hostAllowed(target, FEED_HOSTS)) {
+    if (!hostAllowed(target, FEED_DOMAINS)) {
         return new Response('Host not allowed for ?fetch', {
             status: 400, headers: corsHeaders(origin),
         });
@@ -166,7 +196,7 @@ async function handleFeedRequest(request, origin) {
 
 async function handleMediaRequest(request, origin) {
     const target = new URL(request.url).searchParams.get('media') || '';
-    if (!hostAllowed(target, MEDIA_HOSTS)) {
+    if (!hostAllowed(target, MEDIA_DOMAINS)) {
         return new Response('Host not allowed for ?media', {
             status: 400, headers: corsHeaders(origin),
         });

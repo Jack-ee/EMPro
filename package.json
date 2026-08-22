@@ -1,16 +1,17 @@
 {
   "name": "empro",
-  "version": "1.105.0",
+  "version": "1.107.0",
   "private": true,
   "description": "EMPro (English Master Pro) - a vanilla-JS PWA. This file exists only so the test suites' two dependencies install with one command; the app itself has no build step and loads no npm package at runtime.",
   "scripts": {
-    "test": "npm run test:stories && npm run test:sync && npm run test:pack && npm run test:speech && npm run test:dom",
+    "test": "npm run test:stories && npm run test:sync && npm run test:pack && npm run test:speech && npm run test:dom && npm run test:feeds",
     "test:stories": "node test/test-stories-v105.js",
     "test:sync": "node test/test-sync-truncation-v105.js",
     "test:pack": "node test/test-pack-parts-v105.js",
     "test:dom": "node test/test-stories-dom-v105.js",
     "test:py": "python tools/generate_audio_pack.py --selftest && python test/test_audio_parts_v105.py",
-    "test:speech": "node test/test-speech-chain-v105.js"
+    "test:speech": "node test/test-speech-chain-v105.js",
+    "test:feeds": "node test/test-reading-feeds.js"
   },
   "//jsdom": "Pinned to 26.x deliberately: jsdom 30 declares node ^22.22.2 || ^24.15.0 || >=26.0.0, which excludes current Node builds such as 24.9 and warns EBADENGINE there, while 26.x asks only for node >=18. These suites use nothing beyond the JSDOM constructor, window, Event and querySelector, so the older major costs nothing.",
   "devDependencies": {
