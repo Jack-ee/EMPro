@@ -45,10 +45,10 @@ const yml   = read('.github/workflows/audio-pack.yml');
 const py    = read('tools/generate_audio_pack.py');
 const packJ = read('tts-pack.js');
 
-check('sw.js CACHE_NAME is emp-v101', sw.includes("const CACHE_NAME = 'emp-v101';"));
-const vNew = (html.match(/\?v=101/g) || []).length;
-const vOld = (html.match(/\?v=(9[89]|100)"/g) || []).length;
-check('index.html has 19 x ?v=101 and no stale versions', vNew === 19 && vOld === 0,
+check('sw.js CACHE_NAME is emp-v102', sw.includes("const CACHE_NAME = 'emp-v102';"));
+const vNew = (html.match(/\?v=102/g) || []).length;
+const vOld = (html.match(/\?v=(9[89]|100|101)"/g) || []).length;
+check('index.html has 19 x ?v=102 and no stale versions', vNew === 19 && vOld === 0,
       vNew + ' new, ' + vOld + ' old');
 
 check('workflow publishes part glob',

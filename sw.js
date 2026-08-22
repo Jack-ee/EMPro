@@ -156,7 +156,16 @@
 //     never lists (best-effort; text still saves if the hunt fails).
 //   • "Audio only" toggle in the feed toolbar, preference-backed.
 
-const CACHE_NAME = 'emp-v101';
+// v102 — VOA podcast audio actually detected:
+//   • the RSS parser only read <enclosure>, but VOA's CMS declares
+//     episode audio via Media-RSS <media:content> (often inside
+//     <media:group>), so every podcast item looked audio-less and the
+//     Audio-only filter emptied the list. The parser now scans all
+//     media elements regardless of namespace.
+//   • Audio-only keeps VOA items without declared audio, badged
+//     "likely" — the on-tap page hunt usually finds the report.
+
+const CACHE_NAME = 'emp-v102';
 const ASSETS = [
     './',
     './index.html',

@@ -259,6 +259,27 @@ window.ReadingFeeds = (function() {
         return 'HTTP ' + resp.status + (body ? ' \u2014 ' + body : '');
     }
 
+    // Best audio URL declared inside one <item>: scans every element
+    // regardless of namespace, so plain <enclosure> and Media-RSS
+    // <media:content> (possibly nested in <media:group>) both work —
+    // VOA's CMS uses the latter. Audio-typed entries win; the first
+    // .mp3 URL is the fallback.
+    function pickItemAudio(it) {
+        let firstMp3 = null;
+        const nodes  = it.getElementsByTagName('*');
+        for (const elm of nodes) {
+            const ln = elm.localName;
+            if (ln !== 'enclosure' && ln !== 'content') continue;
+            const url = elm.getAttribute('url') || '';
+            if (!/^https:\/\//i.test(url)) continue;
+            const type   = (elm.getAttribute('type')   || '').toLowerCase();
+            const medium = (elm.getAttribute('medium') || '').toLowerCase();
+            if (type.indexOf('audio') !== -1 || medium === 'audio') return url;
+            if (!firstMp3 && /\.mp3(\?|$)/i.test(url)) firstMp3 = url;
+        }
+        return firstMp3;
+    }
+
     function parseRssItems(xmlText) {
         const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
         if (doc.querySelector('parsererror')) {
@@ -274,9 +295,6 @@ window.ReadingFeeds = (function() {
             for (const el of it.children) {
                 if (el.localName === 'encoded') { content = el.textContent || ''; break; }
             }
-            const enc   = it.querySelector('enclosure');
-            const eType = enc?.getAttribute('type') || '';
-            const eUrl  = enc?.getAttribute('url')  || '';
             items.push({
                 id     : 'rss:' + link,
                 title  : pick('title'),
@@ -285,9 +303,7 @@ window.ReadingFeeds = (function() {
                 words  : content ? stripTags(content).split(/\s+/).length : 0,
                 link   : link,
                 content: content,
-                audio  : /^https:\/\//.test(eUrl) &&
-                         (/audio/.test(eType) || /\.mp3(\?|$)/i.test(eUrl))
-                         ? eUrl : null,
+                audio  : pickItemAudio(it),
             });
         });
         return items;
@@ -474,22 +490,26 @@ window.ReadingFeeds = (function() {
         }
     }
 
+    // A VOA item without declared audio still very often has the
+    // native-speed report embedded on its page, which the downloader
+    // hunts for on tap — so the filter keeps such items, badged
+    // "likely" rather than hiding them.
+    function likelyAudio(i) {
+        return !i.audio && /voanews\.com/.test(i.link || '');
+    }
+
     // Re-render the current list applying the audio-only filter.
-    // VOA article sections may still yield audio found on the page at
-    // download time, so the filter only hides items the feed itself
-    // marked as having none.
     async function rerenderCurrent() {
         const audioOnly = window.DB?.getPref?.(AUDIO_ONLY_PREF, '0') === '1';
         const items     = audioOnly
-            ? currentList.filter(i => i.audio)
+            ? currentList.filter(i => i.audio || likelyAudio(i))
             : currentList;
         const saved = new Set((await idbListMeta()).map(r => r.id));
         renderList(items, saved);
         if (audioOnly && !items.length && currentList.length) {
             el('rf-list').innerHTML = '<div class="rf-error">' +
-                'This feed lists no audio enclosures. VOA article ' +
-                'sections often reveal audio after download \u2014 ' +
-                'untick the filter to browse them.</div>';
+                'No audio in this feed \u2014 untick the filter to ' +
+                'browse its text articles.</div>';
         }
         return items.length;
     }
@@ -499,7 +519,9 @@ window.ReadingFeeds = (function() {
         list.innerHTML = items.map(i => {
             const mins  = i.words ? Math.max(1, Math.round(i.words / 180)) : 0;
             const badges =
-                (i.audio ? '<span class="rf-badge">\u{1F3A7} audio</span>' : '') +
+                (i.audio ? '<span class="rf-badge">\u{1F3A7} audio</span>'
+                 : likelyAudio(i)
+                     ? '<span class="rf-badge">\u{1F3A7} likely</span>' : '') +
                 (mins    ? '<span class="rf-badge">~' + mins + ' min</span>' : '') +
                 (savedIds.has(i.id)
                     ? '<span class="rf-badge rf-badge-saved">\u2713 downloaded</span>'
@@ -675,7 +697,7 @@ window.ReadingFeeds = (function() {
 
     // Exposed for the Node test suite; not used by the app itself.
     const _internals = { parseSources, guardianListQuery, pickEvictions,
-                         findPageAudio };
+                         findPageAudio, pickItemAudio, likelyAudio };
 
     return { init, _internals };
 
