@@ -32,21 +32,24 @@ window.ReadingFeeds = (function() {
     const DB_VERSION       = 1;
     const STORE            = 'articles';
     const SOURCES_PREF     = 'reading_sources';
+    const AUDIO_ONLY_PREF  = 'reading_audio_only';
     const CACHE_MB_PREF    = 'reading_cache_mb';
     const DEFAULT_CACHE_MB = 200;
 
-    // Default sources. Guardian works once the Worker has its key; the
-    // VOA feeds are the main (native-speed) site. Learning English
-    // section feeds can be pasted in via the sources editor — open
-    // learningenglish.voanews.com/rssfeeds and copy any programme's
-    // RSS link.
+    // Default sources, all native speed. The first three are VOA
+    // podcast programmes whose RSS carries an MP3 enclosure per
+    // episode, so the audio badge shows right in the list. The VOA
+    // article sections often embed a native-speed audio report on the
+    // article page (not in the RSS) — the downloader hunts for it on
+    // tap. Guardian is text-only.
     const DEFAULT_SOURCES =
-        'Guardian \u00b7 World | guardian:section=world\n' +
-        'Guardian \u00b7 Science | guardian:section=science\n' +
-        'Guardian \u00b7 Culture | guardian:section=culture\n' +
+        'VOA Podcast \u00b7 Worldwide in Five | https://www.voanews.com/api/zvgbqvl-vomx-tpeumoov\n' +
+        'VOA Podcast \u00b7 International Edition | https://www.voanews.com/api/zumgqol-vomx-tpeg--qi\n' +
+        'VOA Podcast \u00b7 Issues in the News | https://www.voanews.com/api/zvq-qvl-vomx-tpeuurot\n' +
         'VOA \u00b7 Science & Health | https://www.voanews.com/api/ztbopl-vomx-tpekvmm\n' +
         'VOA \u00b7 Technology | https://www.voanews.com/api/zyritl-vomx-tpettmq\n' +
-        'VOA \u00b7 Arts & Culture | https://www.voanews.com/api/zpbovl-vomx-tpe_vmr';
+        'Guardian \u00b7 World | guardian:section=world\n' +
+        'Guardian \u00b7 Science | guardian:section=science';
 
     let currentList    = [];      // items of the currently shown source
     let openArticleId  = null;    // guarded from eviction while open
@@ -282,7 +285,9 @@ window.ReadingFeeds = (function() {
                 words  : content ? stripTags(content).split(/\s+/).length : 0,
                 link   : link,
                 content: content,
-                audio  : /audio/.test(eType) && /^https:\/\//.test(eUrl) ? eUrl : null,
+                audio  : /^https:\/\//.test(eUrl) &&
+                         (/audio/.test(eType) || /\.mp3(\?|$)/i.test(eUrl))
+                         ? eUrl : null,
             });
         });
         return items;
@@ -305,14 +310,29 @@ window.ReadingFeeds = (function() {
         } else {
             // RSS: prefer the feed's own full body; fall back to
             // extracting the article page (VOA CMS wraps body in .wsw).
+            // The page is also fetched when the feed listed no audio,
+            // because VOA news articles often embed a native-speed
+            // audio report that the RSS never mentions.
             text = stripArticleHtml(item.content || '');
-            if (text.split(/\s+/).length < 40) {
+            const thinText  = text.split(/\s+/).length < 40;
+            const huntAudio = !item.audio && /voanews\.com/.test(item.link || '');
+            if (thinText || huntAudio) {
                 say('Fetching article page\u2026');
-                const resp = await fetch(
-                    b + '?fetch=' + encodeURIComponent(item.link),
-                    { cache: 'no-store' });
-                if (!resp.ok) throw new Error(await workerError(resp));
-                text = extractVoaBody(await resp.text()) || text;
+                try {
+                    const resp = await fetch(
+                        b + '?fetch=' + encodeURIComponent(item.link),
+                        { cache: 'no-store' });
+                    if (!resp.ok && thinText) {
+                        throw new Error(await workerError(resp));
+                    }
+                    if (resp.ok) {
+                        const page = await resp.text();
+                        if (thinText) text = extractVoaBody(page) || text;
+                        if (huntAudio) item.audio = findPageAudio(page);
+                    }
+                } catch (err) {
+                    if (thinText) throw err;   // audio hunt is best-effort
+                }
             }
         }
         if (!text || text.split(/\s+/).length < 20) {
@@ -366,6 +386,14 @@ window.ReadingFeeds = (function() {
         return (d.textContent || '').replace(/[ \t]+/g, ' ').trim();
     }
 
+    // First MP3 on VOA's audio CDN referenced anywhere in a page —
+    // the native-speed report embedded in most VOA news articles.
+    function findPageAudio(pageHtml) {
+        const m = /https:\/\/av\.voanews\.com\/[^"'\s<>]+?\.mp3[^"'\s<>]*/i
+                  .exec(pageHtml || '');
+        return m ? m[0].replace(/&amp;/g, '&') : null;
+    }
+
     // VOA article pages wrap the story body in <div class="wsw">.
     function extractVoaBody(pageHtml) {
         const doc  = new DOMParser().parseFromString(pageHtml, 'text/html');
@@ -384,6 +412,14 @@ window.ReadingFeeds = (function() {
         el('rf-downloaded')?.addEventListener('click', showDownloaded);
         el('rf-sources-edit')?.addEventListener('click', toggleSourcesEditor);
         el('rf-sources-save')?.addEventListener('click', saveSourcesEditor);
+        const ao = el('rf-audio-only');
+        if (ao) {
+            ao.checked = window.DB?.getPref?.(AUDIO_ONLY_PREF, '0') === '1';
+            ao.addEventListener('change', () => {
+                window.DB?.setPref?.(AUDIO_ONLY_PREF, ao.checked ? '1' : '0');
+                rerenderCurrent();
+            });
+        }
         el('rf-list')?.addEventListener('click', handleListClick);
         el('rf-article-close')?.addEventListener('click', closeArticle);
         el('rf-article-extract')?.addEventListener('click', sendToExtractor);
@@ -429,14 +465,33 @@ window.ReadingFeeds = (function() {
             const items = await fetchList(source);
             items.forEach(i => { i.sourceName = source.name; });
             currentList = items;
-            const saved = new Set((await idbListMeta()).map(r => r.id));
-            renderList(items, saved);
-            status(items.length + ' article(s) \u2014 tap one to download and read.');
+            const shown = await rerenderCurrent();
+            status(shown + ' article(s) \u2014 tap one to download and read.');
         } catch (e) {
             status('');
             el('rf-list').innerHTML =
                 '<div class="rf-error">' + esc(e.message || e) + '</div>';
         }
+    }
+
+    // Re-render the current list applying the audio-only filter.
+    // VOA article sections may still yield audio found on the page at
+    // download time, so the filter only hides items the feed itself
+    // marked as having none.
+    async function rerenderCurrent() {
+        const audioOnly = window.DB?.getPref?.(AUDIO_ONLY_PREF, '0') === '1';
+        const items     = audioOnly
+            ? currentList.filter(i => i.audio)
+            : currentList;
+        const saved = new Set((await idbListMeta()).map(r => r.id));
+        renderList(items, saved);
+        if (audioOnly && !items.length && currentList.length) {
+            el('rf-list').innerHTML = '<div class="rf-error">' +
+                'This feed lists no audio enclosures. VOA article ' +
+                'sections often reveal audio after download \u2014 ' +
+                'untick the filter to browse them.</div>';
+        }
+        return items.length;
     }
 
     function renderList(items, savedIds) {
@@ -619,7 +674,8 @@ window.ReadingFeeds = (function() {
     }
 
     // Exposed for the Node test suite; not used by the app itself.
-    const _internals = { parseSources, guardianListQuery, pickEvictions };
+    const _internals = { parseSources, guardianListQuery, pickEvictions,
+                         findPageAudio };
 
     return { init, _internals };
 

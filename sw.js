@@ -147,7 +147,16 @@
 //   • tap a word in an article to save it (with its sentence) to the
 //     notebook; one button hands the full text to the AI extractor.
 
-const CACHE_NAME = 'emp-v100';
+// v101 — native-speed audio focus in Daily Reading:
+//   • default sources replaced: three VOA podcast programmes (RSS
+//     carries a native-speed MP3 per episode) ahead of the article
+//     sections; Learning English (slow-read) is not shipped.
+//   • VOA article downloads now also fetch the article page to hunt
+//     for the embedded native-speed audio report that the section RSS
+//     never lists (best-effort; text still saves if the hunt fails).
+//   • "Audio only" toggle in the feed toolbar, preference-backed.
+
+const CACHE_NAME = 'emp-v101';
 const ASSETS = [
     './',
     './index.html',

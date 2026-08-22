@@ -1,4 +1,4 @@
-# EMPro v100 — 音频分包 + 每日阅读（合并交付）
+# EMPro v101 — 音频分包 + 每日阅读·原速音频（合并交付）
 
 本包同时包含 v99（音频分包）与 v100（Daily Reading）两轮改动，
 解压覆盖到仓库根目录即可（无外层文件夹）。
@@ -25,11 +25,13 @@
    会下载现有全量包直接切分，不重新合成，随后自动删除旧 full/delta 资产）。
 5. 手机端刷新两次让 SW 接管，Reader 页签出现 Daily Reading。
 
-## VOA Learning English 源
-默认源为 Guardian 三栏目 + VOA 主站三栏目。要加慢速的 Learning English
-栏目：浏览器打开 learningenglish.voanews.com/rssfeeds（需能访问一次），
-复制任一栏目的 RSS 链接，在 Daily Reading 面板 ⚙ 编辑源里按
-「名称 | RSS链接」一行一条粘贴保存即可，Worker 白名单已放行该域名。
+## 音频源（均为原速）
+默认源：VOA 三个播客栏目（Worldwide in Five / International Edition /
+Issues in the News，RSS 自带每集 MP3，列表直接显示 🎧）+ VOA 两个
+文章栏目（下载时自动从文章页挖掘内嵌的原速语音报道，有则附带）+
+Guardian 两栏目（纯文字）。工具栏有「🎧 Audio only」过滤开关。
+注意：如果之前在 ⚙ 里点过 Save sources，旧列表会盖住新默认——
+打开 ⚙ 清空文本框重新保存，或粘贴 APPLY 同目录下最新默认即可。
 
 ## 验证要点
 - 控制台出现 emp-v100 与 Boot complete

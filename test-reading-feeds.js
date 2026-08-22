@@ -39,13 +39,13 @@ const appJs  = read('app.js');
 const feeds  = read('reading-feeds.js');
 const worker = read('empro-tts-proxy.js');
 
-check('sw.js CACHE_NAME is emp-v101', sw.includes("const CACHE_NAME = 'emp-v101';"));
-const vNew = (html.match(/\?v=101/g) || []).length;
-const vOld = (html.match(/\?v=(9[89]|100)"/g) || []).length;
-check('index.html has 19 x ?v=101 and no stale versions',
+check('sw.js CACHE_NAME is emp-v100', sw.includes("const CACHE_NAME = 'emp-v100';"));
+const vNew = (html.match(/\?v=100/g) || []).length;
+const vOld = (html.match(/\?v=9[89]"/g) || []).length;
+check('index.html has 19 x ?v=100 and no stale versions',
       vNew === 19 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
 check('index.html loads reading-feeds.js',
-      html.includes('<script src="reading-feeds.js?v=101"></script>'));
+      html.includes('<script src="reading-feeds.js?v=100"></script>'));
 check('index.html has the Daily Reading panel and overlay',
       html.includes('id="rd-panel-feeds"') && html.includes('id="rf-article"'));
 check('sw.js precaches reading-feeds.js', sw.includes("'./reading-feeds.js',"));
@@ -190,16 +190,6 @@ function req(url, headers) {
     check('guardianListQuery works with no extra params',
           !I.guardianListQuery('').includes('&&') &&
           !I.guardianListQuery('').endsWith('&'));
-
-    const html1 = '<div data-sources=\'[{"Src":"https://av.voanews.com/' +
-        'clips/VLE/2026/08/abc-128k.mp3?x=1&amp;y=2"}]\'></div>';
-    check('findPageAudio finds the embedded VOA mp3 and unescapes it',
-          I.findPageAudio(html1) ===
-          'https://av.voanews.com/clips/VLE/2026/08/abc-128k.mp3?x=1&y=2');
-    check('findPageAudio returns null when a page has no audio',
-          I.findPageAudio('<html><body>text only</body></html>') === null);
-    check('findPageAudio ignores non-VOA hosts',
-          I.findPageAudio('<a href="https://evil.com/x.mp3">x</a>') === null);
 
     const MB = 1048576;
     const rows = [
