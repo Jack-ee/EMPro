@@ -317,7 +317,16 @@
 //     hosts whitelisted; an audio download failure now shows a toast
 //     with the HTTP status instead of failing silently.
 
-const CACHE_NAME = 'emp-v109';
+// v110 — three feed-parsing fixes from live testing:
+//   • NPR News Now newscasts carry no <link>; items now key on
+//     link -> guid -> audio URL instead of being dropped (the list
+//     had shown 0 articles).
+//   • BBC enclosures still use http://; the audio detector now
+//     accepts both schemes (the Worker relays server-side).
+//   • a record saved text-only re-downloads automatically when the
+//     feed declares audio for it; feeds are capped at 100 items.
+
+const CACHE_NAME = 'emp-v110';
 const ASSETS = [
     './',
     './index.html',

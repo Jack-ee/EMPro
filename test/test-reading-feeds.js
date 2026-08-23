@@ -39,13 +39,13 @@ const appJs  = read('app.js');
 const feeds  = read('reading-feeds.js');
 const worker = read('empro-tts-proxy.js');
 
-check('sw.js CACHE_NAME is emp-v109', sw.includes("const CACHE_NAME = 'emp-v109';"));
-const vNew = (html.match(/\?v=109/g) || []).length;
-const vOld = (html.match(/\?v=(9[89]|10[0-8])"/g) || []).length;
-check('index.html has 21 x ?v=109 and no stale versions',
+check('sw.js CACHE_NAME is emp-v110', sw.includes("const CACHE_NAME = 'emp-v110';"));
+const vNew = (html.match(/\?v=110/g) || []).length;
+const vOld = (html.match(/\?v=(9[89]|10[0-9])"/g) || []).length;
+check('index.html has 21 x ?v=110 and no stale versions',
       vNew === 21 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
 check('index.html loads reading-feeds.js',
-      html.includes('<script src="reading-feeds.js?v=109"></script>'));
+      html.includes('<script src="reading-feeds.js?v=110"></script>'));
 check('index.html has the Daily Reading panel and overlay',
       html.includes('id="rd-panel-feeds"') && html.includes('id="rf-article"'));
 check('sw.js precaches reading-feeds.js', sw.includes("'./reading-feeds.js',"));
@@ -248,6 +248,11 @@ function req(url, headers) {
           ])) === 'https://av.voanews.com/x.mp3?a=1');
     check('pickItemAudio returns null with no media at all',
           I.pickItemAudio(fakeItem([fakeEl('title', {})])) === null);
+    check('pickItemAudio accepts http enclosures (BBC redirector)',
+          I.pickItemAudio(fakeItem([
+              fakeEl('enclosure', { url : 'http://open.live.bbc.co.uk/x/y.mp3',
+                                    type: 'audio/mpeg' }),
+          ])) === 'http://open.live.bbc.co.uk/x/y.mp3');
     check('likelyAudio flags VOA links without declared audio only',
           I.likelyAudio({ audio: null, link: 'https://www.voanews.com/a/1.html' })
           === true &&

@@ -271,7 +271,10 @@ window.ReadingFeeds = (function() {
             const ln = elm.localName;
             if (ln !== 'enclosure' && ln !== 'content') continue;
             const url = elm.getAttribute('url') || '';
-            if (!/^https:\/\//i.test(url)) continue;
+            // http:// is accepted too - BBC's open.live.bbc.co.uk
+            // enclosure redirector still uses it, and the Worker
+            // relays server-side where mixed content does not apply.
+            if (!/^https?:\/\//i.test(url)) continue;
             const type   = (elm.getAttribute('type')   || '').toLowerCase();
             const medium = (elm.getAttribute('medium') || '').toLowerCase();
             if (type.indexOf('audio') !== -1 || medium === 'audio') return url;
@@ -287,23 +290,27 @@ window.ReadingFeeds = (function() {
         }
         const items = [];
         doc.querySelectorAll('item').forEach(it => {
-            const pick = tag => it.querySelector(tag)?.textContent?.trim() || '';
-            const link = pick('link');
-            if (!link) return;
+            const pick  = tag => it.querySelector(tag)?.textContent?.trim() || '';
+            const link  = pick('link');
+            const audio = pickItemAudio(it);
+            // Pure newscast feeds (NPR News Now) have no <link> at all;
+            // fall back to <guid>, then to the audio URL, as the item key.
+            const key   = link || pick('guid') || audio;
+            if (!key) return;
             // <content:encoded> holds the full HTML body on VOA feeds.
             let content = '';
             for (const el of it.children) {
                 if (el.localName === 'encoded') { content = el.textContent || ''; break; }
             }
             items.push({
-                id     : 'rss:' + link,
+                id     : 'rss:' + key,
                 title  : pick('title'),
                 date   : pick('pubDate'),
                 summary: stripTags(pick('description')).slice(0, 220),
                 words  : content ? stripTags(content).split(/\s+/).length : 0,
                 link   : link,
                 content: content,
-                audio  : pickItemAudio(it),
+                audio  : audio,
             });
         });
         return items;
@@ -332,7 +339,7 @@ window.ReadingFeeds = (function() {
             text = stripArticleHtml(item.content || '');
             const thinText  = text.split(/\s+/).length < 40;
             const huntAudio = !item.audio && /voanews\.com/.test(item.link || '');
-            if (thinText || huntAudio) {
+            if ((thinText || huntAudio) && item.link) {
                 say('Fetching article page\u2026');
                 try {
                     const resp = await fetch(
@@ -497,7 +504,7 @@ window.ReadingFeeds = (function() {
         try {
             const items = await fetchList(source);
             items.forEach(i => { i.sourceName = source.name; });
-            currentList = items;
+            currentList = items.slice(0, 100);
             const shown = await rerenderCurrent();
             status(shown + ' article(s) \u2014 tap one to download and read.');
         } catch (e) {
@@ -590,8 +597,13 @@ window.ReadingFeeds = (function() {
         const id = row.dataset.id;
 
         let rec = await idbGet(id);
+        const item = currentList.find(i => i.id === id);
+        if (rec && !rec.audioBlob && item && item.audio) {
+            // Saved before its audio could be fetched (e.g. behind an
+            // old whitelist); the feed says audio exists - fetch again.
+            rec = null;
+        }
         if (!rec) {
-            const item = currentList.find(i => i.id === id);
             if (!item) return;
             row.classList.add('rf-item-busy');
             try {
