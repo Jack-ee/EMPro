@@ -3,7 +3,8 @@
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse
-# sentence_voice: alloy   (long entries use this voice only, so changing the voices above never re-synthesises a sentence)
+# sentence_voice: alloy
+#   (long entries use this voice only, so changing the voices above never re-synthesises a sentence)
 # (no range set - building all 10002 words; add e.g.  "# range: 1-50"  to build one batch)
 # 573 word(s), 2 story block(s), 4023 item(s)
 
