@@ -299,7 +299,17 @@
 //     and overwrote v99–v106 (Stories, split packs, speech chain);
 //     this release re-grafts Daily Reading onto the real v106 tree.
 
-const CACHE_NAME = 'emp-v107';
+// v108 — cloud build un-bricked (run 4f1740c, exit 1 in 17 s):
+//   • the wordlist's "# sentence_voice: alloy (long entries ...)"
+//     explainer was parsed as fifteen voice names; "(long" reached
+//     OpenAI as a voice and aborted the run before any part was
+//     built, which is also why the story part p10001+ never existed
+//     and Stories fell back to the device voice.
+//   • header parsing now cuts at '(' / '#' and filters against
+//     KNOWN_VOICES with a warning; the app's export writes the
+//     explainer on its own comment line; selftest covers the case.
+
+const CACHE_NAME = 'emp-v108';
 const ASSETS = [
     './',
     './index.html',

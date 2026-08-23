@@ -879,8 +879,8 @@
             '# Replace tools/wordlist.txt with this file, then commit it.',
             '# Each block is tagged  #@<index> <word>  with a stable index.',
             '# voices: ' + getPackVoices().join(', '),
-            '# sentence_voice: ' + getPackSentenceVoice()
-                + '   (long entries use this voice only, so changing the '
+            '# sentence_voice: ' + getPackSentenceVoice(),
+            '#   (long entries use this voice only, so changing the '
                 + 'voices above never re-synthesises a sentence)'
         ];
         if (range) {

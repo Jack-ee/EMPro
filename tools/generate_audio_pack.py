@@ -189,6 +189,33 @@ PACK_VERSION   = 2
 # never re-downloading a part that did not change.
 PART_BLOCK_STRIDE = 80                    # word blocks per part
 PART_NAME_FMT     = "empro-audio-pack.p%05d-%05d.empack"
+
+# Every voice OpenAI's TTS accepts. Header parsing filters against this
+# so a trailing comment or a typo in the word list drops out with a
+# warning instead of reaching the API as a bogus voice name - which is
+# a fatal error that kills the whole cloud build within seconds
+# (run 4f1740c died in 17 s exactly this way: the sentence_voice
+# header's parenthetical explainer was parsed as fifteen voices).
+KNOWN_VOICES = ("alloy", "ash", "ballad", "coral", "echo", "fable",
+                "nova", "onyx", "sage", "shimmer", "verse")
+
+
+def clean_voice_tokens(spec, header):
+    """Voice names from a header value, comment-tolerant.
+
+    Cuts the value at the first '(' or '#' (the app's export writes an
+    explanatory parenthetical on the same line), splits on commas or
+    whitespace, and keeps only names in KNOWN_VOICES, warning about the
+    rest. Returns a list, possibly empty.
+    """
+    spec   = spec.split("(", 1)[0].split("#", 1)[0].replace(",", " ")
+    tokens = [t.lower() for t in spec.split()]
+    good   = [t for t in tokens if t in KNOWN_VOICES]
+    for t in tokens:
+        if t not in KNOWN_VOICES:
+            print("[words] ignoring '%s' in the %s header - not an OpenAI "
+                  "voice" % (t, header))
+    return good
 OPENAI_TTS_URL = "https://api.openai.com/v1/audio/speech"
 DEFAULT_MODEL  = "gpt-4o-mini-tts"
 
@@ -321,8 +348,7 @@ def read_pack_config(path):
         body = body[1:].strip()
         low = body.lower()
         if low.startswith("voices:"):
-            spec   = body.split(":", 1)[1].replace(",", " ")
-            voices = [t.lower() for t in spec.split()]
+            voices = clean_voice_tokens(body.split(":", 1)[1], "voices")
             if voices:
                 cfg["voices"] = voices
         elif low.startswith("limit:"):
@@ -334,8 +360,8 @@ def read_pack_config(path):
                 pass
         elif low.startswith("sentence_voice:") \
                 or low.startswith("sentence_voices:"):
-            spec = body.split(":", 1)[1].replace(",", " ")
-            vs   = [t.lower() for t in spec.split()]
+            vs = clean_voice_tokens(body.split(":", 1)[1],
+                                    "sentence_voice")
             if vs:
                 cfg["sentence_voices"] = vs
         elif low.startswith("part_blocks:"):
@@ -1298,6 +1324,21 @@ def run_selftest():
     assert ("x" * 60, "shimmer") in first, \
         "a long entry is wanted in the pinned sentence voice"
     assert ("x" * 60, "alloy") not in first, "and not in the word voices"
+
+    # Regression: the app's export writes an explanatory parenthetical
+    # on the same line as the header value. That comment must never be
+    # parsed as voice names (run 4f1740c: "(long", "entries", ... went
+    # to the API as voices and killed the build in seconds).
+    assert clean_voice_tokens(
+        " alloy   (long entries use this voice only, so changing the "
+        "voices above never re-synthesises a sentence)",
+        "sentence_voice") == ["alloy"], "parenthetical leaked into voices"
+    assert clean_voice_tokens(" fable, nova # word voices", "voices") \
+        == ["fable", "nova"], "comma list with trailing comment"
+    assert clean_voice_tokens(" alloy, ashh ", "voices") == ["alloy"], \
+        "unknown voice name must be dropped"
+    assert clean_voice_tokens("(only a comment)", "voices") == [], \
+        "comment-only value must yield no voices"
 
     print("[selftest] OK - %d clips round-tripped, %d-byte pack, voice policy "
           "+ budget + split-pack determinism checked" % (len(fake), len(pack)))
