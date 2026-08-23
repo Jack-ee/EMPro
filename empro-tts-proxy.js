@@ -80,6 +80,8 @@ const MEDIA_DOMAINS = [
     'podtrac.com',
     'chrt.fm',
     'megaphone.fm',
+    'byspotify.com',        // prfx.byspotify.com - first hop on NPR enclosures
+    'simplecastaudio.com',  // npr.simplecastaudio.com - NPR's audio CDN
     'bbci.co.uk',
     'bbc.co.uk',
 ];

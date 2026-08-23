@@ -368,7 +368,14 @@ window.ReadingFeeds = (function() {
             if (resp.ok) {
                 audioBlob = await resp.blob();
             } else {
-                console.warn('[feeds] audio download failed:', resp.status);
+                // Surface the reason - a silent fall-back to text-only
+                // hides whitelist gaps (a 400 here once meant the Worker
+                // did not know NPR's prfx.byspotify.com redirect host).
+                let hint = '';
+                try { hint = (await resp.text()).slice(0, 120); } catch {}
+                console.warn('[feeds] audio download failed:', resp.status, hint);
+                toast('Audio failed (HTTP ' + resp.status +
+                      (hint ? ' \u2014 ' + hint : '') + '); saving text only.');
             }
         }
 

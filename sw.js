@@ -309,7 +309,15 @@
 //     KNOWN_VOICES with a warning; the app's export writes the
 //     explainer on its own comment line; selftest covers the case.
 
-const CACHE_NAME = 'emp-v108';
+// v109 — NPR audio unblocked:
+//   • NPR enclosures now start on prfx.byspotify.com (then podtrac,
+//     then npr.simplecastaudio.com); the Worker's media whitelist only
+//     knew the older tracking hosts, so the first hop got a 400 and
+//     Daily Reading fell back to text-only without saying why. Both
+//     hosts whitelisted; an audio download failure now shows a toast
+//     with the HTTP status instead of failing silently.
+
+const CACHE_NAME = 'emp-v109';
 const ASSETS = [
     './',
     './index.html',
