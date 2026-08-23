@@ -1,5 +1,5 @@
 # EMPro audio pack - word list
-# Exported 2026-08-21 from the app.
+# Exported 2026-08-23 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse
