@@ -1046,7 +1046,7 @@ IMPORTANT:
         }
         autoplayOn = true;
         autoplayToken++;
-        acquireWakeLock();   // keep screen on while autoplay runs
+        acquireWakeLock();   // screen-on while visible; lock-screen play continues regardless
         updateAutoplayBtn();
         speakCurrentAndQueueNext(autoplayToken);
     }
@@ -1056,6 +1056,7 @@ IMPORTANT:
         autoplayToken++;    // invalidates any pending callbacks
         if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null; }
         window.App?.stopSpeak?.();
+        clearMediaSession();
         releaseWakeLock();   // let the screen sleep again
         document.querySelectorAll('.mw-card-playing, .mw-speaking-now')
             .forEach(el => el.classList.remove('mw-card-playing', 'mw-speaking-now'));
@@ -1109,6 +1110,55 @@ IMPORTANT:
         else            startAutoplay();
     }
 
+    // --- Media Session (lock-screen controls) -------------------------
+    // With the persistent pack <audio> element, playback survives the
+    // screen turning off; the Media Session hooks put word title and
+    // prev/pause/next buttons on the lock screen and, crucially, tell
+    // the OS this tab is a media app so it is not frozen mid-session.
+    function setMediaSession(word) {
+        if (!('mediaSession' in navigator)) return;
+        try {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title : word || 'EMPro',
+                artist: 'EMPro \u00b7 My Words',
+                album : 'Auto-play',
+            });
+            navigator.mediaSession.playbackState = 'playing';
+            navigator.mediaSession.setActionHandler('pause',
+                () => stopAutoplay());
+            navigator.mediaSession.setActionHandler('play',
+                () => { if (!autoplayOn) startAutoplay(); });
+            navigator.mediaSession.setActionHandler('nexttrack',
+                () => skipTo(1));
+            navigator.mediaSession.setActionHandler('previoustrack',
+                () => skipTo(-1));
+        } catch (e) { /* older browsers */ }
+    }
+
+    function clearMediaSession() {
+        if (!('mediaSession' in navigator)) return;
+        try {
+            navigator.mediaSession.playbackState = 'none';
+            navigator.mediaSession.metadata      = null;
+        } catch (e) { /* ignore */ }
+    }
+
+    // Lock-screen prev/next: jump within the running session without
+    // tearing it down.
+    function skipTo(delta) {
+        if (!autoplayOn) return;
+        const words = getGroupWords();
+        const to    = currentIdx + delta;
+        if (to < 0 || to >= words.length) return;
+        autoplayToken++;                       // cancel the current card
+        if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null; }
+        window.App?.stopSpeak?.();
+        currentIdx = to;
+        saveProgress();
+        render();
+        speakCurrentAndQueueNext(autoplayToken);
+    }
+
     // Speak current word → each collocation → example sentence → wait → next.
     // The `myToken` pattern prevents stale callbacks from firing after stop.
     function speakCurrentAndQueueNext(myToken) {
@@ -1120,6 +1170,8 @@ IMPORTANT:
         // Highlight current card so the user can follow along on mobile
         const cardEl = document.querySelector('.mw-card');
         if (cardEl) cardEl.classList.add('mw-card-playing');
+
+        setMediaSession(w.word);
 
         // Default kept in sync with speak()/speakNative() (0.9). A
         // different default here made autoplay run at a different pace
@@ -1176,6 +1228,25 @@ IMPORTANT:
             const lang  = typeof entry === 'string' ? ''    : (entry.lang || '');
             // Briefly highlight which collocation/example is being spoken
             highlightSpeakable(text);
+
+            // Screen off / tab hidden: speechSynthesis is suspended, so
+            // only pack clips can sound. Play English items straight
+            // from the pack and skip the rest (Chinese meaning, pack
+            // misses) instead of stalling the whole session on a voice
+            // that cannot start. The moment the screen is back on, the
+            // full chain below resumes automatically.
+            if (document.hidden) {
+                if (lang === 'zh-CN' || !window.TTSPack?.playWord) {
+                    next();
+                    return;
+                }
+                window.TTSPack.playWord(text, null, () => {
+                    if (!autoplayOn || myToken !== autoplayToken) return;
+                    autoplayTimer = setTimeout(next, 350);
+                }).then(hit => { if (!hit) next(); });
+                return;
+            }
+
             // Chinese voices on most systems are fixed at rate 1.0 by the
             // engine regardless — but we pass rate anyway for consistency.
             const opts = lang ? { lang } : undefined;

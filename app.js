@@ -972,6 +972,7 @@
 
     // ─── Settings modal ─────────────────────────────────────
     function openSettings() {
+        renderTabOrderSettings();
         const modal = document.getElementById('settings-modal');
         if (!modal) return;
         hydrateSettingsUI();
@@ -1147,6 +1148,68 @@
             m => `<option value="${escapeAttr(m)}">${escapeHtml(m)}</option>`
         ).join('');
         sel.value = current;
+    }
+
+    // --- Tab order (v112) ---------------------------------------------
+    // The order of the top nav tabs is a preference: 'tab_order' holds
+    // a comma list of data-nav ids. Applying is pure DOM reordering of
+    // the existing buttons, so every view, handler and module keeps
+    // working untouched; ids missing from the pref (new tabs added in
+    // later versions) keep their default position at the end.
+    function applyTabOrder() {
+        const saved = (window.DB.getPref('tab_order', '') || '')
+            .split(',').map(s => s.trim()).filter(Boolean);
+        if (!saved.length) return;
+        const bar  = document.querySelector('.nav-tab')?.parentElement;
+        if (!bar) return;
+        const tabs = Array.from(bar.querySelectorAll('.nav-tab'));
+        const byId = new Map(tabs.map(t => [t.dataset.nav, t]));
+        saved.forEach(id => {
+            const t = byId.get(id);
+            if (t) bar.appendChild(t);
+            byId.delete(id);
+        });
+        byId.forEach(t => bar.appendChild(t));   // unknown/new tabs last
+        // First tab opens on launch when the saved active one is fine —
+        // switch only if the default active tab moved away from front.
+        const first = bar.querySelector('.nav-tab');
+        if (first && !document.querySelector('.nav-tab.active')) first.click();
+    }
+
+    function renderTabOrderSettings() {
+        const box = document.getElementById('settings-tab-order');
+        if (!box) return;
+        const bar  = document.querySelector('.nav-tab')?.parentElement;
+        const tabs = Array.from(bar?.querySelectorAll('.nav-tab') || []);
+        box.innerHTML = tabs.map((t, i) =>
+            '<div class="tab-order-row" data-id="' + t.dataset.nav + '">' +
+            '<span class="tab-order-name">' + t.textContent.trim() + '</span>' +
+            '<button class="tab-order-btn" data-move="-1"' +
+                (i === 0 ? ' disabled' : '') + '>&#x25B2;</button>' +
+            '<button class="tab-order-btn" data-move="1"' +
+                (i === tabs.length - 1 ? ' disabled' : '') + '>&#x25BC;</button>' +
+            '</div>').join('');
+    }
+
+    function bindTabOrderSettings() {
+        document.getElementById('settings-tab-order')
+            ?.addEventListener('click', (e) => {
+                const btn = e.target.closest('.tab-order-btn');
+                if (!btn) return;
+                const row  = btn.closest('.tab-order-row');
+                const bar  = document.querySelector('.nav-tab')?.parentElement;
+                const tab  = bar?.querySelector('.nav-tab[data-nav="' + row.dataset.id + '"]');
+                if (!tab) return;
+                if (btn.dataset.move === '-1' && tab.previousElementSibling) {
+                    bar.insertBefore(tab, tab.previousElementSibling);
+                } else if (btn.dataset.move === '1' && tab.nextElementSibling) {
+                    bar.insertBefore(tab.nextElementSibling, tab);
+                }
+                const order = Array.from(bar.querySelectorAll('.nav-tab'))
+                    .map(t => t.dataset.nav).join(',');
+                window.DB.setPref('tab_order', order);
+                renderTabOrderSettings();
+            });
     }
 
     function bindSettingsHandlers() {
@@ -1903,6 +1966,7 @@
             safeCall('Reader',          () => window.Reader?.init?.());
             safeCall('Stories',         () => window.Stories?.init?.());
             safeCall('ReadingFeeds',    () => window.ReadingFeeds?.init?.());
+            safeCall('TabOrder',        () => { applyTabOrder(); bindTabOrderSettings(); });
             safeCall('SpeakingCoach',   () => window.SpeakingCoach?.init?.());
             safeCall('ExpressionCoach', () => {
                 const el = document.getElementById('sc-panel-drill');

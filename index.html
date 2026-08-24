@@ -22,9 +22,9 @@
          sw.js to match (e.g. 'emp-vN+1').
          Current version: v=106
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=110">
-    <link rel="stylesheet" href="expressions-coach.css?v=110">
-    <link rel="stylesheet" href="stories.css?v=110">
+    <link rel="stylesheet" href="style.css?v=112">
+    <link rel="stylesheet" href="expressions-coach.css?v=112">
+    <link rel="stylesheet" href="stories.css?v=112">
 </head>
 <body>
 
@@ -375,6 +375,11 @@ One word or phrase per line</pre>
                     <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-secondary)">
                         <input type="checkbox" id="settings-show-cn"> Show Chinese by default
                     </label>
+                    <div style="margin-top:12px">
+                        <label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:3px">Tab order</label>
+                        <div id="settings-tab-order"></div>
+                        <p class="settings-hint">Use the arrows to reorder the top tabs. The first tab opens on launch.</p>
+                    </div>
                 </section>
                 <section class="settings-section" id="install-section">
                     <h3>Install as app</h3>
@@ -521,27 +526,27 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=110"></script>
-<script src="db.js?v=110"></script>
-<script src="ai-engine.js?v=110"></script>
-<script src="my-words.js?v=110"></script>
-<script src="writing-lab.js?v=110"></script>
-<script src="vocab-drill.js?v=110"></script>
-<script src="reader.js?v=110"></script>
-<script src="stories.js?v=110"></script>
-<script src="speaking-coach.js?v=110"></script>
-<script src="expressions-data.js?v=110"></script>
-<script src="expressions-coach.js?v=110"></script>
-<script src="sentence.js?v=110"></script>
-<script src="sentence-drill.js?v=110"></script>
-<script src="sync.js?v=110"></script>
-<script src="tts-pack.js?v=110"></script>
-<script src="reading-feeds.js?v=110"></script>
-<script src="app.js?v=110"></script>
+<script src="config.js?v=112"></script>
+<script src="db.js?v=112"></script>
+<script src="ai-engine.js?v=112"></script>
+<script src="my-words.js?v=112"></script>
+<script src="writing-lab.js?v=112"></script>
+<script src="vocab-drill.js?v=112"></script>
+<script src="reader.js?v=112"></script>
+<script src="stories.js?v=112"></script>
+<script src="speaking-coach.js?v=112"></script>
+<script src="expressions-data.js?v=112"></script>
+<script src="expressions-coach.js?v=112"></script>
+<script src="sentence.js?v=112"></script>
+<script src="sentence-drill.js?v=112"></script>
+<script src="sync.js?v=112"></script>
+<script src="tts-pack.js?v=112"></script>
+<script src="reading-feeds.js?v=112"></script>
+<script src="app.js?v=112"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=110"></script>
+<script src="debug-panel.js?v=112"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.

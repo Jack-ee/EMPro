@@ -472,16 +472,34 @@ window.TTSPack = (function () {
 
     // --- Public: playback -------------------------------------------
 
-    let _audio = null;
+    // One persistent <audio> element, created on the first play and
+    // reused for every clip after that (only src changes). This is the
+    // key to lock-screen playback: the browser treats it as one
+    // continuous media session, so ended -> new src -> play() keeps
+    // working with the screen off, whereas a fresh new Audio() started
+    // in the background is rejected by the autoplay policy.
+    let _audio    = null;
+    let _playing  = false;
+
+    function ensureAudio() {
+        if (!_audio) {
+            _audio = new Audio();
+            _audio.preload = 'auto';
+        }
+        return _audio;
+    }
 
     function stop() {
         try {
+            _playing = false;
             if (_audio) {
                 _audio.pause();
                 _audio.onended = null;
                 _audio.onerror = null;
-                if (_audio.src) URL.revokeObjectURL(_audio.src);
-                _audio = null;
+                if (_audio.src) {
+                    URL.revokeObjectURL(_audio.src);
+                    _audio.removeAttribute('src');
+                }
             }
         } catch (e) { /* ignore */ }
     }
@@ -523,14 +541,15 @@ window.TTSPack = (function () {
 
         stop();
         const url   = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        _audio = audio;
+        const audio = ensureAudio();
+        audio.src   = url;
+        _playing    = true;
 
         let done = false;
         const finish = () => {
             if (done) return;
             done = true;
-            if (_audio === audio) _audio = null;
+            _playing = false;
             try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ }
             if (typeof onEnd === 'function') onEnd();
         };

@@ -653,6 +653,29 @@ window.ReadingFeeds = (function() {
         ).join('');
 
         el('rf-article').classList.add('open');
+
+        // Lock-screen card for podcast playback: title + play/pause and
+        // 15-second seek on the system media controls. The <audio>
+        // element itself keeps sounding with the screen off; this makes
+        // it controllable from there.
+        if ('mediaSession' in navigator && rec.audioBlob) {
+            try {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title : rec.title,
+                    artist: rec.sourceName || 'Daily Reading',
+                    album : 'EMPro',
+                });
+                navigator.mediaSession.setActionHandler('play',
+                    () => player.play());
+                navigator.mediaSession.setActionHandler('pause',
+                    () => player.pause());
+                navigator.mediaSession.setActionHandler('seekbackward',
+                    () => { player.currentTime = Math.max(0, player.currentTime - 15); });
+                navigator.mediaSession.setActionHandler('seekforward',
+                    () => { player.currentTime = Math.min(player.duration || 0,
+                                                          player.currentTime + 15); });
+            } catch (e) { /* older browsers */ }
+        }
     }
 
     function closeArticle() {

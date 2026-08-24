@@ -39,13 +39,13 @@ const appJs  = read('app.js');
 const feeds  = read('reading-feeds.js');
 const worker = read('empro-tts-proxy.js');
 
-check('sw.js CACHE_NAME is emp-v110', sw.includes("const CACHE_NAME = 'emp-v110';"));
-const vNew = (html.match(/\?v=110/g) || []).length;
-const vOld = (html.match(/\?v=(9[89]|10[0-9])"/g) || []).length;
-check('index.html has 21 x ?v=110 and no stale versions',
+check('sw.js CACHE_NAME is emp-v112', sw.includes("const CACHE_NAME = 'emp-v112';"));
+const vNew = (html.match(/\?v=112/g) || []).length;
+const vOld = (html.match(/\?v=(9[89]|10[0-9]|11[01])"/g) || []).length;
+check('index.html has 21 x ?v=112 and no stale versions',
       vNew === 21 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
 check('index.html loads reading-feeds.js',
-      html.includes('<script src="reading-feeds.js?v=110"></script>'));
+      html.includes('<script src="reading-feeds.js?v=112"></script>'));
 check('index.html has the Daily Reading panel and overlay',
       html.includes('id="rd-panel-feeds"') && html.includes('id="rf-article"'));
 check('sw.js precaches reading-feeds.js', sw.includes("'./reading-feeds.js',"));
@@ -134,6 +134,32 @@ function req(url, headers) {
     r = await routes.fetch(req(W + '?media=' + encodeURIComponent(
         'https://prfx.byspotify.com/e/play.podtrac.com/npr-510318/x.mp3')), {});
     check('?media allows the byspotify prefix NPR now uses', r.status === 200);
+
+    // A tracking hop replying with a RELATIVE Location must be
+    // resolved by hand (workerd's redirect:'follow' throws
+    // "Incomplete URL" on it).
+    calls.length = 0;
+    let step = 0;
+    sandbox.fetch = async (url, opts) => {
+        calls.push({ url: String(url), opts: opts || {} });
+        step += 1;
+        if (step === 1) {
+            return new Response(null, { status: 302,
+                headers: { Location: '/npr-510318/real.mp3' } });
+        }
+        return new Response('AUDIO', { status: 200,
+            headers: { 'Content-Type': 'audio/mpeg' } });
+    };
+    r = await routes.fetch(req(W + '?media=' +
+        encodeURIComponent('https://prfx.byspotify.com/e/test.mp3')), {});
+    check('?media resolves relative redirect Locations by hand',
+          r.status === 200 && calls.length === 2 &&
+          calls[1].url === 'https://prfx.byspotify.com/npr-510318/real.mp3');
+    sandbox.fetch = async (url, opts) => {
+        calls.push({ url: String(url), opts: opts || {} });
+        return stubUpstream('<rss><channel></channel></rss>',
+            { 'Content-Type': 'text/xml' });
+    };
 
     // ?media: Range passthrough
     calls.length = 0;

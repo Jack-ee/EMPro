@@ -326,7 +326,29 @@
 //   • a record saved text-only re-downloads automatically when the
 //     feed declares audio for it; feeds are capped at 100 items.
 
-const CACHE_NAME = 'emp-v110';
+// v111 — lock-screen (background) playback:
+//   • tts-pack keeps ONE persistent <audio> element and only swaps
+//     src per clip, so the browser treats autoplay as one continuous
+//     media session and ended->play() keeps working with the screen
+//     off (a fresh new Audio() in the background is refused).
+//   • My Words autoplay: with the tab hidden, the queue plays pack
+//     clips only - Chinese meaning and pack misses are skipped, since
+//     speechSynthesis is suspended on lock; the full chain resumes
+//     when the screen comes back. Media Session puts the current word
+//     and prev/pause/next on the lock screen.
+//   • Daily Reading's podcast player gets a lock-screen card with
+//     play/pause and 15 s seek.
+//   MIUI note: give the browser unrestricted background battery use,
+//   or the system may still kill it minutes after locking.
+
+// v112 — configurable tab order:
+//   • Settings -> Study gains a "Tab order" list with up/down arrows;
+//     the order persists in the 'tab_order' preference and is applied
+//     at boot by reordering the nav buttons in place, so views and
+//     handlers are untouched. Tabs added by future versions slot in
+//     at the end until reordered.
+
+const CACHE_NAME = 'emp-v112';
 const ASSETS = [
     './',
     './index.html',

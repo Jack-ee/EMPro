@@ -4590,3 +4590,15 @@ html {
 .rf-w             { cursor: pointer; border-radius: 3px; }
 .rf-w:hover       { background: var(--bg-hover); }
 .rf-w-saved       { background: var(--accent-bg); color: var(--accent-text); }
+
+
+/* ===== Settings: tab order (v112) ===== */
+.tab-order-row  { display: flex; align-items: center; gap: 8px;
+                  padding: 5px 8px; border: 1px solid var(--border);
+                  border-radius: 8px; margin-bottom: 4px;
+                  background: var(--bg-card); font-size: 13px; }
+.tab-order-name { flex: 1; }
+.tab-order-btn  { border: 1px solid var(--border); background: var(--bg-surface);
+                  border-radius: 6px; width: 26px; height: 26px;
+                  cursor: pointer; font-size: 12px; line-height: 1; }
+.tab-order-btn:disabled { opacity: .3; cursor: default; }
