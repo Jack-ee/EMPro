@@ -390,6 +390,89 @@ window.ReadingFeeds = (function() {
         return items;
     }
 
+    // Weak-signal-resilient audio download. Fetches in 3 MB Range
+    // chunks so a dropped connection loses one chunk, not the file;
+    // each chunk retries up to 3 times with backoff. Servers that
+    // ignore Range (respond 200) fall back to one streamed request.
+    // The Worker's ?media and ?drive=file routes pass Range through.
+    const CHUNK_BYTES = 3 * 1048576;
+
+    async function fetchAudioResilient(url, onStatus, label) {
+        const say = (m) => onStatus && onStatus(m);
+        const pct = (got, total) => total
+            ? Math.floor(got / total * 100) + '% \u00b7 '
+              + (got / 1048576).toFixed(1) + '/'
+              + (total / 1048576).toFixed(1) + ' MB'
+            : (got / 1048576).toFixed(1) + ' MB';
+
+        async function chunkReq(from, to, attempt) {
+            const resp = await fetch(url, {
+                headers: { Range: 'bytes=' + from + '-' + to },
+            });
+            if (resp.status === 206 || resp.status === 200) return resp;
+            throw new Error('HTTP ' + resp.status);
+        }
+
+        // First chunk decides the mode.
+        let first;
+        try {
+            first = await chunkReq(0, CHUNK_BYTES - 1);
+        } catch (e) {
+            throw new Error(label + ' failed to start: ' + (e.message || e));
+        }
+
+        if (first.status === 200) {
+            // Range ignored: stream the whole body with progress.
+            const total = parseInt(first.headers.get('Content-Length'), 10) || 0;
+            if (!first.body || !first.body.getReader) {
+                return new Blob([await first.arrayBuffer()]);
+            }
+            const reader = first.body.getReader();
+            const parts  = [];
+            let   got    = 0;
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                parts.push(value);
+                got += value.length;
+                say(label + ' \u2014 ' + pct(got, total));
+            }
+            return new Blob(parts);
+        }
+
+        // 206: chunked mode. Total size from Content-Range "bytes a-b/total".
+        const cr    = first.headers.get('Content-Range') || '';
+        const total = parseInt(cr.split('/')[1], 10) || 0;
+        if (!total) throw new Error(label + ': server sent no total size.');
+        const parts = [new Uint8Array(await first.arrayBuffer())];
+        let   got   = parts[0].length;
+        say(label + ' \u2014 ' + pct(got, total));
+
+        while (got < total) {
+            const to = Math.min(got + CHUNK_BYTES, total) - 1;
+            let   chunk = null;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const resp = await chunkReq(got, to, attempt);
+                    chunk = new Uint8Array(await resp.arrayBuffer());
+                    break;
+                } catch (e) {
+                    if (attempt === 3) {
+                        throw new Error(label + ' lost the connection at '
+                            + pct(got, total) + ' \u2014 tap again to retry.');
+                    }
+                    say(label + ' \u2014 retrying (' + attempt + '/3)\u2026');
+                    await new Promise(r => setTimeout(r, attempt * 1500));
+                }
+            }
+            parts.push(chunk);
+            got += chunk.length;
+            if (chunk.length === 0) throw new Error(label + ': empty chunk.');
+            say(label + ' \u2014 ' + pct(got, total));
+        }
+        return new Blob(parts);
+    }
+
     // --- Downloading one article -------------------------------------
 
     async function downloadArticle(item, say) {
@@ -397,11 +480,9 @@ window.ReadingFeeds = (function() {
         let text = '';
 
         if (item.driveId) {
-            say('Downloading audio\u2026');
-            const resp = await fetch(
-                b + '?drive=file&id=' + encodeURIComponent(item.driveId));
-            if (!resp.ok) throw new Error(await workerError(resp));
-            const blob = await resp.blob();
+            const blob = await fetchAudioResilient(
+                b + '?drive=file&id=' + encodeURIComponent(item.driveId),
+                say, 'Audio');
             const rec  = {
                 id          : item.id,
                 sourceName  : item.sourceName || '',
@@ -446,19 +527,16 @@ window.ReadingFeeds = (function() {
 
         let audioBlob = null;
         if (item.audio) {
-            say('Downloading audio\u2026');
-            const resp = await fetch(b + '?media=' + encodeURIComponent(item.audio));
-            if (resp.ok) {
-                audioBlob = await resp.blob();
-            } else {
+            try {
+                audioBlob = await fetchAudioResilient(
+                    b + '?media=' + encodeURIComponent(item.audio),
+                    say, 'Audio');
+            } catch (e) {
                 // Surface the reason - a silent fall-back to text-only
-                // hides whitelist gaps (a 400 here once meant the Worker
-                // did not know NPR's prfx.byspotify.com redirect host).
-                let hint = '';
-                try { hint = (await resp.text()).slice(0, 120); } catch {}
-                console.warn('[feeds] audio download failed:', resp.status, hint);
-                toast('Audio failed (HTTP ' + resp.status +
-                      (hint ? ' \u2014 ' + hint : '') + '); saving text only.');
+                // once hid a whitelist gap for days.
+                console.warn('[feeds] audio download failed:', e.message || e);
+                toast((e.message || 'Audio download failed')
+                      + ' \u2014 saving text only.');
             }
         }
 
@@ -826,7 +904,8 @@ window.ReadingFeeds = (function() {
 
     // Exposed for the Node test suite; not used by the app itself.
     const _internals = { parseSources, guardianListQuery, pickEvictions,
-                         pickItemAudio, brandFor, parseDuration };
+                         pickItemAudio, brandFor, parseDuration,
+                         fetchAudioResilient };
 
     return { init, _internals };
 

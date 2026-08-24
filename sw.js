@@ -397,7 +397,16 @@
 //     Worker environment, like the Guardian key; folder/file ids are
 //     strictly validated so the route cannot proxy anything else.
 
-const CACHE_NAME = 'emp-v117';
+// v118 — weak-signal-resilient audio downloads:
+//   • Daily Reading audio (podcast enclosures and Drive files) now
+//     downloads in 3 MB Range chunks with per-chunk retries and live
+//     "37% · 12.4/33.0 MB" progress; a flaky connection re-fetches
+//     one chunk instead of restarting a 50 MB file. Servers that
+//     ignore Range fall back to a single streamed request with
+//     progress. Worker routes already pass Range through - no Worker
+//     change in this version.
+
+const CACHE_NAME = 'emp-v118';
 const ASSETS = [
     './',
     './index.html',

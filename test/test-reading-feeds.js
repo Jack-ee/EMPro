@@ -39,13 +39,13 @@ const appJs  = read('app.js');
 const feeds  = read('reading-feeds.js');
 const worker = read('empro-tts-proxy.js');
 
-check('sw.js CACHE_NAME is emp-v117', sw.includes("const CACHE_NAME = 'emp-v117';"));
-const vNew = (html.match(/\?v=117/g) || []).length;
-const vOld = (html.match(/\?v=(9[89]|10[0-9]|11[0-6])"/g) || []).length;
-check('index.html has 21 x ?v=117 and no stale versions',
+check('sw.js CACHE_NAME is emp-v118', sw.includes("const CACHE_NAME = 'emp-v118';"));
+const vNew = (html.match(/\?v=118/g) || []).length;
+const vOld = (html.match(/\?v=(9[89]|10[0-9]|11[0-7])"/g) || []).length;
+check('index.html has 21 x ?v=118 and no stale versions',
       vNew === 21 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
 check('index.html loads reading-feeds.js',
-      html.includes('<script src="reading-feeds.js?v=117"></script>'));
+      html.includes('<script src="reading-feeds.js?v=118"></script>'));
 check('index.html has the Daily Reading panel and overlay',
       html.includes('id="rd-panel-feeds"') && html.includes('id="rf-article"'));
 check('sw.js precaches reading-feeds.js', sw.includes("'./reading-feeds.js',"));
@@ -244,7 +244,8 @@ function req(url, headers) {
     // --- 3. Module pure logic -------------------------------------
 
     console.log('[module]');
-    const modSandbox = { window: {}, console };
+    const modSandbox = { window: {}, console,
+                         Response, Headers, Blob, setTimeout, URL };
     vm.createContext(modSandbox);
     vm.runInContext(feeds, modSandbox);
     const I = modSandbox.window.ReadingFeeds._internals;
@@ -345,6 +346,31 @@ function req(url, headers) {
           JSON.stringify(['c', 'a']));
     check('pickEvictions is a no-op under the cap',
           I.pickEvictions(rows, 500 * MB, null).length === 0);
+
+    // fetchAudioResilient against a stubbed chunk server: 30 bytes in
+    // 3 chunks (CHUNK is 3 MB in prod; the stub just honours Range),
+    // with the second chunk failing once - the file must still
+    // assemble byte-perfect, proving per-chunk retry works.
+    const FILE = new Uint8Array(30).map((_, i) => i);
+    let fails = 1;
+    modSandbox.fetch = async (url, opts) => {
+        const range = new Headers((opts || {}).headers).get('Range') || '';
+        const m = /bytes=(\d+)-(\d+)/.exec(range);
+        const from = parseInt(m[1], 10);
+        const to   = Math.min(parseInt(m[2], 10), FILE.length - 1);
+        if (from === 10 && fails-- > 0) throw new Error('flaky network');
+        const body = FILE.slice(from, Math.min(to + 1, from + 10));
+        return new Response(body, { status: 206, headers: {
+            'Content-Range': 'bytes ' + from + '-' + (from + body.length - 1)
+                             + '/' + FILE.length } });
+    };
+    const RF = modSandbox.window.ReadingFeeds._internals;
+    // shrink the chunk size via a Range-honouring stub that returns 10B
+    const blob = await RF.fetchAudioResilient('https://w/x?media=y',
+                                              () => {}, 'T');
+    const out  = new Uint8Array(await blob.arrayBuffer());
+    check('fetchAudioResilient reassembles chunks byte-perfect through a retry',
+          out.length === 30 && out.every((v, i) => v === i));
 
     console.log('\n%d passed, %d failed', passed, failed);
     process.exit(failed ? 1 : 0);
