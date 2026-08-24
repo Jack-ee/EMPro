@@ -369,7 +369,18 @@
 //     reserved for text articles. Dates humanise to Today/Yesterday.
 //   • Downloaded rows carry the source monogram.
 
-const CACHE_NAME = 'emp-v114';
+// v115 — the Reader tab becomes News:
+//   • nav tab renamed Reader -> News (newspaper icon); Daily Reading
+//     is now the default sub-view so the live sources appear the
+//     moment the tab opens, with Extract one tap away. The tab's
+//     data-nav id is unchanged, so tab order, views and modules are
+//     untouched.
+//   • source chips wrap onto multiple lines instead of clipping.
+//   • text-only sources (Guardian) are exempt from the Audio-only
+//     filter: their articles always show, with a note, instead of a
+//     confusing empty list.
+
+const CACHE_NAME = 'emp-v115';
 const ASSETS = [
     './',
     './index.html',

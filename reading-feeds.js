@@ -474,6 +474,16 @@ window.ReadingFeeds = (function() {
         el('rf-article-extract')?.addEventListener('click', sendToExtractor);
         el('rf-article-body')?.addEventListener('click', handleWordTap);
         renderSourceBar();
+
+        // Feeds are the default sub-view of the News tab now: load the
+        // list the first time the tab is shown (or immediately when it
+        // is the active tab at boot, e.g. first in the tab order).
+        const lazyLoad = () => { if (!currentList.length) refreshList(); };
+        document.querySelector('.nav-tab[data-nav="reader"]')
+            ?.addEventListener('click', lazyLoad);
+        if (document.querySelector('.nav-tab[data-nav="reader"].active')) {
+            lazyLoad();
+        }
     }
 
     // Sub-tabs inside the Reader view: Extract (paste) | Daily Reading
@@ -525,7 +535,9 @@ window.ReadingFeeds = (function() {
             items.forEach(i => { i.sourceName = source.name; });
             currentList = items.slice(0, 100);
             const shown = await rerenderCurrent();
-            status(shown + ' article(s) \u2014 tap one to download and read.');
+            if (!el('rf-status')?.textContent) {
+                status(shown + ' article(s) \u2014 tap one to download and read.');
+            }
         } catch (e) {
             status('');
             el('rf-list').innerHTML =
@@ -535,17 +547,22 @@ window.ReadingFeeds = (function() {
 
     // Re-render the current list applying the audio-only filter.
     async function rerenderCurrent() {
+        status('');
         const audioOnly = window.DB?.getPref?.(AUDIO_ONLY_PREF, '0') === '1';
         const items     = audioOnly
             ? currentList.filter(i => i.audio)
             : currentList;
+        // A source with no audio at all (Guardian) is a text source;
+        // blanking it under the audio filter only ever confused. Show
+        // its articles and say why the filter does not apply.
+        if (audioOnly && !items.length && currentList.length) {
+            const saved = new Set((await idbListMeta()).map(r => r.id));
+            renderList(currentList, saved);
+            status('Text-only source \u2014 audio filter not applied.');
+            return currentList.length;
+        }
         const saved = new Set((await idbListMeta()).map(r => r.id));
         renderList(items, saved);
-        if (audioOnly && !items.length && currentList.length) {
-            el('rf-list').innerHTML = '<div class="rf-error">' +
-                'No audio in this feed \u2014 untick the filter to ' +
-                'browse its text articles.</div>';
-        }
         return items.length;
     }
 

@@ -22,9 +22,9 @@
          sw.js to match (e.g. 'emp-vN+1').
          Current version: v=106
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=114">
-    <link rel="stylesheet" href="expressions-coach.css?v=114">
-    <link rel="stylesheet" href="stories.css?v=114">
+    <link rel="stylesheet" href="style.css?v=115">
+    <link rel="stylesheet" href="expressions-coach.css?v=115">
+    <link rel="stylesheet" href="stories.css?v=115">
 </head>
 <body>
 
@@ -53,7 +53,7 @@
         <button class="nav-tab" data-nav="speaking-coach"><span class="nav-icon">&#x1F5E3;&#xFE0F;</span><span class="nav-label">Expressions</span></button>
         <button class="nav-tab" data-nav="vocab-drill"><span class="nav-icon">&#x1F3AF;</span><span class="nav-label">Drill</span></button>
         <button class="nav-tab" data-nav="writing-lab"><span class="nav-icon">&#x270D;&#xFE0F;</span><span class="nav-label">Writing</span></button>
-        <button class="nav-tab" data-nav="reader"><span class="nav-icon">&#x1F4DA;</span><span class="nav-label">Reader</span></button>
+        <button class="nav-tab" data-nav="reader"><span class="nav-icon">&#x1F4F0;</span><span class="nav-label">News</span></button>
         <button class="nav-tab" data-nav="stories"><span class="nav-icon">&#x1F4DD;</span><span class="nav-label">Stories</span></button>
     </nav>
 
@@ -167,10 +167,10 @@
     <div class="app-view" id="view-reader">
         <div class="rd-container">
             <div class="rd-subnav">
-                <button class="rd-subtab active" data-rdsub="paste">&#x1F50D; Extract</button>
-                <button class="rd-subtab" data-rdsub="feeds">&#x1F4F0; Daily Reading</button>
+                <button class="rd-subtab" data-rdsub="paste">&#x1F50D; Extract</button>
+                <button class="rd-subtab active" data-rdsub="feeds">&#x1F4F0; Daily Reading</button>
             </div>
-            <div id="rd-panel-paste">
+            <div id="rd-panel-paste" style="display:none">
             <div class="rd-controls"><div class="rd-control-row">
                 <label class="rd-label">Level <select id="rd-level" class="rd-select"><option value="advanced" selected>Advanced</option><option value="intermediate">Intermediate</option><option value="academic">Academic</option></select></label>
                 <label class="rd-label">Focus <select id="rd-focus" class="rd-select"><option value="all" selected>All</option><option value="academic">Academic</option><option value="idioms">Idioms</option><option value="technical">Technical</option></select></label>
@@ -188,7 +188,7 @@
             <div class="rd-results" id="rd-results"></div>
             </div>
 
-            <div id="rd-panel-feeds" style="display:none">
+            <div id="rd-panel-feeds">
                 <div class="rf-source-bar" id="rf-source-bar"></div>
                 <div class="rf-toolbar">
                     <button class="wl-btn-secondary" id="rf-refresh">&#x21BB; Refresh</button>
@@ -526,27 +526,27 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=114"></script>
-<script src="db.js?v=114"></script>
-<script src="ai-engine.js?v=114"></script>
-<script src="my-words.js?v=114"></script>
-<script src="writing-lab.js?v=114"></script>
-<script src="vocab-drill.js?v=114"></script>
-<script src="reader.js?v=114"></script>
-<script src="stories.js?v=114"></script>
-<script src="speaking-coach.js?v=114"></script>
-<script src="expressions-data.js?v=114"></script>
-<script src="expressions-coach.js?v=114"></script>
-<script src="sentence.js?v=114"></script>
-<script src="sentence-drill.js?v=114"></script>
-<script src="sync.js?v=114"></script>
-<script src="tts-pack.js?v=114"></script>
-<script src="reading-feeds.js?v=114"></script>
-<script src="app.js?v=114"></script>
+<script src="config.js?v=115"></script>
+<script src="db.js?v=115"></script>
+<script src="ai-engine.js?v=115"></script>
+<script src="my-words.js?v=115"></script>
+<script src="writing-lab.js?v=115"></script>
+<script src="vocab-drill.js?v=115"></script>
+<script src="reader.js?v=115"></script>
+<script src="stories.js?v=115"></script>
+<script src="speaking-coach.js?v=115"></script>
+<script src="expressions-data.js?v=115"></script>
+<script src="expressions-coach.js?v=115"></script>
+<script src="sentence.js?v=115"></script>
+<script src="sentence-drill.js?v=115"></script>
+<script src="sync.js?v=115"></script>
+<script src="tts-pack.js?v=115"></script>
+<script src="reading-feeds.js?v=115"></script>
+<script src="app.js?v=115"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=114"></script>
+<script src="debug-panel.js?v=115"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.

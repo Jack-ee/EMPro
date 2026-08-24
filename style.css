@@ -4605,10 +4605,8 @@ html {
 
 
 /* ===== Daily Reading source chips (v114) ===== */
-.rf-source-bar   { display: flex; gap: 8px; overflow-x: auto;
-                   padding: 2px 0 8px; -webkit-overflow-scrolling: touch;
-                   scrollbar-width: none; }
-.rf-source-bar::-webkit-scrollbar { display: none; }
+.rf-source-bar   { display: flex; flex-wrap: wrap; gap: 8px;
+                   padding: 2px 0 8px; }
 .rf-chip         { display: flex; align-items: center; gap: 7px;
                    border: 1px solid var(--border); border-radius: 999px;
                    background: var(--bg-card); padding: 5px 12px 5px 6px;
