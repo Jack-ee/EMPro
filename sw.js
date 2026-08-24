@@ -380,7 +380,15 @@
 //     filter: their articles always show, with a note, instead of a
 //     confusing empty list.
 
-const CACHE_NAME = 'emp-v115';
+// v116 — sub-tab row removed from News:
+//   • "Daily Reading" was redundant once feeds became the tab's only
+//     face, and Extract did not deserve half the header: the paste
+//     panel now lives in a modal opened from a small toolbar button,
+//     and the article overlay's one-tap extract opens that modal
+//     directly. The Reader module's own bindings are untouched - the
+//     panel merely moved house into the modal.
+
+const CACHE_NAME = 'emp-v116';
 const ASSETS = [
     './',
     './index.html',

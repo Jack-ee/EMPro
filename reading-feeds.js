@@ -449,7 +449,6 @@ window.ReadingFeeds = (function() {
     function el(id) { return document.getElementById(id); }
 
     function init() {
-        bindSubTabs();
         el('rf-refresh')?.addEventListener('click', () => refreshList());
         el('rf-source-bar')?.addEventListener('click', (e) => {
             const chip = e.target.closest('.rf-chip');
@@ -471,11 +470,15 @@ window.ReadingFeeds = (function() {
         }
         el('rf-list')?.addEventListener('click', handleListClick);
         el('rf-article-close')?.addEventListener('click', closeArticle);
+        el('rf-extract-open')?.addEventListener('click', () =>
+            el('rd-extract-modal')?.classList.add('open'));
+        el('rd-extract-close')?.addEventListener('click', () =>
+            el('rd-extract-modal')?.classList.remove('open'));
         el('rf-article-extract')?.addEventListener('click', sendToExtractor);
         el('rf-article-body')?.addEventListener('click', handleWordTap);
         renderSourceBar();
 
-        // Feeds are the default sub-view of the News tab now: load the
+        // Feeds ARE the News tab now: load the
         // list the first time the tab is shown (or immediately when it
         // is the active tab at boot, e.g. first in the tab order).
         const lazyLoad = () => { if (!currentList.length) refreshList(); };
@@ -484,20 +487,6 @@ window.ReadingFeeds = (function() {
         if (document.querySelector('.nav-tab[data-nav="reader"].active')) {
             lazyLoad();
         }
-    }
-
-    // Sub-tabs inside the Reader view: Extract (paste) | Daily Reading
-    function bindSubTabs() {
-        document.querySelectorAll('.rd-subtab[data-rdsub]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.rd-subtab').forEach(b =>
-                    b.classList.toggle('active', b === btn));
-                const feeds = btn.dataset.rdsub === 'feeds';
-                el('rd-panel-paste').style.display = feeds ? 'none' : '';
-                el('rd-panel-feeds').style.display = feeds ? '' : 'none';
-                if (feeds && !currentList.length) refreshList();
-            });
-        });
     }
 
     let currentSourceId = null;
@@ -751,7 +740,7 @@ window.ReadingFeeds = (function() {
             input.dispatchEvent(new Event('input'));
         }
         closeArticle();
-        document.querySelector('.rd-subtab[data-rdsub="paste"]')?.click();
+        el('rd-extract-modal')?.classList.add('open');
         toast('Article loaded \u2014 press Extract to mine vocabulary.');
     }
 

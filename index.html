@@ -22,9 +22,9 @@
          sw.js to match (e.g. 'emp-vN+1').
          Current version: v=106
          ========================================================= -->
-    <link rel="stylesheet" href="style.css?v=115">
-    <link rel="stylesheet" href="expressions-coach.css?v=115">
-    <link rel="stylesheet" href="stories.css?v=115">
+    <link rel="stylesheet" href="style.css?v=116">
+    <link rel="stylesheet" href="expressions-coach.css?v=116">
+    <link rel="stylesheet" href="stories.css?v=116">
 </head>
 <body>
 
@@ -166,34 +166,13 @@
     <!-- ===== READER ===== -->
     <div class="app-view" id="view-reader">
         <div class="rd-container">
-            <div class="rd-subnav">
-                <button class="rd-subtab" data-rdsub="paste">&#x1F50D; Extract</button>
-                <button class="rd-subtab active" data-rdsub="feeds">&#x1F4F0; Daily Reading</button>
-            </div>
-            <div id="rd-panel-paste" style="display:none">
-            <div class="rd-controls"><div class="rd-control-row">
-                <label class="rd-label">Level <select id="rd-level" class="rd-select"><option value="advanced" selected>Advanced</option><option value="intermediate">Intermediate</option><option value="academic">Academic</option></select></label>
-                <label class="rd-label">Focus <select id="rd-focus" class="rd-select"><option value="all" selected>All</option><option value="academic">Academic</option><option value="idioms">Idioms</option><option value="technical">Technical</option></select></label>
-            </div></div>
-            <div class="wl-input-area">
-                <textarea id="rd-input" placeholder="Paste an article to extract vocabulary..." rows="6" spellcheck="false"></textarea>
-                <div class="wl-input-footer">
-                    <span class="wl-char-count" id="rd-word-count">0 words</span>
-                    <div class="wl-input-actions">
-                        <button class="wl-btn-secondary" id="rd-clear">Clear</button>
-                        <button class="wl-btn-primary" id="rd-extract">Extract <kbd>Ctrl+Enter</kbd></button>
-                    </div>
-                </div>
-            </div>
-            <div class="rd-results" id="rd-results"></div>
-            </div>
-
             <div id="rd-panel-feeds">
                 <div class="rf-source-bar" id="rf-source-bar"></div>
                 <div class="rf-toolbar">
                     <button class="wl-btn-secondary" id="rf-refresh">&#x21BB; Refresh</button>
                     <button class="wl-btn-secondary" id="rf-downloaded">&#x1F4E5; Downloaded</button>
                     <button class="wl-btn-secondary" id="rf-sources-edit" title="Edit sources">&#x2699;&#xFE0F;</button>
+                    <button class="wl-btn-secondary" id="rf-extract-open" title="Paste an article and extract vocabulary">&#x1F50D; Extract</button>
                     <label class="rf-audio-toggle"><input type="checkbox" id="rf-audio-only"> &#x1F3A7; Audio only</label>
                 </div>
                 <div id="rf-sources-editor" hidden>
@@ -526,27 +505,58 @@ One word or phrase per line</pre>
 
 <div id="toast-container"></div>
 
-<script src="config.js?v=115"></script>
-<script src="db.js?v=115"></script>
-<script src="ai-engine.js?v=115"></script>
-<script src="my-words.js?v=115"></script>
-<script src="writing-lab.js?v=115"></script>
-<script src="vocab-drill.js?v=115"></script>
-<script src="reader.js?v=115"></script>
-<script src="stories.js?v=115"></script>
-<script src="speaking-coach.js?v=115"></script>
-<script src="expressions-data.js?v=115"></script>
-<script src="expressions-coach.js?v=115"></script>
-<script src="sentence.js?v=115"></script>
-<script src="sentence-drill.js?v=115"></script>
-<script src="sync.js?v=115"></script>
-<script src="tts-pack.js?v=115"></script>
-<script src="reading-feeds.js?v=115"></script>
-<script src="app.js?v=115"></script>
+<!-- ===== EXTRACT VOCABULARY MODAL (was the Reader paste sub-view) ===== -->
+<div class="rf-article" id="rd-extract-modal">
+    <div class="rf-article-card">
+        <div class="rf-article-head">
+            <button class="modal-close" id="rd-extract-close">&times;</button>
+            <h2>&#x1F50D; Extract vocabulary</h2>
+            <p class="settings-hint">Paste any article, or send one over from Daily Reading.</p>
+        </div>
+        <div class="rf-article-body">
+            <div id="rd-panel-paste">
+            <div class="rd-controls"><div class="rd-control-row">
+                <label class="rd-label">Level <select id="rd-level" class="rd-select"><option value="advanced" selected>Advanced</option><option value="intermediate">Intermediate</option><option value="academic">Academic</option></select></label>
+                <label class="rd-label">Focus <select id="rd-focus" class="rd-select"><option value="all" selected>All</option><option value="academic">Academic</option><option value="idioms">Idioms</option><option value="technical">Technical</option></select></label>
+            </div></div>
+            <div class="wl-input-area">
+                <textarea id="rd-input" placeholder="Paste an article to extract vocabulary..." rows="6" spellcheck="false"></textarea>
+                <div class="wl-input-footer">
+                    <span class="wl-char-count" id="rd-word-count">0 words</span>
+                    <div class="wl-input-actions">
+                        <button class="wl-btn-secondary" id="rd-clear">Clear</button>
+                        <button class="wl-btn-primary" id="rd-extract">Extract <kbd>Ctrl+Enter</kbd></button>
+                    </div>
+                </div>
+            </div>
+            <div class="rd-results" id="rd-results"></div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="config.js?v=116"></script>
+<script src="db.js?v=116"></script>
+<script src="ai-engine.js?v=116"></script>
+<script src="my-words.js?v=116"></script>
+<script src="writing-lab.js?v=116"></script>
+<script src="vocab-drill.js?v=116"></script>
+<script src="reader.js?v=116"></script>
+<script src="stories.js?v=116"></script>
+<script src="speaking-coach.js?v=116"></script>
+<script src="expressions-data.js?v=116"></script>
+<script src="expressions-coach.js?v=116"></script>
+<script src="sentence.js?v=116"></script>
+<script src="sentence-drill.js?v=116"></script>
+<script src="sync.js?v=116"></script>
+<script src="tts-pack.js?v=116"></script>
+<script src="reading-feeds.js?v=116"></script>
+<script src="app.js?v=116"></script>
 <!-- Debug panel — hidden by default, toggled via Settings → Developer.
      Script always loads so console-log capture is active even when UI
      is hidden, enabling post-mortem inspection of recent errors. -->
-<script src="debug-panel.js?v=115"></script>
+<script src="debug-panel.js?v=116"></script>
 <script>
 // --- PWA install: capture the browser's install prompt ---
 // Chrome fires beforeinstallprompt when install criteria are met.
