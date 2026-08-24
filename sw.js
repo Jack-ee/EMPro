@@ -348,7 +348,28 @@
 //     handlers are untouched. Tabs added by future versions slot in
 //     at the end until reordered.
 
-const CACHE_NAME = 'emp-v112';
+// v113 — VOA retired from Daily Reading:
+//   • frozen since 2025-03-15, its newscast pages carry neither text
+//     nor working audio, so a tap could only fail; VOA is gone from
+//     the default sources and its dedicated machinery ("likely"
+//     badge, article-page audio hunt, .wsw extractor) is removed.
+//     The Worker still whitelists voanews.com for manual re-adds.
+//   • a failed article download now leaves its reason in the status
+//     line instead of only a transient toast; the repo copy of the
+//     Worker is synced with the deployed manual-redirect version.
+
+// v114 — Reader / Daily Reading UI polish:
+//   • the source <select> becomes a horizontal brand-chip bar: each of
+//     the five sources shows a colour monogram (NPR red, BBC black,
+//     Guardian blue; user-added sources get initials on a derived
+//     colour) - one tap to switch, active chip highlighted.
+//   • podcast items show their real episode length from
+//     <itunes:duration> ("24 min") instead of a misleading "~1 min"
+//     read-time computed from the description; read-time badges are
+//     reserved for text articles. Dates humanise to Today/Yesterday.
+//   • Downloaded rows carry the source monogram.
+
+const CACHE_NAME = 'emp-v114';
 const ASSETS = [
     './',
     './index.html',

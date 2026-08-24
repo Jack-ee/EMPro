@@ -4602,3 +4602,23 @@ html {
                   border-radius: 6px; width: 26px; height: 26px;
                   cursor: pointer; font-size: 12px; line-height: 1; }
 .tab-order-btn:disabled { opacity: .3; cursor: default; }
+
+
+/* ===== Daily Reading source chips (v114) ===== */
+.rf-source-bar   { display: flex; gap: 8px; overflow-x: auto;
+                   padding: 2px 0 8px; -webkit-overflow-scrolling: touch;
+                   scrollbar-width: none; }
+.rf-source-bar::-webkit-scrollbar { display: none; }
+.rf-chip         { display: flex; align-items: center; gap: 7px;
+                   border: 1px solid var(--border); border-radius: 999px;
+                   background: var(--bg-card); padding: 5px 12px 5px 6px;
+                   cursor: pointer; white-space: nowrap; font-size: 13px;
+                   color: var(--text-secondary); flex: 0 0 auto; }
+.rf-chip-active  { border-color: var(--accent); background: var(--accent-bg);
+                   color: var(--accent-text); font-weight: 600; }
+.rf-mono         { display: inline-flex; align-items: center;
+                   justify-content: center; width: 26px; height: 26px;
+                   border-radius: 7px; color: #fff; font-size: 10px;
+                   font-weight: 700; letter-spacing: .3px; flex: 0 0 auto; }
+.rf-mono-sm      { width: 18px; height: 18px; font-size: 8px;
+                   border-radius: 5px; margin-right: 2px; }

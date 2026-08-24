@@ -39,13 +39,13 @@ const appJs  = read('app.js');
 const feeds  = read('reading-feeds.js');
 const worker = read('empro-tts-proxy.js');
 
-check('sw.js CACHE_NAME is emp-v112', sw.includes("const CACHE_NAME = 'emp-v112';"));
-const vNew = (html.match(/\?v=112/g) || []).length;
-const vOld = (html.match(/\?v=(9[89]|10[0-9]|11[01])"/g) || []).length;
-check('index.html has 21 x ?v=112 and no stale versions',
+check('sw.js CACHE_NAME is emp-v114', sw.includes("const CACHE_NAME = 'emp-v114';"));
+const vNew = (html.match(/\?v=114/g) || []).length;
+const vOld = (html.match(/\?v=(9[89]|10[0-9]|11[0-3])"/g) || []).length;
+check('index.html has 21 x ?v=114 and no stale versions',
       vNew === 21 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
 check('index.html loads reading-feeds.js',
-      html.includes('<script src="reading-feeds.js?v=112"></script>'));
+      html.includes('<script src="reading-feeds.js?v=114"></script>'));
 check('index.html has the Daily Reading panel and overlay',
       html.includes('id="rd-panel-feeds"') && html.includes('id="rf-article"'));
 check('sw.js precaches reading-feeds.js', sw.includes("'./reading-feeds.js',"));
@@ -279,29 +279,20 @@ function req(url, headers) {
               fakeEl('enclosure', { url : 'http://open.live.bbc.co.uk/x/y.mp3',
                                     type: 'audio/mpeg' }),
           ])) === 'http://open.live.bbc.co.uk/x/y.mp3');
-    check('likelyAudio flags VOA links without declared audio only',
-          I.likelyAudio({ audio: null, link: 'https://www.voanews.com/a/1.html' })
-          === true &&
-          I.likelyAudio({ audio: 'x', link: 'https://www.voanews.com/a/1.html' })
-          === false &&
-          I.likelyAudio({ audio: null, link: 'https://theguardian.com/x' })
-          === false);
-
-    const html1 = '<div data-sources=\'[{"Src":"https://av.voanews.com/' +
-        'clips/VLE/2026/08/abc-128k.mp3?x=1&amp;y=2"}]\'></div>';
-    check('findPageAudio finds the embedded VOA mp3 and unescapes it',
-          I.findPageAudio(html1) ===
-          'https://av.voanews.com/clips/VLE/2026/08/abc-128k.mp3?x=1&y=2');
-    check('findPageAudio returns null when a page has no audio',
-          I.findPageAudio('<html><body>text only</body></html>') === null);
-    check('findPageAudio ignores non-VOA hosts',
-          I.findPageAudio('<a href="https://evil.com/x.mp3">x</a>') === null);
-    check('findPageAudio handles JSON-escaped URLs in page blobs',
-          I.findPageAudio('{"url":"https:\\/\\/av.voanews.com\\/clips\\/e.mp3"}')
-          === 'https://av.voanews.com/clips/e.mp3');
-    check('findPageAudio accepts any voanews subdomain',
-          I.findPageAudio('src="https://media.voanews.com/x/y.m4a"')
-          === 'https://media.voanews.com/x/y.m4a');
+    const bNpr = I.brandFor('NPR \u00b7 Up First');
+    check('brandFor knows NPR', bNpr.mono === 'NPR' && bNpr.bg === '#d62021');
+    check('brandFor knows BBC and Guardian',
+          I.brandFor('BBC \u00b7 Global News Podcast').mono === 'BBC' &&
+          I.brandFor('Guardian \u00b7 World').mono === 'G');
+    const bX = I.brandFor('Economist Radio');
+    check('brandFor derives initials + colour for unknown sources',
+          bX.mono === 'ER' && /^hsl\(/.test(bX.bg));
+    check('parseDuration handles H:MM:SS, MM:SS and seconds',
+          I.parseDuration('1:02:03') === 3723 &&
+          I.parseDuration('24:30')   === 1470 &&
+          I.parseDuration('300')     === 300  &&
+          I.parseDuration('')        === 0    &&
+          I.parseDuration('n/a')     === 0);
 
     const MB = 1048576;
     const rows = [

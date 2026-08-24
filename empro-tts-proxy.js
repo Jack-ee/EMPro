@@ -209,9 +209,21 @@ async function handleMediaRequest(request, origin) {
     const fwd   = new Headers();
     const range = request.headers.get('Range');
     if (range) fwd.set('Range', range);
+    // Redirects are followed by hand: podcast tracking chains
+    // (byspotify -> podtrac -> simplecast) often send RELATIVE or
+    // scheme-less Location headers, which the Workers runtime's
+    // redirect:'follow' refuses with "Incomplete URL". new URL(loc,
+    // current) resolves every form correctly.
     let upstream;
     try {
-        upstream = await fetch(target, { redirect: 'follow', headers: fwd });
+        let current = target;
+        for (let hop = 0; hop < 6; hop++) {
+            upstream = await fetch(current,
+                                   { redirect: 'manual', headers: fwd });
+            const loc = upstream.headers.get('Location');
+            if (upstream.status < 300 || upstream.status >= 400 || !loc) break;
+            current = new URL(loc, current).toString();
+        }
     } catch (e) {
         return new Response('Media fetch failed: ' + e, {
             status: 502, headers: corsHeaders(origin),

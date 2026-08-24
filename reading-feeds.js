@@ -38,18 +38,16 @@ window.ReadingFeeds = (function() {
 
     // Default sources, all native speed. NPR and BBC podcasts update
     // daily/hourly and carry a per-episode MP3 enclosure, so the audio
-    // badge shows right in the list. VOA has been frozen since
-    // 2025-03-15 (the USAGM shutdown) and is kept as a public-domain
-    // archive; its pages may embed audio the RSS never lists, which
-    // the downloader hunts for on tap. Guardian is text-only.
+    // badge shows right in the list. Guardian is text-only. VOA was
+    // dropped in v113: frozen since the 2025-03-15 USAGM shutdown, its
+    // newscast pages carry neither text nor working audio (the Worker
+    // still whitelists voanews.com should a source ever be re-added).
     const DEFAULT_SOURCES =
         'NPR \u00b7 News Now (5 min, hourly) | https://feeds.npr.org/500005/podcast.xml\n' +
         'NPR \u00b7 Up First | https://feeds.npr.org/510318/podcast.xml\n' +
         'BBC \u00b7 Global News Podcast | https://podcasts.files.bbci.co.uk/p02nq0gn.rss\n' +
         'Guardian \u00b7 World | guardian:section=world\n' +
-        'Guardian \u00b7 Science | guardian:section=science\n' +
-        'VOA Archive \u00b7 Worldwide in Five | https://www.voanews.com/api/zvgbqvl-vomx-tpeumoov\n' +
-        'VOA Archive \u00b7 Science & Health | https://www.voanews.com/api/ztbopl-vomx-tpekvmm';
+        'Guardian \u00b7 Science | guardian:section=science';
 
     let currentList    = [];      // items of the currently shown source
     let openArticleId  = null;    // guarded from eviction while open
@@ -76,7 +74,15 @@ window.ReadingFeeds = (function() {
 
     function fmtDate(iso) {
         const d = new Date(iso);
-        return isNaN(d) ? '' : d.toISOString().slice(0, 10);
+        if (isNaN(d)) return '';
+        const day   = d.toISOString().slice(0, 10);
+        const now   = new Date();
+        const today = now.toISOString().slice(0, 10);
+        now.setDate(now.getDate() - 1);
+        const yday  = now.toISOString().slice(0, 10);
+        if (day === today) return 'Today';
+        if (day === yday)  return 'Yesterday';
+        return day;
     }
 
     function fmtSize(bytes) {
@@ -134,6 +140,38 @@ window.ReadingFeeds = (function() {
             total -= (r.size || 0);
         }
         return out;
+    }
+
+    // Brand chip for a source: known brands get their colours; anything
+    // else gets initials on a colour derived from the name, so
+    // user-added sources look intentional too.
+    function brandFor(name) {
+        const n = (name || '').toLowerCase();
+        if (n.includes('npr'))      return { mono: 'NPR', bg: '#d62021' };
+        if (n.includes('bbc'))      return { mono: 'BBC', bg: '#111111' };
+        if (n.includes('guardian')) return { mono: 'G',   bg: '#052962' };
+        if (n.includes('voa'))      return { mono: 'VOA', bg: '#1660a7' };
+        const words = (name || '?').split(/[^A-Za-z0-9]+/).filter(Boolean);
+        const mono  = words.slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+        let hash = 0;
+        for (const ch of n) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+        return { mono, bg: 'hsl(' + (hash % 360) + ',45%,38%)' };
+    }
+
+    // "HH:MM:SS" | "MM:SS" | plain seconds -> seconds (0 if unknown)
+    function parseDuration(s) {
+        s = (s || '').trim();
+        if (!s) return 0;
+        if (/^\d+$/.test(s)) return parseInt(s, 10);
+        const parts = s.split(':').map(x => parseInt(x, 10));
+        if (parts.some(isNaN)) return 0;
+        return parts.reduce((acc, p) => acc * 60 + p, 0);
+    }
+
+    function fmtDur(sec) {
+        if (!sec) return '';
+        if (sec < 90) return sec + ' s';
+        return Math.round(sec / 60) + ' min';
     }
 
     function loadSources() {
@@ -297,10 +335,15 @@ window.ReadingFeeds = (function() {
             // fall back to <guid>, then to the audio URL, as the item key.
             const key   = link || pick('guid') || audio;
             if (!key) return;
-            // <content:encoded> holds the full HTML body on VOA feeds.
-            let content = '';
+            // Namespaced children: <content:encoded> holds the full HTML
+            // body; <itunes:duration> the episode length.
+            let content  = '';
+            let duration = 0;
             for (const el of it.children) {
-                if (el.localName === 'encoded') { content = el.textContent || ''; break; }
+                if (el.localName === 'encoded'  && !content) content = el.textContent || '';
+                if (el.localName === 'duration' && !duration) {
+                    duration = parseDuration(el.textContent);
+                }
             }
             items.push({
                 id     : 'rss:' + key,
@@ -311,6 +354,7 @@ window.ReadingFeeds = (function() {
                 link   : link,
                 content: content,
                 audio  : audio,
+                durationSec: duration,
             });
         });
         return items;
@@ -331,32 +375,10 @@ window.ReadingFeeds = (function() {
             const data = await resp.json();
             text = data?.response?.content?.fields?.bodyText || '';
         } else {
-            // RSS: prefer the feed's own full body; fall back to
-            // extracting the article page (VOA CMS wraps body in .wsw).
-            // The page is also fetched when the feed listed no audio,
-            // because VOA news articles often embed a native-speed
-            // audio report that the RSS never mentions.
+            // RSS: the feed's own body (content:encoded). Podcast
+            // episodes usually have only a description, which suffices
+            // when there is audio to play.
             text = stripArticleHtml(item.content || '');
-            const thinText  = text.split(/\s+/).length < 40;
-            const huntAudio = !item.audio && /voanews\.com/.test(item.link || '');
-            if ((thinText || huntAudio) && item.link) {
-                say('Fetching article page\u2026');
-                try {
-                    const resp = await fetch(
-                        b + '?fetch=' + encodeURIComponent(item.link),
-                        { cache: 'no-store' });
-                    if (!resp.ok && thinText) {
-                        throw new Error(await workerError(resp));
-                    }
-                    if (resp.ok) {
-                        const page = await resp.text();
-                        if (thinText) text = extractVoaBody(page) || text;
-                        if (huntAudio) item.audio = findPageAudio(page);
-                    }
-                } catch (err) {
-                    if (thinText) throw err;   // audio hunt is best-effort
-                }
-            }
         }
         if (!text || text.split(/\s+/).length < 20) {
             if (item.audio) {
@@ -422,25 +444,6 @@ window.ReadingFeeds = (function() {
         return (d.textContent || '').replace(/[ \t]+/g, ' ').trim();
     }
 
-    // First audio file on any VOA host referenced anywhere in a page —
-    // the native-speed report embedded in most VOA news articles.
-    // Pages often carry media URLs inside JSON blobs with escaped
-    // slashes (https:\/\/av.voanews.com\/...), so those are unescaped
-    // before matching.
-    function findPageAudio(pageHtml) {
-        const s = (pageHtml || '').replace(/\\\//g, '/');
-        const m = /https:\/\/[a-z0-9.-]+\.voanews\.com\/[^"'\s<>\\]+?\.(?:mp3|m4a|aac)[^"'\s<>\\]*/i
-                  .exec(s);
-        return m ? m[0].replace(/&amp;/g, '&') : null;
-    }
-
-    // VOA article pages wrap the story body in <div class="wsw">.
-    function extractVoaBody(pageHtml) {
-        const doc  = new DOMParser().parseFromString(pageHtml, 'text/html');
-        const body = doc.querySelector('.wsw');
-        return body ? stripArticleHtml(body.innerHTML) : '';
-    }
-
     // --- UI: panel ----------------------------------------------------
 
     function el(id) { return document.getElementById(id); }
@@ -448,7 +451,13 @@ window.ReadingFeeds = (function() {
     function init() {
         bindSubTabs();
         el('rf-refresh')?.addEventListener('click', () => refreshList());
-        el('rf-source')?.addEventListener('change', () => refreshList());
+        el('rf-source-bar')?.addEventListener('click', (e) => {
+            const chip = e.target.closest('.rf-chip');
+            if (!chip) return;
+            currentSourceId = chip.dataset.src;
+            renderSourceBar();
+            refreshList();
+        });
         el('rf-downloaded')?.addEventListener('click', showDownloaded);
         el('rf-sources-edit')?.addEventListener('click', toggleSourcesEditor);
         el('rf-sources-save')?.addEventListener('click', saveSourcesEditor);
@@ -464,7 +473,7 @@ window.ReadingFeeds = (function() {
         el('rf-article-close')?.addEventListener('click', closeArticle);
         el('rf-article-extract')?.addEventListener('click', sendToExtractor);
         el('rf-article-body')?.addEventListener('click', handleWordTap);
-        populateSourceSelect();
+        renderSourceBar();
     }
 
     // Sub-tabs inside the Reader view: Extract (paste) | Daily Reading
@@ -481,22 +490,32 @@ window.ReadingFeeds = (function() {
         });
     }
 
-    function populateSourceSelect() {
-        const sel = el('rf-source');
-        if (!sel) return;
-        sel.innerHTML = '';
-        loadSources().forEach(s => {
-            const o = document.createElement('option');
-            o.value = s.id; o.textContent = s.name;
-            sel.appendChild(o);
-        });
+    let currentSourceId = null;
+
+    function renderSourceBar() {
+        const bar = el('rf-source-bar');
+        if (!bar) return;
+        const sources = loadSources();
+        if (!sources.some(s => s.id === currentSourceId)) {
+            currentSourceId = sources[0]?.id || null;
+        }
+        bar.innerHTML = sources.map(s => {
+            const b = brandFor(s.name);
+            const short = s.name.replace(/^[^\u00b7|]*\u00b7\s*/, '');
+            return '<button class="rf-chip' +
+                   (s.id === currentSourceId ? ' rf-chip-active' : '') +
+                   '" data-src="' + esc(s.id) + '" title="' + esc(s.name) + '">' +
+                   '<span class="rf-mono" style="background:' + b.bg + '">' +
+                   esc(b.mono) + '</span>' +
+                   '<span class="rf-chip-name">' + esc(short) + '</span>' +
+                   '</button>';
+        }).join('');
     }
 
     function status(msg) { const s = el('rf-status'); if (s) s.textContent = msg || ''; }
 
     async function refreshList() {
-        const sel    = el('rf-source');
-        const source = loadSources().find(s => s.id === sel?.value)
+        const source = loadSources().find(s => s.id === currentSourceId)
                        || loadSources()[0];
         if (!source) { status('No sources configured.'); return; }
         status('Loading list\u2026');
@@ -514,19 +533,11 @@ window.ReadingFeeds = (function() {
         }
     }
 
-    // A VOA item without declared audio still very often has the
-    // native-speed report embedded on its page, which the downloader
-    // hunts for on tap — so the filter keeps such items, badged
-    // "likely" rather than hiding them.
-    function likelyAudio(i) {
-        return !i.audio && /voanews\.com/.test(i.link || '');
-    }
-
     // Re-render the current list applying the audio-only filter.
     async function rerenderCurrent() {
         const audioOnly = window.DB?.getPref?.(AUDIO_ONLY_PREF, '0') === '1';
         const items     = audioOnly
-            ? currentList.filter(i => i.audio || likelyAudio(i))
+            ? currentList.filter(i => i.audio)
             : currentList;
         const saved = new Set((await idbListMeta()).map(r => r.id));
         renderList(items, saved);
@@ -543,10 +554,11 @@ window.ReadingFeeds = (function() {
         list.innerHTML = items.map(i => {
             const mins  = i.words ? Math.max(1, Math.round(i.words / 180)) : 0;
             const badges =
-                (i.audio ? '<span class="rf-badge">\u{1F3A7} audio</span>'
-                 : likelyAudio(i)
-                     ? '<span class="rf-badge">\u{1F3A7} likely</span>' : '') +
-                (mins    ? '<span class="rf-badge">~' + mins + ' min</span>' : '') +
+                (i.audio
+                    ? '<span class="rf-badge">\u{1F3A7} ' +
+                      (fmtDur(i.durationSec) || 'audio') + '</span>'
+                    : (mins ? '<span class="rf-badge">~' + mins
+                              + ' min read</span>' : '')) +
                 (savedIds.has(i.id)
                     ? '<span class="rf-badge rf-badge-saved">\u2713 downloaded</span>'
                     : '');
@@ -572,8 +584,11 @@ window.ReadingFeeds = (function() {
             rows.map(r =>
                 '<div class="rf-item" data-id="' + esc(r.id) + '">' +
                 '<div class="rf-item-title">' + esc(r.title) + '</div>' +
-                '<div class="rf-item-meta">' + esc(fmtDate(r.date)) +
-                '<span class="rf-badge">' + esc(r.sourceName) + '</span>' +
+                '<div class="rf-item-meta">' +
+                '<span class="rf-mono rf-mono-sm" style="background:' +
+                brandFor(r.sourceName).bg + '">' +
+                esc(brandFor(r.sourceName).mono) + '</span>' +
+                esc(fmtDate(r.date)) +
                 (r.hasAudio ? '<span class="rf-badge">\u{1F3A7}</span>' : '') +
                 '<span class="rf-badge">' + fmtSize(r.size) + '</span>' +
                 '<button class="rf-del" data-del="' + esc(r.id) +
@@ -614,7 +629,7 @@ window.ReadingFeeds = (function() {
                     '<span class="rf-badge rf-badge-saved">\u2713 downloaded</span>');
             } catch (err) {
                 row.classList.remove('rf-item-busy');
-                status('');
+                status('Download failed: ' + (err.message || err));
                 toast('Download failed: ' + (err.message || err));
                 return;
             }
@@ -744,14 +759,14 @@ window.ReadingFeeds = (function() {
         }
         window.DB?.setPref?.(SOURCES_PREF, text);
         el('rf-sources-editor').hidden = true;
-        populateSourceSelect();
+        renderSourceBar();
         refreshList();
         toast(parsed.length + ' source(s) saved.');
     }
 
     // Exposed for the Node test suite; not used by the app itself.
     const _internals = { parseSources, guardianListQuery, pickEvictions,
-                         findPageAudio, pickItemAudio, likelyAudio };
+                         pickItemAudio, brandFor, parseDuration };
 
     return { init, _internals };
 
