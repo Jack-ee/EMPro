@@ -335,19 +335,31 @@ async function handleDriveRequest(request, origin, env) {
             const subs    = entries.filter(f => f.mimeType === FOLDER)
                                    .slice(0, 25);
             if (subs.length) {
-                const nameOf = {};
-                subs.forEach(s => { nameOf[s.id] = s.name; });
-                const orExpr = '(' + subs.map(s =>
-                    "'" + s.id + "' in parents").join(' or ') + ')';
-                const subResp = await fetch(listQuery(orExpr));
-                if (subResp.ok) {
-                    const sub = await subResp.json();
-                    (sub.files || []).forEach(f => {
-                        if (f.mimeType === FOLDER) return;
-                        const parent = (f.parents || [])[0];
-                        f.folder = nameOf[parent] || '';
+                // One query per subfolder, in parallel. The OR-combined
+                // form ("('A' in parents or 'B' in parents)") proved
+                // unreliable against the Drive API, and a silent
+                // failure there once emptied the whole listing; the
+                // single-parent query is the one shape that always
+                // works. <=25 parallel subrequests is well within
+                // Worker limits.
+                const results = await Promise.all(subs.map(async (s) => {
+                    try {
+                        const r = await fetch(listQuery(
+                            "'" + s.id + "' in parents"));
+                        if (!r.ok) return { name: s.name, files: [],
+                                            error: r.status };
+                        const j = await r.json();
+                        return { name: s.name, files: j.files || [] };
+                    } catch (e) {
+                        return { name: s.name, files: [], error: String(e) };
+                    }
+                }));
+                for (const res of results) {
+                    for (const f of res.files) {
+                        if (f.mimeType === FOLDER) continue;
+                        f.folder = res.name;
                         files.push(f);
-                    });
+                    }
                 }
             }
             files.sort((a, b) =>
