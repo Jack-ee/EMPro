@@ -39,13 +39,13 @@ const appJs  = read('app.js');
 const feeds  = read('reading-feeds.js');
 const worker = read('empro-tts-proxy.js');
 
-check('sw.js CACHE_NAME is emp-v116', sw.includes("const CACHE_NAME = 'emp-v116';"));
-const vNew = (html.match(/\?v=116/g) || []).length;
-const vOld = (html.match(/\?v=(9[89]|10[0-9]|11[0-5])"/g) || []).length;
-check('index.html has 21 x ?v=116 and no stale versions',
+check('sw.js CACHE_NAME is emp-v117', sw.includes("const CACHE_NAME = 'emp-v117';"));
+const vNew = (html.match(/\?v=117/g) || []).length;
+const vOld = (html.match(/\?v=(9[89]|10[0-9]|11[0-6])"/g) || []).length;
+check('index.html has 21 x ?v=117 and no stale versions',
       vNew === 21 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
 check('index.html loads reading-feeds.js',
-      html.includes('<script src="reading-feeds.js?v=116"></script>'));
+      html.includes('<script src="reading-feeds.js?v=117"></script>'));
 check('index.html has the Daily Reading panel and overlay',
       html.includes('id="rd-panel-feeds"') && html.includes('id="rf-article"'));
 check('sw.js precaches reading-feeds.js', sw.includes("'./reading-feeds.js',"));
@@ -201,6 +201,34 @@ function req(url, headers) {
     check('?guardian rejects client-supplied api-key',
           r.status === 400 && calls.length === 0);
 
+    // Drive route: key handling + id validation + list URL shape
+    calls.length = 0;
+    r = await routes.fetch(req(W + '?drive=list&folder=1AbCdEfGhIjKlMnOp'), {});
+    check('?drive without a key returns a clear 500',
+          r.status === 500 && (await r.text()).includes('GOOGLE_API_KEY'));
+
+    calls.length = 0;
+    r = await routes.fetch(req(W + '?drive=list&folder=1AbCdEfGhIjKlMnOp'),
+        { GOOGLE_API_KEY: 'gsek' });
+    check('?drive=list queries the Drive API with the env key',
+          r.status === 200 &&
+          calls[0].url.startsWith('https://www.googleapis.com/drive/v3/files?q=') &&
+          calls[0].url.includes('key=gsek') &&
+          calls[0].url.includes(encodeURIComponent("'1AbCdEfGhIjKlMnOp' in parents")));
+
+    calls.length = 0;
+    r = await routes.fetch(req(W + '?drive=list&folder=../etc'),
+        { GOOGLE_API_KEY: 'gsek' });
+    check('?drive rejects malformed folder ids',
+          r.status === 400 && calls.length === 0);
+
+    calls.length = 0;
+    r = await routes.fetch(req(W + '?drive=file&id=1FileIdAbCdEfGh',
+        { Range: 'bytes=0-99' }), { GOOGLE_API_KEY: 'gsek' });
+    check('?drive=file hits alt=media and forwards Range',
+          calls[0].url.includes('/drive/v3/files/1FileIdAbCdEfGh?alt=media') &&
+          new Headers(calls[0].opts.headers).get('Range') === 'bytes=0-99');
+
     // Pack route still the GET default
     calls.length = 0;
     sandbox.fetch = async (url) => {
@@ -233,6 +261,15 @@ function req(url, headers) {
     check('parseSources types guardian vs rss',
           srcs[0].type === 'guardian' && srcs[0].params === 'section=world' &&
           srcs[1].type === 'rss' && srcs[1].url.endsWith('/api/abc'));
+
+    const drv = I.parseSources(
+        'NotebookLM | drive:1AbCdEfGhIjKlMnOp\n' +
+        'Bad Drive | drive:short\n');
+    check('parseSources accepts drive folders and rejects bad ids',
+          drv.length === 1 && drv[0].type === 'drive' &&
+          drv[0].folder === '1AbCdEfGhIjKlMnOp');
+    check('brandFor knows NotebookLM',
+          I.brandFor('NotebookLM \u00b7 \u6587\u732e\u64ad\u5ba2').mono === 'NLM');
 
     const q = I.guardianListQuery('section=world');
     check('guardianListQuery builds the search query',

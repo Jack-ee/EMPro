@@ -113,6 +113,11 @@ window.ReadingFeeds = (function() {
             if (/^guardian:/i.test(target)) {
                 out.push({ id, name, type: 'guardian',
                            params: target.replace(/^guardian:/i, '').trim() });
+            } else if (/^drive:/i.test(target)) {
+                const folder = target.replace(/^drive:/i, '').trim();
+                if (/^[A-Za-z0-9_-]{10,}$/.test(folder)) {
+                    out.push({ id, name, type: 'drive', folder });
+                }
             } else if (/^https:\/\//i.test(target)) {
                 out.push({ id, name, type: 'rss', url: target });
             }
@@ -151,6 +156,9 @@ window.ReadingFeeds = (function() {
         if (n.includes('bbc'))      return { mono: 'BBC', bg: '#111111' };
         if (n.includes('guardian')) return { mono: 'G',   bg: '#052962' };
         if (n.includes('voa'))      return { mono: 'VOA', bg: '#1660a7' };
+        if (n.includes('notebook') || n.includes('nlm') || n.includes('drive')) {
+            return { mono: 'NLM', bg: '#4285f4' };
+        }
         const words = (name || '?').split(/[^A-Za-z0-9]+/).filter(Boolean);
         const mono  = words.slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
         let hash = 0;
@@ -284,6 +292,28 @@ window.ReadingFeeds = (function() {
                 audio     : null,
             }));
         }
+        if (source.type === 'drive') {
+            const resp = await fetch(
+                b + '?drive=list&folder=' + encodeURIComponent(source.folder),
+                { cache: 'no-store' });
+            if (!resp.ok) throw new Error(await workerError(resp));
+            const data  = await resp.json();
+            const files = (data.files || []).filter(x =>
+                /^audio\//.test(x.mimeType || '') ||
+                /\.(mp3|m4a|wav|aac|ogg)$/i.test(x.name || ''));
+            return files.map(x => ({
+                id      : 'drive:' + x.id,
+                driveId : x.id,
+                title   : (x.name || '').replace(/\.[a-z0-9]+$/i, ''),
+                date    : x.modifiedTime,
+                summary : (x.size ? fmtSize(parseInt(x.size, 10)) + ' \u00b7 ' : '')
+                          + (x.mimeType || ''),
+                words   : 0,
+                link    : '',
+                audio   : 'drive',        // truthy: badge + filter
+            }));
+        }
+
         // RSS
         const resp = await fetch(b + '?fetch=' + encodeURIComponent(source.url),
                                  { cache: 'no-store' });
@@ -365,6 +395,30 @@ window.ReadingFeeds = (function() {
     async function downloadArticle(item, say) {
         const b = base();
         let text = '';
+
+        if (item.driveId) {
+            say('Downloading audio\u2026');
+            const resp = await fetch(
+                b + '?drive=file&id=' + encodeURIComponent(item.driveId));
+            if (!resp.ok) throw new Error(await workerError(resp));
+            const blob = await resp.blob();
+            const rec  = {
+                id          : item.id,
+                sourceName  : item.sourceName || '',
+                title       : item.title,
+                date        : item.date,
+                text        : item.title + '\n\n' + (item.summary || ''),
+                audioBlob   : blob,
+                link        : '',
+                size        : blob.size,
+                savedAt     : Date.now(),
+                lastOpenedAt: Date.now(),
+            };
+            await idbPut(rec);
+            await enforceCacheCap();
+            window.DB?.bumpSession?.('reading');
+            return rec;
+        }
 
         if (item.guardianId) {
             say('Fetching article\u2026');

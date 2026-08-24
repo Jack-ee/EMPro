@@ -86,6 +86,8 @@ const MEDIA_DOMAINS = [
     'bbc.co.uk',
 ];
 const GUARDIAN_API = 'https://content.guardianapis.com/';
+const DRIVE_API    = 'https://www.googleapis.com/drive/v3/files';
+const DRIVE_ID_RE  = /^[A-Za-z0-9_-]{10,}$/;
 
 function corsHeaders(origin) {
     const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -278,6 +280,93 @@ async function handleGuardianRequest(request, origin, env) {
     return new Response(upstream.body, { status: upstream.status, headers });
 }
 
+// --- Google Drive route (GET ?drive=) -----------------------------
+// Lists and serves audio files from a PUBLIC Drive folder ("anyone
+// with the link - viewer"), for NotebookLM-generated podcasts and the
+// like. The GOOGLE_API_KEY lives in the Worker environment and never
+// reaches the browser; folder and file ids are strictly validated, so
+// only the fixed Drive API base can be reached.
+//   ?drive=list&folder=<folderId>   -> file listing JSON
+//   ?drive=file&id=<fileId>         -> file bytes, Range passthrough
+
+async function handleDriveRequest(request, origin, env) {
+    const key = (env && env.GOOGLE_API_KEY) || '';
+    if (!key) {
+        return new Response('GOOGLE_API_KEY is not set on the Worker. ' +
+            'Add it under Settings -> Variables and Secrets, then redeploy.', {
+            status: 500, headers: corsHeaders(origin),
+        });
+    }
+    const q    = new URL(request.url).searchParams;
+    const mode = q.get('drive');
+
+    if (mode === 'list') {
+        const folder = q.get('folder') || '';
+        if (!DRIVE_ID_RE.test(folder)) {
+            return new Response('Bad folder id', {
+                status: 400, headers: corsHeaders(origin),
+            });
+        }
+        const url = DRIVE_API +
+            '?q=' + encodeURIComponent("'" + folder + "' in parents and trashed=false") +
+            '&fields=' + encodeURIComponent(
+                'files(id,name,mimeType,size,modifiedTime)') +
+            '&orderBy=' + encodeURIComponent('modifiedTime desc') +
+            '&pageSize=100&key=' + encodeURIComponent(key);
+        let upstream;
+        try { upstream = await fetch(url); }
+        catch (e) {
+            return new Response('Drive list failed: ' + e, {
+                status: 502, headers: corsHeaders(origin),
+            });
+        }
+        const headers = corsHeaders(origin);
+        headers['Content-Type']  = 'application/json; charset=utf-8';
+        headers['Cache-Control'] = 'no-store';
+        return new Response(upstream.body, { status: upstream.status, headers });
+    }
+
+    if (mode === 'file') {
+        const id = q.get('id') || '';
+        if (!DRIVE_ID_RE.test(id)) {
+            return new Response('Bad file id', {
+                status: 400, headers: corsHeaders(origin),
+            });
+        }
+        const fwd   = new Headers();
+        const range = request.headers.get('Range');
+        if (range) fwd.set('Range', range);
+        let upstream;
+        try {
+            let current = DRIVE_API + '/' + id + '?alt=media&key=' +
+                          encodeURIComponent(key);
+            for (let hop = 0; hop < 6; hop++) {
+                upstream = await fetch(current,
+                                       { redirect: 'manual', headers: fwd });
+                const loc = upstream.headers.get('Location');
+                if (upstream.status < 300 || upstream.status >= 400 || !loc) break;
+                current = new URL(loc, current).toString();
+            }
+        } catch (e) {
+            return new Response('Drive file failed: ' + e, {
+                status: 502, headers: corsHeaders(origin),
+            });
+        }
+        const headers = corsHeaders(origin);
+        for (const h of ['Content-Type', 'Content-Length',
+                         'Content-Range', 'Accept-Ranges']) {
+            const v = upstream.headers.get(h);
+            if (v) headers[h] = v;
+        }
+        headers['Cache-Control'] = 'public, max-age=86400';
+        return new Response(upstream.body, { status: upstream.status, headers });
+    }
+
+    return new Response('Bad ?drive request', {
+        status: 400, headers: corsHeaders(origin),
+    });
+}
+
 // --- Neural TTS route (POST) --------------------------------------
 async function handleTtsRequest(request, origin) {
     let upstream;
@@ -325,6 +414,7 @@ export default {
             if (q.has('fetch'))    return handleFeedRequest(request, origin);
             if (q.has('media'))    return handleMediaRequest(request, origin);
             if (q.has('guardian')) return handleGuardianRequest(request, origin, env);
+            if (q.has('drive'))    return handleDriveRequest(request, origin, env);
             return handlePackRequest(request, origin);
         }
         if (request.method === 'POST') return handleTtsRequest(request, origin);

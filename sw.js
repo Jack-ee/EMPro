@@ -388,7 +388,16 @@
 //     directly. The Reader module's own bindings are untouched - the
 //     panel merely moved house into the modal.
 
-const CACHE_NAME = 'emp-v116';
+// v117 — NotebookLM audio via Google Drive:
+//   • new source type "Name | drive:FOLDER_ID": a public Drive folder
+//     ("anyone with the link") is listed through the Worker's ?drive
+//     route and its audio files (NotebookLM podcasts etc.) appear as
+//     Daily Reading items - tap to download into the offline cache,
+//     lock-screen controls included. GOOGLE_API_KEY lives in the
+//     Worker environment, like the Guardian key; folder/file ids are
+//     strictly validated so the route cannot proxy anything else.
+
+const CACHE_NAME = 'emp-v117';
 const ASSETS = [
     './',
     './index.html',
