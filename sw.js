@@ -406,7 +406,15 @@
 //     progress. Worker routes already pass Range through - no Worker
 //     change in this version.
 
-const CACHE_NAME = 'emp-v118';
+// v119 — Drive listing descends one level:
+//   • per-document subfolders (one folder per paper, audio inside)
+//     are the natural way to organise NotebookLM output; the Worker's
+//     ?drive=list now fetches children of up to 25 subfolders in one
+//     merged OR query, annotating each file with its subfolder name,
+//     which the app shows on the item. Files directly in the top
+//     folder keep working; deeper nesting is not descended into.
+
+const CACHE_NAME = 'emp-v119';
 const ASSETS = [
     './',
     './index.html',

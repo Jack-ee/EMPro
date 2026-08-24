@@ -306,7 +306,8 @@ window.ReadingFeeds = (function() {
                 driveId : x.id,
                 title   : (x.name || '').replace(/\.[a-z0-9]+$/i, ''),
                 date    : x.modifiedTime,
-                summary : (x.size ? fmtSize(parseInt(x.size, 10)) + ' \u00b7 ' : '')
+                summary : (x.folder ? x.folder + ' \u00b7 ' : '')
+                          + (x.size ? fmtSize(parseInt(x.size, 10)) + ' \u00b7 ' : '')
                           + (x.mimeType || ''),
                 words   : 0,
                 link    : '',

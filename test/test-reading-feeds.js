@@ -39,13 +39,13 @@ const appJs  = read('app.js');
 const feeds  = read('reading-feeds.js');
 const worker = read('empro-tts-proxy.js');
 
-check('sw.js CACHE_NAME is emp-v118', sw.includes("const CACHE_NAME = 'emp-v118';"));
-const vNew = (html.match(/\?v=118/g) || []).length;
-const vOld = (html.match(/\?v=(9[89]|10[0-9]|11[0-7])"/g) || []).length;
-check('index.html has 21 x ?v=118 and no stale versions',
+check('sw.js CACHE_NAME is emp-v119', sw.includes("const CACHE_NAME = 'emp-v119';"));
+const vNew = (html.match(/\?v=119/g) || []).length;
+const vOld = (html.match(/\?v=(9[89]|10[0-9]|11[0-8])"/g) || []).length;
+check('index.html has 21 x ?v=119 and no stale versions',
       vNew === 21 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
 check('index.html loads reading-feeds.js',
-      html.includes('<script src="reading-feeds.js?v=118"></script>'));
+      html.includes('<script src="reading-feeds.js?v=119"></script>'));
 check('index.html has the Daily Reading panel and overlay',
       html.includes('id="rd-panel-feeds"') && html.includes('id="rf-article"'));
 check('sw.js precaches reading-feeds.js', sw.includes("'./reading-feeds.js',"));
@@ -208,6 +208,10 @@ function req(url, headers) {
           r.status === 500 && (await r.text()).includes('GOOGLE_API_KEY'));
 
     calls.length = 0;
+    sandbox.fetch = async (url, opts) => {
+        calls.push({ url: String(url), opts: opts || {} });
+        return Response.json({ files: [] });
+    };
     r = await routes.fetch(req(W + '?drive=list&folder=1AbCdEfGhIjKlMnOp'),
         { GOOGLE_API_KEY: 'gsek' });
     check('?drive=list queries the Drive API with the env key',
@@ -215,6 +219,54 @@ function req(url, headers) {
           calls[0].url.startsWith('https://www.googleapis.com/drive/v3/files?q=') &&
           calls[0].url.includes('key=gsek') &&
           calls[0].url.includes(encodeURIComponent("'1AbCdEfGhIjKlMnOp' in parents")));
+    sandbox.fetch = async (url, opts) => {
+        calls.push({ url: String(url), opts: opts || {} });
+        return stubUpstream('<rss><channel></channel></rss>',
+            { 'Content-Type': 'text/xml' });
+    };
+
+    // Subfolder recursion: top listing returns two folders + one
+    // file; the second call must OR both folder ids, and the merged
+    // result must annotate files with their subfolder's name.
+    calls.length = 0;
+    let phase = 0;
+    sandbox.fetch = async (url, opts) => {
+        calls.push({ url: String(url), opts: opts || {} });
+        phase += 1;
+        const FOLDER = 'application/vnd.google-apps.folder';
+        if (phase === 1) {
+            return Response.json({ files: [
+                { id: 'subA11111111', name: 'Paper One', mimeType: FOLDER },
+                { id: 'subB22222222', name: 'Paper Two', mimeType: FOLDER },
+                { id: 'toplevelfile', name: 'intro.mp3',
+                  mimeType: 'audio/mpeg', modifiedTime: '2026-08-01T00:00:00Z' },
+            ]});
+        }
+        return Response.json({ files: [
+            { id: 'fileA1', name: 'ep1.mp3', mimeType: 'audio/mpeg',
+              parents: ['subA11111111'], modifiedTime: '2026-08-03T00:00:00Z' },
+            { id: 'fileB1', name: 'ep2.wav', mimeType: 'audio/wav',
+              parents: ['subB22222222'], modifiedTime: '2026-08-02T00:00:00Z' },
+        ]});
+    };
+    r = await routes.fetch(req(W + '?drive=list&folder=1TopFolderIdX'),
+        { GOOGLE_API_KEY: 'gsek' });
+    {
+        const body = await r.json();
+        const names = body.files.map(f => f.name).join(',');
+        check('?drive=list merges subfolder children with folder names',
+              r.status === 200 && calls.length === 2 &&
+              decodeURIComponent(calls[1].url).includes(
+                  "'subA11111111' in parents or 'subB22222222' in parents") &&
+              names === 'ep1.mp3,ep2.wav,intro.mp3' &&
+              body.files[0].folder === 'Paper One' &&
+              body.files[1].folder === 'Paper Two');
+    }
+    sandbox.fetch = async (url, opts) => {
+        calls.push({ url: String(url), opts: opts || {} });
+        return stubUpstream('<rss><channel></channel></rss>',
+            { 'Content-Type': 'text/xml' });
+    };
 
     calls.length = 0;
     r = await routes.fetch(req(W + '?drive=list&folder=../etc'),

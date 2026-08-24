@@ -307,23 +307,61 @@ async function handleDriveRequest(request, origin, env) {
                 status: 400, headers: corsHeaders(origin),
             });
         }
-        const url = DRIVE_API +
-            '?q=' + encodeURIComponent("'" + folder + "' in parents and trashed=false") +
+        // One level of recursion: people file each document's audio in
+        // its own subfolder, so the top listing is folders. Children of
+        // up to 25 subfolders are fetched in ONE extra query (parents
+        // OR-ed together) and merged, each file annotated with its
+        // subfolder's name so the app can show which document it
+        // belongs to. Deeper nesting is not descended into.
+        const listQuery = (qExpr) => DRIVE_API +
+            '?q=' + encodeURIComponent(qExpr + ' and trashed=false') +
             '&fields=' + encodeURIComponent(
-                'files(id,name,mimeType,size,modifiedTime)') +
+                'files(id,name,mimeType,size,modifiedTime,parents)') +
             '&orderBy=' + encodeURIComponent('modifiedTime desc') +
-            '&pageSize=100&key=' + encodeURIComponent(key);
-        let upstream;
-        try { upstream = await fetch(url); }
-        catch (e) {
+            '&pageSize=200&key=' + encodeURIComponent(key);
+        try {
+            const topResp = await fetch(listQuery("'" + folder + "' in parents"));
+            if (!topResp.ok) {
+                const headers = corsHeaders(origin);
+                headers['Content-Type']  = 'application/json; charset=utf-8';
+                headers['Cache-Control'] = 'no-store';
+                return new Response(topResp.body,
+                                    { status: topResp.status, headers });
+            }
+            const top     = await topResp.json();
+            const entries = top.files || [];
+            const FOLDER  = 'application/vnd.google-apps.folder';
+            const files   = entries.filter(f => f.mimeType !== FOLDER);
+            const subs    = entries.filter(f => f.mimeType === FOLDER)
+                                   .slice(0, 25);
+            if (subs.length) {
+                const nameOf = {};
+                subs.forEach(s => { nameOf[s.id] = s.name; });
+                const orExpr = '(' + subs.map(s =>
+                    "'" + s.id + "' in parents").join(' or ') + ')';
+                const subResp = await fetch(listQuery(orExpr));
+                if (subResp.ok) {
+                    const sub = await subResp.json();
+                    (sub.files || []).forEach(f => {
+                        if (f.mimeType === FOLDER) return;
+                        const parent = (f.parents || [])[0];
+                        f.folder = nameOf[parent] || '';
+                        files.push(f);
+                    });
+                }
+            }
+            files.sort((a, b) =>
+                (b.modifiedTime || '').localeCompare(a.modifiedTime || ''));
+            const headers = corsHeaders(origin);
+            headers['Content-Type']  = 'application/json; charset=utf-8';
+            headers['Cache-Control'] = 'no-store';
+            return new Response(JSON.stringify({ files }),
+                                { status: 200, headers });
+        } catch (e) {
             return new Response('Drive list failed: ' + e, {
                 status: 502, headers: corsHeaders(origin),
             });
         }
-        const headers = corsHeaders(origin);
-        headers['Content-Type']  = 'application/json; charset=utf-8';
-        headers['Cache-Control'] = 'no-store';
-        return new Response(upstream.body, { status: upstream.status, headers });
     }
 
     if (mode === 'file') {
