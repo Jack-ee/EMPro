@@ -414,7 +414,20 @@
 //     which the app shows on the item. Files directly in the top
 //     folder keep working; deeper nesting is not descended into.
 
-const CACHE_NAME = 'emp-v119';
+// v120 — the speech chain can no longer stall:
+//   • neural TTS gets a 20 s hard deadline; a black-holed mobile
+//     connection fails over to the device voice instead of hanging
+//     the story chain forever at the first pack-missing sentence
+//     (deliberate stops still do not advance the chain).
+//   • pack playback gains a duration-based watchdog - whatever quirk
+//     swallows the ended event, the sequence advances - and the old
+//     blob URL is now revoked only after the next load replaced it.
+//   • Stories' play-all adopts the My Words background policy: with
+//     the screen off, pack hits play and misses are skipped, since
+//     neither neural's fresh Audio nor speechSynthesis can start in
+//     the background; the full chain resumes when visible.
+
+const CACHE_NAME = 'emp-v120';
 const ASSETS = [
     './',
     './index.html',

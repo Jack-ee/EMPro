@@ -480,6 +480,7 @@ window.TTSPack = (function () {
     // in the background is rejected by the autoplay policy.
     let _audio    = null;
     let _playing  = false;
+    let _watchdog = null;
 
     function ensureAudio() {
         if (!_audio) {
@@ -489,17 +490,31 @@ window.TTSPack = (function () {
         return _audio;
     }
 
+    function clearWatchdog() {
+        if (_watchdog) { clearTimeout(_watchdog); _watchdog = null; }
+    }
+
+    // Pause and neutralise handlers WITHOUT touching the current src:
+    // used between clips, where the old blob URL must stay alive until
+    // the next load has replaced it (revoking a URL the element still
+    // references is exactly the kind of thing that swallows events).
+    function detach() {
+        clearWatchdog();
+        if (!_audio) return;
+        try { _audio.pause(); } catch (e) { /* ignore */ }
+        _audio.onended          = null;
+        _audio.onerror          = null;
+        _audio.onloadedmetadata = null;
+    }
+
     function stop() {
         try {
             _playing = false;
-            if (_audio) {
-                _audio.pause();
-                _audio.onended = null;
-                _audio.onerror = null;
-                if (_audio.src) {
-                    URL.revokeObjectURL(_audio.src);
-                    _audio.removeAttribute('src');
-                }
+            detach();
+            if (_audio && _audio.src) {
+                URL.revokeObjectURL(_audio.src);
+                _audio.removeAttribute('src');
+                try { _audio.load(); } catch (e) { /* release the pipeline */ }
             }
         } catch (e) { /* ignore */ }
     }
@@ -539,24 +554,43 @@ window.TTSPack = (function () {
         console.log('[pack] HIT ' + JSON.stringify(norm(text)) + ' \u2014 voice '
             + voice + ' (cached: ' + cached.join(',') + ')');
 
-        stop();
-        const url   = URL.createObjectURL(blob);
-        const audio = ensureAudio();
-        audio.src   = url;
-        _playing    = true;
+        detach();                       // old URL stays alive until replaced
+        const audio   = ensureAudio();
+        const prevSrc = audio.src || '';
+        const url     = URL.createObjectURL(blob);
+        _playing      = true;
 
         let done = false;
         const finish = () => {
             if (done) return;
             done = true;
             _playing = false;
+            clearWatchdog();
             try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ }
             if (typeof onEnd === 'function') onEnd();
         };
         audio.onended = finish;
         audio.onerror = finish;
-        try { await audio.play(); }
-        catch (e) {
+        // Duration-based watchdog: whichever browser quirk swallows the
+        // ended event, the sequence advances anyway instead of stalling.
+        audio.onloadedmetadata = () => {
+            clearWatchdog();
+            const secs = (isFinite(audio.duration) && audio.duration > 0)
+                       ? audio.duration : 30;
+            _watchdog = setTimeout(() => {
+                console.log('[pack] watchdog advanced past '
+                            + JSON.stringify(norm(text)));
+                finish();
+            }, secs * 1000 + 3000);
+        };
+        audio.src = url;                // load algorithm detaches the old one
+        if (prevSrc) {
+            try { URL.revokeObjectURL(prevSrc); } catch (e) { /* ignore */ }
+        }
+        try {
+            await audio.play();
+            if (!done && !_watchdog) _watchdog = setTimeout(finish, 33000);
+        } catch (e) {
             console.log('[pack] audio.play() rejected: ' + (e && e.message));
             finish();
         }

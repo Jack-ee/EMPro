@@ -1269,6 +1269,18 @@ window.Stories = (function () {
             if (playStop || i >= s.sents.length) { stopPlay(); return; }
             markPlaying(i);
             scrollRowIntoView(i);
+            // Screen off / tab hidden: only pack clips can sound - the
+            // neural fallback's fresh Audio is refused by the autoplay
+            // policy and speechSynthesis is suspended on lock. Play the
+            // pack hits and skip the misses, exactly like the My Words
+            // auto-play queue; the full chain resumes when visible.
+            if (document.hidden && window.TTSPack?.playWord) {
+                window.TTSPack.playWord(s.sents[i].en, null, () => {
+                    if (playStop) return;
+                    setTimeout(() => step(i + 1), 350);
+                }).then(hit => { if (!hit && !playStop) step(i + 1); });
+                return;
+            }
             window.App?.speak?.(s.sents[i].en, null, () => {
                 if (playStop) return;
                 setTimeout(() => step(i + 1), 350);

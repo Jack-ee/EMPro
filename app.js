@@ -242,6 +242,7 @@
     const _ttsCache      = new Map();   // `${voice}|${text}` → object URL (in-memory)
     let   _neuralAudio   = null;        // currently-playing HTMLAudioElement
     let   _neuralAbort   = null;        // AbortController for an in-flight fetch
+    let   _neuralTimedOut = false;      // deadline (not user stop) aborted it
 
     // --- Persistent on-device clip store (IndexedDB) ---
     const TTS_DB_NAME   = 'emp-tts';
@@ -454,7 +455,20 @@
                 if (!blob) {
                     // 2) fetch from OpenAI (with retry), then persist
                     _neuralAbort = new AbortController();
-                    blob = await ttsFetch(text, voice, rate, key, _neuralAbort.signal);
+                    // Hard deadline: a black-holed mobile connection must
+                    // fail over to the device voice, not hang the chain
+                    // forever - a story once stalled mid-way exactly here.
+                    _neuralTimedOut = false;
+                    const deadline = setTimeout(() => {
+                        _neuralTimedOut = true;
+                        try { _neuralAbort?.abort(); } catch (e2) {}
+                    }, 20000);
+                    try {
+                        blob = await ttsFetch(text, voice, rate, key,
+                                              _neuralAbort.signal);
+                    } finally {
+                        clearTimeout(deadline);
+                    }
                     _neuralAbort = null;
                     ttsCachePut(cacheK, blob);   // fire-and-forget
                 }
@@ -476,7 +490,7 @@
             _neuralAbort = null;
             // Stopped on purpose (navigation, next segment) — do NOT advance
             // the autoplay chain.
-            if (err && (err.name === 'AbortError')) return;
+            if (err && err.name === 'AbortError' && !_neuralTimedOut) return;
             console.warn('[tts] neural failed, using device voice:', err && err.message);
             notifyNeuralFailure(err);
             speakNative(text, rate, finish);
