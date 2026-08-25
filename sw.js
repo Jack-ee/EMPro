@@ -427,7 +427,17 @@
 //     neither neural's fresh Audio nor speechSynthesis can start in
 //     the background; the full chain resumes when visible.
 
-const CACHE_NAME = 'emp-v120';
+// v121 — the element never goes quiet in the background:
+//   • locking during a 350/1200 ms timer gap let the OS take audio
+//     focus (nothing was sounding), after which the next play() was
+//     refused - the reported "lock/minimise kills auto-play". Gaps
+//     are now real silent audio (a generated data-URI WAV) played
+//     through the same persistent element whenever the tab is hidden,
+//     so the media session stays continuously active; visible
+//     playback keeps plain timers. Applies to the My Words item and
+//     card gaps and the Stories chain gap.
+
+const CACHE_NAME = 'emp-v121';
 const ASSETS = [
     './',
     './index.html',

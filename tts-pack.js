@@ -597,6 +597,59 @@ window.TTSPack = (function () {
         return true;
     }
 
+    // A generated silent WAV, played through the SAME persistent
+    // element so it never stops sounding between clips. This is the
+    // load-bearing piece of lock-screen playback: with timer-based
+    // silent gaps, locking the screen during a gap let the OS take
+    // audio focus away and refuse the next play(); with real (silent)
+    // audio in the gaps, the media session stays continuously active.
+    const _silence = {};                 // ms -> data URI, built once
+
+    function silenceUri(ms) {
+        if (_silence[ms]) return _silence[ms];
+        const rate    = 8000;
+        const samples = Math.max(1, Math.round(rate * ms / 1000));
+        const size    = 44 + samples;                 // 8-bit mono PCM
+        const buf     = new Uint8Array(size);
+        const dv      = new DataView(buf.buffer);
+        const str     = (o, s) => { for (let i = 0; i < s.length; i++)
+                                        buf[o + i] = s.charCodeAt(i); };
+        str(0, 'RIFF'); dv.setUint32(4, size - 8, true); str(8, 'WAVE');
+        str(12, 'fmt '); dv.setUint32(16, 16, true);
+        dv.setUint16(20, 1, true);  dv.setUint16(22, 1, true);
+        dv.setUint32(24, rate, true); dv.setUint32(28, rate, true);
+        dv.setUint16(32, 1, true);  dv.setUint16(34, 8, true);
+        str(36, 'data'); dv.setUint32(40, samples, true);
+        buf.fill(0x80, 44);                           // 8-bit silence
+        let bin = '';
+        for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+        _silence[ms] = 'data:audio/wav;base64,' + btoa(bin);
+        return _silence[ms];
+    }
+
+    // Play ms of silence, then onEnd. Same element, same handler
+    // pattern as playWord; a small timeout backstops the ended event.
+    function playSilence(ms, onEnd) {
+        detach();
+        const audio = ensureAudio();
+        const prevSrc = audio.src || '';
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            clearWatchdog();
+            if (typeof onEnd === 'function') onEnd();
+        };
+        audio.onended = finish;
+        audio.onerror = finish;
+        audio.src = silenceUri(ms);
+        if (prevSrc && prevSrc.startsWith('blob:')) {
+            try { URL.revokeObjectURL(prevSrc); } catch (e) { /* ignore */ }
+        }
+        _watchdog = setTimeout(finish, ms + 1500);
+        audio.play().catch(() => finish());
+    }
+
     // --- Public: maintenance ----------------------------------------
 
     // Remove every voice's clip for a word. Called when a vocabulary
@@ -639,6 +692,7 @@ window.TTSPack = (function () {
         getCachedVoices: getCachedVoices,
         coverage       : coverage,
         playWord       : playWord,
+        playSilence    : playSilence,
         stop           : stop,
         deleteWord     : deleteWord,
         status         : status,

@@ -1277,7 +1277,15 @@ window.Stories = (function () {
             if (document.hidden && window.TTSPack?.playWord) {
                 window.TTSPack.playWord(s.sents[i].en, null, () => {
                     if (playStop) return;
-                    setTimeout(() => step(i + 1), 350);
+                    // Silence, not a timer: the element must keep
+                    // sounding or the OS drops the media session.
+                    if (window.TTSPack.playSilence) {
+                        window.TTSPack.playSilence(350, () => {
+                            if (!playStop) step(i + 1);
+                        });
+                    } else {
+                        setTimeout(() => step(i + 1), 350);
+                    }
                 }).then(hit => { if (!hit && !playStop) step(i + 1); });
                 return;
             }

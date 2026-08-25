@@ -39,13 +39,13 @@ const appJs  = read('app.js');
 const feeds  = read('reading-feeds.js');
 const worker = read('empro-tts-proxy.js');
 
-check('sw.js CACHE_NAME is emp-v120', sw.includes("const CACHE_NAME = 'emp-v120';"));
-const vNew = (html.match(/\?v=120/g) || []).length;
-const vOld = (html.match(/\?v=(9[89]|10[0-9]|11[0-9])"/g) || []).length;
-check('index.html has 21 x ?v=120 and no stale versions',
+check('sw.js CACHE_NAME is emp-v121', sw.includes("const CACHE_NAME = 'emp-v121';"));
+const vNew = (html.match(/\?v=121/g) || []).length;
+const vOld = (html.match(/\?v=(9[89]|1[01][0-9])"/g) || []).length;
+check('index.html has 21 x ?v=121 and no stale versions',
       vNew === 21 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
 check('index.html loads reading-feeds.js',
-      html.includes('<script src="reading-feeds.js?v=120"></script>'));
+      html.includes('<script src="reading-feeds.js?v=121"></script>'));
 check('index.html has the Daily Reading panel and overlay',
       html.includes('id="rd-panel-feeds"') && html.includes('id="rf-article"'));
 check('sw.js precaches reading-feeds.js', sw.includes("'./reading-feeds.js',"));

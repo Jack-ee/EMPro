@@ -1105,6 +1105,18 @@ IMPORTANT:
         }
     });
 
+    // A pause that survives the lock screen: visible -> plain timer;
+    // hidden -> real silent audio through the pack's persistent
+    // element, so the media session never goes quiet and the OS never
+    // takes audio focus away mid-gap.
+    function bgGap(ms, fn) {
+        if (document.hidden && window.TTSPack?.playSilence) {
+            window.TTSPack.playSilence(ms, fn);
+        } else {
+            autoplayTimer = setTimeout(fn, ms);
+        }
+    }
+
     function toggleAutoplay() {
         if (autoplayOn) stopAutoplay();
         else            startAutoplay();
@@ -1242,7 +1254,7 @@ IMPORTANT:
                 }
                 window.TTSPack.playWord(text, null, () => {
                     if (!autoplayOn || myToken !== autoplayToken) return;
-                    autoplayTimer = setTimeout(next, 350);
+                    bgGap(350, next);
                 }).then(hit => { if (!hit) next(); });
                 return;
             }
@@ -1274,7 +1286,7 @@ IMPORTANT:
 
     function scheduleNext(myToken) {
         // Pause between words so the user has a beat to register it
-        autoplayTimer = setTimeout(() => {
+        bgGap(1200, () => {
             if (!autoplayOn || myToken !== autoplayToken) return;
             // Clear the "playing" highlight from the outgoing card
             document.querySelectorAll('.mw-card-playing, .mw-speaking-now')
@@ -1296,7 +1308,7 @@ IMPORTANT:
             saveProgress();
             render();
             speakCurrentAndQueueNext(myToken);
-        }, 1200);
+        });
     }
 
     // =====================================================
