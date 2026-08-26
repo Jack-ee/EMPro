@@ -62,6 +62,8 @@ window.Stories = (function () {
 
     let playToken = null;        // App session token while reading aloud
     let playStop  = false;       // cancel flag for sequential playback
+    let playIdx   = -1;          // sentence currently sounding (for the tape)
+    let tape      = null;        // background tape { ctl, offsets, total }
     let openId    = null;        // id of the piece open in the reader
 
     // ─── Text helpers ────────────────────────────────────────
@@ -1267,38 +1269,95 @@ window.Stories = (function () {
 
         const step = (i) => {
             if (playStop || i >= s.sents.length) { stopPlay(); return; }
+            if (tape) return;           // the tape is driving playback
+            playIdx = i;
             markPlaying(i);
             scrollRowIntoView(i);
-            // Screen off / tab hidden: only pack clips can sound - the
-            // neural fallback's fresh Audio is refused by the autoplay
-            // policy and speechSynthesis is suspended on lock. Play the
-            // pack hits and skip the misses, exactly like the My Words
-            // auto-play queue; the full chain resumes when visible.
-            if (document.hidden && window.TTSPack?.playWord) {
-                window.TTSPack.playWord(s.sents[i].en, null, () => {
-                    if (playStop) return;
-                    // Silence, not a timer: the element must keep
-                    // sounding or the OS drops the media session.
-                    if (window.TTSPack.playSilence) {
-                        window.TTSPack.playSilence(350, () => {
-                            if (!playStop) step(i + 1);
-                        });
-                    } else {
-                        setTimeout(() => step(i + 1), 350);
-                    }
-                }).then(hit => { if (!hit && !playStop) step(i + 1); });
+            // With the screen off the tape takes over (started by the
+            // visibilitychange handler below); a stray hidden step just
+            // hands off to it - this device class refuses per-clip src
+            // swaps in the background, so chaining cannot work there.
+            if (document.hidden && window.TTSPack?.pickClip
+                                && window.TTSPack.playTape) {
+                startStoryTape(s);
                 return;
             }
             window.App?.speak?.(s.sents[i].en, null, () => {
-                if (playStop) return;
+                if (playStop || tape) return;
                 setTimeout(() => step(i + 1), 350);
             });
         };
+        playAllStep = step;
         step(0);
+    }
+
+    let playAllStep = null;      // resume hook for the visible chain
+
+    // Background tape for a story: the rest of its sentences' pack
+    // clips concatenated into ONE blob and played as a single stream -
+    // the only pattern that survives the lock screen on devices that
+    // refuse background src swaps. Byte offsets (pack MP3s are
+    // near-constant bitrate) map time back to sentences for the row
+    // highlight and the seamless hand-back to the visible chain.
+    async function startStoryTape(s) {
+        if (tape || playStop || !window.TTSPack?.pickClip
+                 || !window.TTSPack.playTape) return;
+        const from    = Math.max(0, playIdx);
+        const parts   = [];
+        const offsets = [];
+        let bytes = 0;
+        for (let i = from; i < s.sents.length; i++) {
+            offsets.push({ idx: i, at: bytes });
+            const blob = await window.TTSPack.pickClip(s.sents[i].en, null);
+            if (blob) { parts.push(blob); bytes += blob.size; }
+        }
+        if (!parts.length || playStop || !document.hidden) return;
+        window.App?.stopSpeak?.();
+        const total = bytes;
+        const ctl = window.TTSPack.playTape(
+            new Blob(parts, { type: 'audio/mpeg' }),
+            (time, dur) => {
+                if (!dur) return;
+                const at = (time / dur) * total;
+                let idx  = from;
+                for (const o of offsets) { if (o.at <= at) idx = o.idx; else break; }
+                if (idx !== playIdx) { playIdx = idx; markPlaying(idx); }
+            },
+            () => { tape = null; stopPlay(); });
+        tape = { ctl, offsets, total };
+        if ('mediaSession' in navigator) {
+            try {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title : s.title || 'Story',
+                    artist: 'EMPro \u00b7 Stories',
+                });
+                navigator.mediaSession.playbackState = 'playing';
+                navigator.mediaSession.setActionHandler('pause', () => stopPlay());
+            } catch (e) { /* older browsers */ }
+        }
+        console.log('[stories] tape: ' + parts.length + ' clip(s), '
+                    + (total / 1048576).toFixed(1) + ' MB, from sentence ' + from);
+    }
+
+    // Guarded: the Node test harness loads this module with a minimal
+    // document stub that has no addEventListener.
+    if (typeof document.addEventListener === 'function') {
+        document.addEventListener('visibilitychange', () => {
+            if (playStop) return;
+            if (document.hidden) {
+                const st = byId(openId);
+                if (st && playIdx >= 0) startStoryTape(st);
+            } else if (tape) {
+                tape.ctl.stop();
+                tape = null;
+                if (playAllStep) playAllStep(playIdx);   // resume the visible chain
+            }
+        });
     }
 
     function stopPlay() {
         playStop = true;
+        if (tape) { tape.ctl.stop(); tape = null; }
         try { window.App?.stopSpeak?.(); } catch (e) {}
         if (playToken) { window.App?.endSession?.(playToken); playToken = null; }
         markPlaying(-1);

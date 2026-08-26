@@ -39,13 +39,13 @@ const appJs  = read('app.js');
 const feeds  = read('reading-feeds.js');
 const worker = read('empro-tts-proxy.js');
 
-check('sw.js CACHE_NAME is emp-v123', sw.includes("const CACHE_NAME = 'emp-v123';"));
-const vNew = (html.match(/\?v=123/g) || []).length;
+check('sw.js CACHE_NAME is emp-v124', sw.includes("const CACHE_NAME = 'emp-v124';"));
+const vNew = (html.match(/\?v=124/g) || []).length;
 const vOld = (html.match(/\?v=(9[89]|1[01][0-9])"/g) || []).length;
-check('index.html has 21 x ?v=123 and no stale versions',
+check('index.html has 21 x ?v=124 and no stale versions',
       vNew === 21 && vOld === 0, vNew + ' new, ' + vOld + ' stale');
 check('index.html loads reading-feeds.js',
-      html.includes('<script src="reading-feeds.js?v=123"></script>'));
+      html.includes('<script src="reading-feeds.js?v=124"></script>'));
 check('index.html has the Daily Reading panel and overlay',
       html.includes('id="rd-panel-feeds"') && html.includes('id="rf-article"'));
 check('sw.js precaches reading-feeds.js', sw.includes("'./reading-feeds.js',"));

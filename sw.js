@@ -459,7 +459,16 @@
 //     Chinese voice - neural Chinese carries an accent that is fine
 //     for eyes-closed review but not for the primary experience.
 
-const CACHE_NAME = 'emp-v123';
+// v124 — Stories gets the tape too:
+//   • sentence-by-sentence chaining in the background died within
+//     seconds on devices that refuse src swaps there (the same wall
+//     My Words hit); on lock, the rest of the story's sentence clips
+//     now concatenate into ONE blob played as a single stream, with
+//     byte offsets tracking the current sentence for the row
+//     highlight and a seamless hand-back to the visible chain on
+//     unlock. Lock-screen card shows the story title with pause.
+
+const CACHE_NAME = 'emp-v124';
 const ASSETS = [
     './',
     './index.html',
