@@ -794,8 +794,21 @@
                 seen.add(n);
                 entries.push(n);
             };
+            // v123: the Chinese meaning IS exported now, so background
+            // playback (tape mode) can speak it from the pack. The
+            // generator gives CJK entries a single voice; the FOREGROUND
+            // keeps the device's native Chinese voice as before (neural
+            // Chinese carries an accent - fine for eyes-closed review,
+            // not for the primary experience).
+            const addZh = (s) => {
+                const n = _normSpeak(s);
+                if (!n || !/[\u4e00-\u9fff]/.test(n) || seen.has(n)) return;
+                seen.add(n);
+                entries.push(n);
+            };
             add(w.word);
             add(w.enDef);
+            addZh(w.meaning);
             add(w.context);
             (w.collo || '').split(/\s*·\s*/).forEach(add);
             if (entries.length) {

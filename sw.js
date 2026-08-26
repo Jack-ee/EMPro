@@ -448,7 +448,18 @@
 //     progress saving, and the seamless hand-back to the interactive
 //     chain on unlock. Chinese items stay visible-only by nature.
 
-const CACHE_NAME = 'emp-v122';
+// v123 — Chinese meanings sound in the background:
+//   • the wordlist export now includes each word's Chinese meaning as
+//     a block entry; the generator synthesises CJK entries in exactly
+//     ONE voice (the short-entry rule would have multiplied them by
+//     every word voice), so ~one clip per word of extra cost.
+//   • tape mode and the hidden-tab queue play the meaning from the
+//     pack like any other clip; before the next audio build they are
+//     simply skipped. The FOREGROUND keeps the device's native
+//     Chinese voice - neural Chinese carries an accent that is fine
+//     for eyes-closed review but not for the primary experience.
+
+const CACHE_NAME = 'emp-v123';
 const ASSETS = [
     './',
     './index.html',

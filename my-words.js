@@ -1124,14 +1124,16 @@ IMPORTANT:
         const playEnDef = window.DB.getPref('autoplay_endef', 'true') === 'true';
         const playColo  = window.DB.getPref('autoplay_collo', 'true') === 'true';
         const playSent  = window.DB.getPref('autoplay_sent',  'true') === 'true';
+        const playCn = window.DB.getPref('autoplay_cn', 'true') === 'true';
         const items = [w.word];
         if (playEnDef && w.enDef && w.enDef.trim()) items.push(w.enDef);
+        if (playCn && w.meaning && w.meaning.trim()) items.push(w.meaning);
         if (playColo && w.collo) {
             (w.collo || '').split(/\s*\u00b7\s*/).map(s => s.trim())
                 .filter(Boolean).forEach(c => items.push(c));
         }
         if (playSent && w.context && w.context.trim()) items.push(w.context);
-        return items;                   // Chinese cannot sound in bg
+        return items;                   // zh meanings included since v123
     }
 
     async function startTape() {
@@ -1345,10 +1347,10 @@ IMPORTANT:
             // that cannot start. The moment the screen is back on, the
             // full chain below resumes automatically.
             if (document.hidden) {
-                if (lang === 'zh-CN' || !window.TTSPack?.playWord) {
-                    next();
-                    return;
-                }
+                if (!window.TTSPack?.playWord) { next(); return; }
+                // Chinese meanings are pack entries too since v123, so
+                // they play here like any other clip; a miss (pack not
+                // rebuilt yet) just skips.
                 window.TTSPack.playWord(text, null, () => {
                     if (!autoplayOn || myToken !== autoplayToken) return;
                     bgGap(350, next);
