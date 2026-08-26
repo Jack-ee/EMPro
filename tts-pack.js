@@ -527,6 +527,74 @@ window.TTSPack = (function () {
     // pre-rendered at a model learner pace and play at natural speed.
     // Resolves true if it played, false if the word is not in the pack
     // (the caller then falls back to the live or device voice).
+    // Pick one cached clip blob for a text, honouring the preferred
+    // voices like playWord does. Returns a Blob or null. Used by the
+    // background "tape" builder, which concatenates whole groups into
+    // one continuous stream.
+    async function pickClip(text, preferredVoices) {
+        const cached = await getCachedVoices(text);
+        if (!cached.length) return null;
+        let pool = cached;
+        if (Array.isArray(preferredVoices) && preferredVoices.length) {
+            const want     = new Set(preferredVoices.map(v => String(v).toLowerCase()));
+            const narrowed = cached.filter(v => want.has(v));
+            if (narrowed.length) pool = narrowed;
+        }
+        const voice = pool[Math.floor(Math.random() * pool.length)];
+        return getClip(text, voice);
+    }
+
+    // Play one long blob (a concatenated group) on the persistent
+    // element. Background-proof by construction: a single play() with
+    // no src switches until it ends. Returns { seek, stop }; onTime
+    // fires on timeupdate with (currentTime, duration).
+    function playTape(blob, onTime, onEnd) {
+        detach();
+        const audio   = ensureAudio();
+        const prevSrc = audio.src || '';
+        const url     = URL.createObjectURL(blob);
+        _playing      = true;
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            _playing = false;
+            clearWatchdog();
+            audio.ontimeupdate = null;
+            try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ }
+            if (typeof onEnd === 'function') onEnd();
+        };
+        audio.onended      = finish;
+        audio.onerror      = finish;
+        audio.ontimeupdate = () => {
+            if (typeof onTime === 'function') {
+                onTime(audio.currentTime || 0, audio.duration || 0);
+            }
+        };
+        audio.src = url;
+        if (prevSrc && prevSrc.startsWith('blob:')) {
+            try { URL.revokeObjectURL(prevSrc); } catch (e) { /* ignore */ }
+        }
+        audio.play().catch(e => {
+            console.log('[pack] tape play() rejected: ' + (e && e.message));
+            finish();
+        });
+        return {
+            seek: (frac) => {
+                try {
+                    if (isFinite(audio.duration) && audio.duration > 0) {
+                        audio.currentTime =
+                            Math.max(0, Math.min(0.999, frac)) * audio.duration;
+                    }
+                } catch (e) { /* ignore */ }
+            },
+            stop: () => { done = true; _playing = false; clearWatchdog();
+                          audio.ontimeupdate = null;
+                          try { audio.pause(); } catch (e) {}
+                          try { URL.revokeObjectURL(url); } catch (e) {} },
+        };
+    }
+
     async function playWord(text, preferredVoices, onEnd) {
         const cached = await getCachedVoices(text);
         if (!cached.length) {
@@ -692,6 +760,8 @@ window.TTSPack = (function () {
         getCachedVoices: getCachedVoices,
         coverage       : coverage,
         playWord       : playWord,
+        pickClip       : pickClip,
+        playTape       : playTape,
         playSilence    : playSilence,
         stop           : stop,
         deleteWord     : deleteWord,

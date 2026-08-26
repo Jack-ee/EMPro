@@ -437,7 +437,18 @@
 //     playback keeps plain timers. Applies to the My Words item and
 //     card gaps and the Stories chain gap.
 
-const CACHE_NAME = 'emp-v121';
+// v122 — background tape mode for My Words auto-play:
+//   • on this device class the background refuses even src swaps on
+//     the persistent element, so chained clips died within seconds of
+//     locking regardless of gap handling. On lock, the rest of the
+//     group's English pack clips now concatenate into ONE blob played
+//     as a single continuous stream (exactly what a podcast is) - no
+//     src switches, no timers until the group ends. Byte offsets map
+//     time back to cards for the lock-screen title, prev/next seeks,
+//     progress saving, and the seamless hand-back to the interactive
+//     chain on unlock. Chinese items stay visible-only by nature.
+
+const CACHE_NAME = 'emp-v122';
 const ASSETS = [
     './',
     './index.html',

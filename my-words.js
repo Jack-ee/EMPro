@@ -1056,6 +1056,7 @@ IMPORTANT:
         autoplayToken++;    // invalidates any pending callbacks
         if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null; }
         window.App?.stopSpeak?.();
+        if (tape) { tape.ctl.stop(); tape = null; }
         clearMediaSession();
         releaseWakeLock();   // let the screen sleep again
         document.querySelectorAll('.mw-card-playing, .mw-speaking-now')
@@ -1103,6 +1104,97 @@ IMPORTANT:
         if (autoplayOn && !document.hidden && !wakeLock) {
             acquireWakeLock();
         }
+    });
+
+    // --- Background "tape" mode --------------------------------------
+    // On this class of device, the background refuses even src swaps
+    // on the persistent element, so chained short clips cannot survive
+    // the lock screen no matter how the gaps are filled. The tape is
+    // the pattern that provably survives (it is what podcasts do): on
+    // lock, the rest of the group's English pack clips are
+    // concatenated into ONE blob and played as a single continuous
+    // stream - zero src switches, zero timers until the group ends.
+    // Byte offsets map playback time back to cards (pack MP3s are
+    // near-constant bitrate), driving the lock-screen title,
+    // next/prev, and the seamless hand-back to the interactive chain
+    // when the screen comes back on.
+    let tape = null;                    // { ctl, offsets, fromIdx }
+
+    function tapeItemsForWord(w) {
+        const playEnDef = window.DB.getPref('autoplay_endef', 'true') === 'true';
+        const playColo  = window.DB.getPref('autoplay_collo', 'true') === 'true';
+        const playSent  = window.DB.getPref('autoplay_sent',  'true') === 'true';
+        const items = [w.word];
+        if (playEnDef && w.enDef && w.enDef.trim()) items.push(w.enDef);
+        if (playColo && w.collo) {
+            (w.collo || '').split(/\s*\u00b7\s*/).map(s => s.trim())
+                .filter(Boolean).forEach(c => items.push(c));
+        }
+        if (playSent && w.context && w.context.trim()) items.push(w.context);
+        return items;                   // Chinese cannot sound in bg
+    }
+
+    async function startTape() {
+        if (tape || !window.TTSPack?.pickClip || !window.TTSPack.playTape) return;
+        const words = getGroupWords();
+        if (!autoplayOn || !words.length) return;
+        const fromIdx = currentIdx;
+
+        const parts   = [];
+        const offsets = [];             // cumulative bytes at each card start
+        let bytes = 0;
+        for (let i = fromIdx; i < words.length; i++) {
+            offsets.push({ idx: i, at: bytes });
+            for (const text of tapeItemsForWord(words[i])) {
+                const blob = await window.TTSPack.pickClip(text, null);
+                if (blob) { parts.push(blob); bytes += blob.size; }
+            }
+        }
+        if (!parts.length || !autoplayOn || !document.hidden) return;
+
+        // Freeze the interactive chain, then run the tape.
+        autoplayToken++;
+        if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null; }
+        window.App?.stopSpeak?.();
+
+        const total = bytes;
+        const blob  = new Blob(parts, { type: 'audio/mpeg' });
+        const ctl   = window.TTSPack.playTape(blob, (time, dur) => {
+            if (!dur) return;
+            const at  = (time / dur) * total;
+            let   idx = fromIdx;
+            for (const o of offsets) { if (o.at <= at) idx = o.idx; else break; }
+            if (idx !== currentIdx) {
+                currentIdx = idx;
+                saveProgress();
+                setMediaSession(words[idx]?.word);
+            }
+        }, () => {
+            tape = null;
+            stopAutoplay();
+            window.App?.showToast?.('Finished this group.');
+        });
+        tape = { ctl, offsets, fromIdx, total };
+        setMediaSession(words[fromIdx]?.word);
+        console.log('[autoplay] tape: ' + parts.length + ' clip(s), '
+                    + (total / 1048576).toFixed(1) + ' MB, from card ' + fromIdx);
+    }
+
+    function stopTape(resume) {
+        if (!tape) return;
+        tape.ctl.stop();
+        tape = null;
+        if (resume && autoplayOn) {
+            render();
+            speakCurrentAndQueueNext(++autoplayToken);
+        }
+    }
+
+    // Lock -> tape; unlock -> seamless hand-back at the current card.
+    document.addEventListener('visibilitychange', () => {
+        if (!autoplayOn) return;
+        if (document.hidden) startTape();
+        else stopTape(true);
     });
 
     // A pause that survives the lock screen: visible -> plain timer;
@@ -1162,6 +1254,11 @@ IMPORTANT:
         const words = getGroupWords();
         const to    = currentIdx + delta;
         if (to < 0 || to >= words.length) return;
+        if (tape) {
+            const o = tape.offsets.find(x => x.idx === to);
+            if (o && tape.total) tape.ctl.seek(o.at / tape.total);
+            return;
+        }
         autoplayToken++;                       // cancel the current card
         if (autoplayTimer) { clearTimeout(autoplayTimer); autoplayTimer = null; }
         window.App?.stopSpeak?.();
