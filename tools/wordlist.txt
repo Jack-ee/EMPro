@@ -1,12 +1,12 @@
 # EMPro audio pack - word list
-# Exported 2026-08-26 from the app.
+# Exported 2026-09-23 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: coral, echo, fable, nova
 # sentence_voice: coral
 #   (long entries use this voice only, so changing the voices above never re-synthesises a sentence)
 # (no range set - building all 10007 words; add e.g.  "# range: 1-50"  to build one batch)
-# 575 word(s), 7 story block(s), 4664 item(s)
+# 589 word(s), 7 story block(s), 4796 item(s)
 
 #@1 wax apple
 wax apple
@@ -5141,15 +5141,161 @@ mull over
 mull it over
 mull the idea
 still mulling
-#@573 honing
-honing
+#@573 hone
+hone
+to improve a skill or quality gradually through practice and refinement. literally, it means to sharpen a blade.
+磨练，磨快；完善
+she spent two years honing her negotiation skills before she took on the big accounts.
+hone one's skills
+hone a strategy
+hone in on
+finely honed
 #@574 tenure
 tenure
+the period during which someone holds an office or position. in academia, it is a permanent post that protects a professor from dismissal without just cause.
+任期；终身职位；保有权
+during her tenure as dean, the college doubled its research funding.
+during one's tenure
+grant tenure
+tenure-track position
+land tenure
 #@575 thousand
 thousand
-a thousand miles south of hawaii, in the middle of the pacific ocean, a series of tiny islands form an atoll, called palmyra.
+the number 1,000. it is also used loosely to mean a very large number.
+千；许许多多
+tens of thousands of fans lined the streets to welcome the team home.
+several thousand
+thousands of
+tens of thousands
+a thousand times
 #@576 offshore
 offshore
+located at sea some distance from the coast. it also describes business activity or money based in another country, often for tax or cost reasons.
+离岸的；海上的；境外的
+the company plans to build its largest offshore wind farm about 30 kilometers off the coast.
+offshore wind farm
+offshore account
+offshore drilling
+move jobs offshore
+#@577 prefecture
+prefecture
+an administrative district in certain countries, such as the 47 top-level regions of japan or the prefecture-level divisions of china.
+（日本）县；（中国）地级区划，州
+the festival draws visitors from every prefecture in japan.
+prefecture-level city
+autonomous prefecture
+osaka prefecture
+prefectural government
+#@578 masquerade
+masquerade
+to pretend to be someone or something else in order to deceive. as a noun, it means a party where guests wear masks, or a false show.
+伪装，假扮；假面舞会
+many phishing emails masquerade as urgent messages from your bank.
+masquerade as
+masquerade ball
+keep up the masquerade
+a masquerade of concern
+#@579 pragmatic
+pragmatic
+dealing with problems in a sensible, realistic way based on practical results rather than theory or ideals.
+务实的，实事求是的
+rather than redesigning the whole system, we took a pragmatic approach and fixed the worst bottlenecks first.
+pragmatic approach
+pragmatic solution
+take a pragmatic view
+pragmatic compromise
+#@580 counterweight
+counterweight
+a weight that balances another weight, as in a crane or elevator. figuratively, it is a force or influence that offsets another.
+配重，平衡锤；制衡力量
+the new trade bloc is widely seen as a counterweight to the influence of the major powers.
+a counterweight to
+act as a counterweight
+crane counterweight
+political counterweight
+#@581 bunchy
+bunchy
+growing in bunches or clusters, or gathered unevenly so that it bulges, especially of fabric or clothing.
+成簇的；鼓成一团的
+the dress looked great on the model, but on me it was all bunchy at the waist.
+bunchy fabric
+bunchy at the waist
+bunchy top
+bunchy growth
+#@582 sift
+sift
+to pass a powder through a sieve to remove lumps. figuratively, it means to examine a large amount of material carefully to find what is useful.
+筛；细查，甄别
+investigators are still sifting through thousands of emails to figure out what went wrong.
+sift through
+sift flour
+sift the evidence
+sift out
+#@583 scramble
+scramble
+to move or act quickly and awkwardly, often in competition with others. it can also mean to climb using hands and feet, or to mix something up so it becomes disordered.
+争抢；仓促赶做；攀爬；打乱
+when the deadline was moved up by a week, the whole team scrambled to finish the report.
+scramble for
+scramble to do something
+scrambled eggs
+scramble up a slope
+#@584 excursion
+excursion
+a short trip taken for pleasure or education, often organized for a group. it can also mean a brief venture into a new activity or field.
+短途旅行，远足；涉足
+the cruise includes an optional excursion to a nearby island.
+day excursion
+school excursion
+go on an excursion
+an excursion into
+#@585 convolve
+convolve
+in mathematics and signal processing, to combine two functions using the operation of convolution. more rarely, it means to roll or coil together.
+卷积；卷绕
+to blur the image, we convolve it with a gaussian kernel.
+convolve with
+convolve the image
+convolve over the input
+convolved signal
+#@586 polarity
+polarity
+the property of having two opposite poles or charges, as in magnetism or electricity. it also describes a state in which two ideas or groups are sharply opposed.
+极性；两极对立
+if you connect the battery with reversed polarity, you could damage the device.
+reverse polarity
+magnetic polarity
+sentiment polarity
+political polarity
+#@587 unpin
+unpin
+to remove something from a fixed or pinned position, especially a post, tab, or app in a digital interface. literally, it means to take out the pins holding something.
+取消置顶；取下别针
+can you unpin that old announcement? it's confusing the new members.
+unpin a message
+unpin from taskbar
+unpin a tab
+unpin the hem
+#@588 ambitious
+ambitious
+having a strong desire to succeed or achieve something. when describing a plan or goal, it means large in scale and difficult to achieve.
+有抱负的；宏大而艰巨的
+finishing the renovation in two weeks was an ambitious goal, and we didn't quite make it.
+ambitious goal
+ambitious plan
+overly ambitious
+ambitious young professionals
+#@589 floor
+floor
+the lower surface of a room or one level of a building. it also means a minimum level for prices or wages, and as a verb, to shock or surprise someone greatly.
+地板；楼层；下限；使震惊
+i was completely floored when they offered me the job on the spot.
+ground floor
+take the floor
+price floor
+be floored by
+#@590 placeholder
+placeholder
 #@10001 story 1: Nuance on a Fruit Plate
 mei brought wax apples, hoping their crisp sweetness would soften whatever came next.
 her supervisor peeled a longkong fruit, its translucent flesh slipping free, and studied her figures.
