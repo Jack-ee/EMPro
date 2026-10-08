@@ -1,12 +1,12 @@
 # EMPro audio pack - word list
-# Exported 2026-09-23 from the app.
+# Exported 2026-10-08 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: coral, echo, fable, nova
 # sentence_voice: coral
 #   (long entries use this voice only, so changing the voices above never re-synthesises a sentence)
 # (no range set - building all 10007 words; add e.g.  "# range: 1-50"  to build one batch)
-# 589 word(s), 7 story block(s), 4796 item(s)
+# 599 word(s), 7 story block(s), 4882 item(s)
 
 #@1 wax apple
 wax apple
@@ -5296,6 +5296,102 @@ price floor
 be floored by
 #@590 placeholder
 placeholder
+something, such as a symbol, piece of text, name, or person, that temporarily fills a position until the real or final item is available.
+占位符；临时替代物
+"project falcon" is just a placeholder name until marketing comes up with something better.
+placeholder text
+placeholder name
+serve as a placeholder
+replace the placeholder
+#@591 perennial
+perennial
+lasting or recurring for a very long time, often year after year. when describing a plant, it means living for more than two years.
+长期存在的；常年的；多年生的
+flooding is a perennial problem in the low-lying parts of the city.
+a perennial problem
+a perennial favorite
+perennial crops
+a perennial river
+#@592 consequential
+consequential
+important because of its significant or far-reaching effects. it can also mean following as a direct result of something.
+影响重大的；随之发生的
+it was one of the most consequential decisions of his presidency.
+a consequential decision
+highly consequential
+be consequential for
+consequential damages
+#@593 warrant
+warrant
+as a verb, to justify something or make it necessary or appropriate. as a noun, an official document, usually issued by a court, that authorizes the police to arrest someone or search a place.
+使有必要；值得；令状（如逮捕令）
+these preliminary results are promising and warrant further investigation with a larger sample.
+warrant further investigation
+where warranted
+an arrest warrant
+a search warrant
+#@594 astra
+astra
+a latin word meaning "stars" (the plural of astrum). in english it appears mainly in mottos such as "ad astra" (to the stars) and in brand, film, or project names.
+（拉丁语）星辰
+kansas's state motto, "ad astra per aspera," means "to the stars through difficulties."
+ad astra
+per aspera ad astra
+sic itur ad astra
+#@595 fragile
+fragile
+easily broken or damaged. it also describes something weak or unstable that is likely to fail or collapse.
+易碎的；脆弱的；不稳固的
+mangrove forests are fragile ecosystems that can take decades to recover once they're cleared.
+a fragile ecosystem
+a fragile ceasefire
+a fragile recovery
+feel fragile
+#@596 delicate
+delicate
+fine, light, or subtle in texture, structure, or flavor and easily damaged. it also describes a situation that requires careful and tactful handling.
+精致的；易损的；微妙棘手的
+salary is a delicate subject in many workplaces, so people rarely discuss it openly.
+a delicate balance
+a delicate matter
+a delicate flavor
+delicate negotiations
+#@597 lattice
+lattice
+a framework of crossed strips forming a regular pattern of open spaces. in science and math, it means a regular repeating arrangement of points, such as the atoms in a crystal.
+格架；晶格；格点阵列
+even tiny impurities can distort the crystal lattice and change how well the material conducts electricity.
+crystal lattice
+lattice structure
+lattice points
+wooden lattice
+#@598 server
+server
+a computer or program that provides data, files, or services to other computers over a network. it can also mean a person who serves food and drinks in a restaurant, or the player who serves in tennis and similar games.
+服务器；服务员；发球者
+the overnight job kept failing because the remote server ran out of disk space.
+web server
+remote server
+the server is down
+server-side
+#@599 interquartile
+interquartile
+in statistics, relating to the spread between the first quartile (25th percentile) and the third quartile (75th percentile), which covers the middle 50% of a dataset.
+四分位（数）间的
+values more than 1.5 times the interquartile range below the first quartile or above the third quartile were flagged as outliers.
+interquartile range (iqr)
+median (iqr)
+1.5 times the interquartile range
+report the interquartile range
+#@600 quadratic
+quadratic
+involving a variable raised to the second power (squared) but no higher. as a noun, it means a quadratic equation or expression.
+二次的；二次方程
+adding a quadratic term for temperature improved the fit, suggesting that yields peak at intermediate temperatures.
+quadratic equation
+quadratic function
+quadratic term
+quadratic regression
 #@10001 story 1: Nuance on a Fruit Plate
 mei brought wax apples, hoping their crisp sweetness would soften whatever came next.
 her supervisor peeled a longkong fruit, its translucent flesh slipping free, and studied her figures.
