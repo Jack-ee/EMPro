@@ -1,12 +1,12 @@
 # EMPro audio pack - word list
-# Exported 2026-10-08 from the app.
+# Exported 2026-11-21 from the app.
 # Replace tools/wordlist.txt with this file, then commit it.
 # Each block is tagged  #@<index> <word>  with a stable index.
 # voices: coral, echo, fable, nova
 # sentence_voice: coral
 #   (long entries use this voice only, so changing the voices above never re-synthesises a sentence)
 # (no range set - building all 10007 words; add e.g.  "# range: 1-50"  to build one batch)
-# 599 word(s), 7 story block(s), 4882 item(s)
+# 639 word(s), 7 story block(s), 5202 item(s)
 
 #@1 wax apple
 wax apple
@@ -5392,6 +5392,366 @@ quadratic equation
 quadratic function
 quadratic term
 quadratic regression
+#@601 payout
+payout
+a sum of money paid out, especially by an insurer, company, or fund, as compensation, dividends, or winnings.
+支付款项；赔付金；派息
+the insurance payout barely covered half the cost of rebuilding the roof after the storm.
+insurance payout
+dividend payout
+lump-sum payout
+severance payout
+#@602 punctuation
+punctuation
+the marks used in writing, such as commas, periods, and question marks, to separate sentences and make meaning clear; also the rules for using them.
+标点符号；标点用法
+the reviewer flagged several punctuation errors, mostly missing commas after introductory clauses.
+punctuation marks
+correct punctuation
+punctuation errors
+check the punctuation
+#@603 truncation
+truncation
+the act or result of shortening something by cutting off part of it, such as the digits of a number, part of a text, or part of a data range.
+截断；删节；截尾
+rounding and truncation can give different results: truncating 3.78 gives 3, while rounding gives 4.
+truncation error
+data truncation
+text truncation
+left truncation
+#@604 peninsula
+peninsula
+a piece of land almost entirely surrounded by water but connected to a larger landmass on one side. it is capitalized when it forms part of a proper name.
+半岛
+rubber cultivation spread rapidly across the malay peninsula in the early twentieth century.
+the malay peninsula
+the indochina peninsula
+the korean peninsula
+the leizhou peninsula
+#@605 vientiane
+vientiane
+the capital and largest city of laos, on the mekong river across from thailand.
+万象（老挝首都）
+the new train gets you from boten to vientiane in about four hours, so a lot of people don't bother flying anymore.
+fly into vientiane
+downtown vientiane
+vientiane capital
+the boten–vientiane railway
+#@606 laotian
+laotian
+relating to laos or its people; also a person from laos.
+老挝的；老挝人
+many laotian farmers in the north switched from upland rice to rubber in the 2000s.
+the laotian government
+laotian farmers
+the laotian border
+laotian-chinese trade
+#@607 lao kip
+lao kip
+the official currency of laos, with the currency code lak.
+老挝基普（老挝货币）
+lunch for four came to about 400,000 kip, which sounds like a lot until you do the conversion.
+pay in kip
+change dollars into kip
+the kip exchange rate
+a 100,000-kip note
+#@608 landlocked
+landlocked
+surrounded entirely by land, with no coastline or direct access to the sea.
+内陆的；无出海口的
+laos is the only landlocked country in southeast asia, which is why the railway to china matters so much.
+a landlocked country
+completely landlocked
+landlocked status
+from landlocked to land-linked
+#@609 luang namtha
+luang namtha
+a province in northwestern laos, and also its capital town, bordering yunnan (china) and myanmar.
+琅南塔（老挝北部省份）
+driving out of luang namtha, you see rubber on nearly every hillside, much of it grown for buyers across the border in yunnan.
+luang namtha province
+rubber in luang namtha
+trekking in luang namtha
+nam ha national protected area
+#@610 oudomxay
+oudomxay
+a province in northern laos whose capital, muang xay, is a major road junction between the chinese border and luang prabang.
+乌多姆赛（老挝北部省份）
+most buses from the chinese border stop in oudomxay before heading south to luang prabang.
+oudomxay province
+muang xay, the provincial capital
+pass through oudomxay
+the oudomxay bus station
+#@611 luang prabang
+luang prabang
+a historic town and province in northern laos, the former royal capital and a unesco world heritage site.
+琅勃拉邦（老挝古都）
+we took the train down to luang prabang and spent the evening wandering around the night market.
+the old town of luang prabang
+luang prabang night market
+kuang si falls near luang prabang
+luang prabang railway station
+#@612 champasak
+champasak
+a province in southern laos along the mekong, home to the wat phou temple complex and the city of pakse.
+占巴塞（老挝南部省份）
+many of the big rubber concessions in champasak are run by vietnamese companies rather than chinese ones.
+champasak province
+wat phou in champasak
+pakse, the capital of champasak
+the bolaven plateau
+#@613 boten
+boten
+a town on the lao side of the main laos–china border crossing, opposite mohan in yunnan, and the site of a special economic zone.
+磨丁（老中边境口岸）
+we crossed at boten and caught the train south to luang namtha.
+the boten border crossing
+boten special economic zone
+the mohan–boten port
+boten railway station
+#@614 diesel
+diesel
+a heavy fuel oil burned in diesel engines; also a vehicle or engine that runs on this fuel.
+柴油；柴油车/柴油机
+most of the trucks that haul cup lump to the processing plant run on diesel.
+run on diesel
+diesel engine
+diesel generator
+fill up with diesel
+#@615 petrol
+petrol
+a light fuel refined from crude oil, used mainly in cars and motorbikes; called gasoline or gas in american english.
+汽油（英式英语）
+fill up with petrol in town, because there are hardly any stations on the road out to the plantations.
+petrol station
+fill up with petrol
+run out of petrol
+petrol prices
+#@616 pothole
+pothole
+a hole in a road surface, usually caused by rain, heavy traffic or poor maintenance.
+（路面）坑洼；坑洞
+the road to the village was so full of potholes that the 30-kilometre drive took almost two hours.
+hit a pothole
+full of potholes
+avoid the potholes
+a potholed road
+#@617 tibetan
+tibetan
+relating to tibet, its people or its language; also a tibetan person or the tibetan language.
+西藏的；藏族的；藏语；藏族人
+temples in laos look nothing like the tibetan monasteries in western china, because the two follow very different buddhist traditions.
+tibetan buddhism
+the tibetan plateau
+sino-tibetan languages
+tibetan monks
+#@618 theravada buddhism
+theravada buddhism
+the oldest surviving school of buddhism, which emphasizes monastic life and the pali scriptures. it is the main religion in laos, thailand, cambodia, myanmar and sri lanka.
+上座部佛教；南传佛教
+like many lao men, our driver had spent a few months as a novice monk, which is common in theravada buddhism.
+practise theravada buddhism
+theravada monks
+the theravada tradition
+mahayana and theravada buddhism
+#@619 stupa
+stupa
+a dome- or bell-shaped buddhist monument, often holding relics, which worshippers walk around as an act of devotion.
+佛塔；窣堵坡
+the golden stupa of pha that luang is the national symbol of laos and even appears on the state emblem.
+a golden stupa
+an ancient stupa
+a relic stupa
+walk around the stupa
+#@620 alms giving
+alms giving
+the buddhist practice of offering food, usually sticky rice, to monks as they walk past early in the morning; called tak bat in lao.
+布施；施斋（向僧人供奉食物）
+if you want to see the alms giving in luang prabang, be on the main street before six and keep a respectful distance.
+the morning alms giving
+take part in alms giving
+watch the alms giving
+the alms giving ceremony
+#@621 spirit house
+spirit house
+a small shrine, often on a post, set up outside homes, offices and fields to house the guardian spirits of the land.
+神灵屋；地神龛
+before the new processing plant opened, the manager had a spirit house built by the gate and left fruit and flowers there every morning.
+leave offerings at the spirit house
+a small spirit house
+set up a spirit house
+the guardian spirits of the land
+#@622 knee
+knee
+the joint in the middle of the leg where the thigh meets the lower leg.
+膝盖；膝部
+make sure your shorts cover your knees, or they won't let you into the temple.
+cover your knees
+knee-length
+on your knees
+bend your knees
+#@623 that luang festival
+that luang festival
+a major buddhist festival at pha that luang in vientiane, held around the full moon of the twelfth lunar month (usually november), with processions, candlelit ceremonies and a large fair.
+塔銮节（老挝重要佛教节日）
+vientiane gets packed during the that luang festival, so book your hotel well in advance.
+during the that luang festival
+boun that luang
+the candlelight procession
+pha that luang
+#@624 laap
+laap
+the national dish of laos, a salad of minced meat or fish mixed with lime, fish sauce, chili, toasted rice powder and fresh herbs.
+拉普（老挝凉拌肉末）
+we ordered chicken laap, sticky rice and a couple of beerlaos, which is about as standard as a lao dinner gets.
+chicken laap
+beef laap
+laap and sticky rice
+raw laap
+#@625 tam mak hoong
+tam mak hoong
+a spicy lao salad of shredded green papaya pounded in a mortar with chili, garlic, lime and fermented fish sauce.
+老挝青木瓜沙拉
+i asked for my tam mak hoong "phet noi", just a little spicy, and it still made my eyes water.
+order tam mak hoong
+tam mak hoong with padaek
+pound tam mak hoong
+a plate of tam mak hoong
+#@626 khao niao
+khao niao
+steamed glutinous (sticky) rice, the staple food of laos, usually eaten by hand.
+糯米饭
+in laos, khao niao comes in a little bamboo basket, and you roll it into small balls with your fingers.
+a basket of khao niao
+eat khao niao with your hands
+khao niao and laap
+dip khao niao in jeow
+#@627 jeow
+jeow
+the general lao word for chili-based dipping sauces and pastes, eaten with sticky rice and vegetables.
+老挝蘸酱；辣椒酱
+every meal came with a little bowl of jeow on the side for dipping sticky rice and raw vegetables.
+jeow bong
+tomato jeow
+dip sticky rice in jeow
+roasted chili jeow
+#@628 beerlao
+beerlao
+the national beer brand of laos, made by the lao brewery company and widely seen as a national symbol.
+老挝啤酒（品牌）
+nothing beats an ice-cold beerlao after a long day in the plantations.
+a big bottle of beerlao
+an ice-cold beerlao
+beerlao dark
+beerlao on ice
+#@629 rosewood
+rosewood
+a dense, reddish tropical hardwood, mainly from dalbergia species, prized for high-end furniture and heavily traded.
+红木；花梨木（黄檀等珍贵硬木）
+customs seized a truckload of rosewood logs that was heading for the chinese border.
+rosewood furniture
+siamese rosewood
+illegal rosewood logging
+the rosewood trade
+#@630 agarwood
+agarwood
+a fragrant, resin-filled heartwood that forms in aquilaria trees after injury or fungal infection, used for incense, perfume and traditional medicine.
+沉香
+wild agarwood is now very rare in laos, so some farmers inoculate planted trees to speed up resin formation.
+agarwood oil
+agarwood plantation
+inoculate agarwood trees
+wild agarwood
+#@631 cardamom
+cardamom
+the aromatic seed pods of several plants in the ginger family, used as a spice and in medicine.
+豆蔻；砂仁类香料
+before rubber arrived, many upland villages earned cash by collecting cardamom in the forest and selling it to chinese traders.
+black cardamom
+green cardamom
+collect cardamom in the forest
+cardamom pods
+#@632 eucalyptus
+eucalyptus
+a fast-growing evergreen tree native to australia, widely planted in the tropics for pulpwood, timber and oil.
+桉树
+eucalyptus grows incredibly fast, but farmers often complain that it dries out the soil around it.
+eucalyptus plantations
+fast-growing eucalyptus
+eucalyptus oil
+eucalyptus pulpwood
+#@633 acacia plantations
+acacia plantations
+planted stands of fast-growing acacia trees, mainly acacia mangium and its hybrids, grown on short rotations for pulp, woodchips and timber.
+相思树人工林
+in central vietnam, many smallholders have turned hillsides into acacia plantations because the wood sells quickly to chip mills.
+establish acacia plantations
+smallholder acacia plantations
+short-rotation acacia plantations
+acacia mangium
+#@634 contract farming
+contract farming
+an arrangement in which farmers grow crops under an agreement with a company that provides inputs, technical support or a guaranteed buyer.
+订单农业；合同农业
+under the 2+3 contract farming model, villagers provide land and labour while the company supplies capital, technical know-how and a market.
+a contract farming scheme
+the 2+3 contract farming model
+enter into contract farming
+contract farming arrangements
+#@635 estate plantation
+estate plantation
+a large, company-managed plantation that relies on hired labour, as opposed to a smallholding run by a farming household.
+大型种植园；庄园式种植园
+the company runs a 5,000-hectare estate plantation but also buys latex from smallholders in the surrounding villages.
+a rubber estate plantation
+estate and smallholder sectors
+run an estate plantation
+a large-scale estate plantation
+#@636 ribbed smoked sheet
+ribbed smoked sheet
+a grade of natural rubber made by coagulating latex into sheets, passing them through ribbed rollers and drying them in a smokehouse.
+烟胶片（rss）
+smallholders in luang namtha mostly sell cup lump, since making ribbed smoked sheet needs a smokehouse and a lot more labour.
+rss3 grade
+ribbed smoked sheet prices
+produce ribbed smoked sheet
+dry sheets in a smokehouse
+#@637 powdery mildew
+powdery mildew
+a fungal plant disease that leaves a white, powdery coating on leaves. in rubber it attacks young leaves during refoliation and is caused by erysiphe quercicola (formerly oidium heveae).
+白粉病
+a cool, foggy spell during refoliation can set off a powdery mildew outbreak that strips the young leaves and delays tapping.
+rubber powdery mildew
+a powdery mildew outbreak
+sulphur dusting against powdery mildew
+secondary leaf fall
+#@638 sabaidee
+sabaidee
+the standard lao greeting, meaning "hello", used at any time of day.
+你好（老挝语问候语）
+everyone in the village greeted us with a smile and a cheerful "sabaidee!"
+say sabaidee
+sabaidee bor?
+sabaidee pi mai
+sabaidee with a nop
+#@639 khop jai
+khop jai
+the lao expression for "thank you".
+谢谢（老挝语）
+when the village head poured us tea, i put my palms together and said "khop jai lai lai".
+khop jai lai lai
+khop jai der
+say khop jai
+khop jai with a nop
+#@640 khothot
+khothot
+the lao expression for "sorry" or "excuse me", used to apologize or to politely get someone's attention.
+对不起；劳驾（老挝语）
+"khothot," i said as i squeezed past him in the market, and he just smiled and said "bo pen nyang".
+say khothot
+khothot, where is...?
+khothot der
+reply "bo pen nyang"
 #@10001 story 1: Nuance on a Fruit Plate
 mei brought wax apples, hoping their crisp sweetness would soften whatever came next.
 her supervisor peeled a longkong fruit, its translucent flesh slipping free, and studied her figures.
